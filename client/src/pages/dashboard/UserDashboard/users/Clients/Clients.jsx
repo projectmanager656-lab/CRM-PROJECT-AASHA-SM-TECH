@@ -1,0 +1,3 @@
+import ResourceModule from '../components/ResourceModule';
+const config={singular:'Client',plural:'Clients',endpoint:'/clients',basePath:'/user/clients',permission:['crm','clients'],fields:[{name:'name',label:'Name',required:true},{name:'email',label:'Email',type:'email',required:true},{name:'phone',label:'Phone'},{name:'company',label:'Company'},{name:'address',label:'Address',type:'textarea'},{name:'status',label:'Status',type:'select',options:['Active','Inactive','Prospect'],defaultValue:'Active'}],columns:[{key:'name',label:'Client'},{key:'company',label:'Company'},{key:'email',label:'Email'},{key:'status',label:'Status'}]};
+export default function Clients(){return <ResourceModule config={config}/>;}

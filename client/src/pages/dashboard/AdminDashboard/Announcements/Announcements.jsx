@@ -1,0 +1,4 @@
+import AdminResourceManager from '../components/AdminResourceManager';
+const fields = [{ name: 'title', label: 'Title', required: true }, { name: 'message', label: 'Message', type: 'textarea', required: true }, { name: 'status', label: 'Status', type: 'select', options: ['Draft', 'Published'], defaultValue: 'Published' }, { name: 'audience', label: 'Audience', type: 'select', options: ['All Users'], defaultValue: 'All Users' }];
+const columns = [{ key: 'title', label: 'Title' }, { key: 'message', label: 'Message', format: (value) => value.length > 80 ? `${value.slice(0, 80)}…` : value }, { key: 'status', label: 'Status' }, { key: 'audience', label: 'Audience' }, { key: 'createdAt', label: 'Created', format: (value) => new Date(value).toLocaleDateString() }];
+export default function Announcements() { return <AdminResourceManager title="Announcements" singular="Announcement" endpoint="/announcements" fields={fields} columns={columns} />; }

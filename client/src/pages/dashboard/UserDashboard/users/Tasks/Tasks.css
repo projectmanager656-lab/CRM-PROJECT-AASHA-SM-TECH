@@ -1,0 +1,128 @@
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.toolbar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  min-width: 260px;
+}
+
+.toolbar-search input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  width: 100%;
+}
+
+.task-list-card {
+  overflow: hidden;
+}
+
+.task-list-card table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.task-list-card th,
+.task-list-card td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.task-list-card th {
+  background: #f8fafc;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+}
+
+.task-title-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.task-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.task-title-cell strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 0.2rem;
+}
+
+.task-title-cell small {
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.priority-badge,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.priority-badge.high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+.priority-badge.medium { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+.priority-badge.low { background: rgba(16, 185, 129, 0.12); color: #047857; }
+
+.status-badge.pending { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+.status-badge.in-progress { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+.status-badge.completed { background: rgba(16, 185, 129, 0.12); color: #047857; }
+.status-badge.overdue { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+
+.table-action {
+  border: 0;
+  background: #eef4ff;
+  color: #2563eb;
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .panel-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-search {
+    min-width: 0;
+    width: 100%;
+  }
+}

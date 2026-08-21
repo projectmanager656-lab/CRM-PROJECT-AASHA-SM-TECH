@@ -1,0 +1,61 @@
+.payroll-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.payroll-card {
+  padding: 1rem;
+}
+
+.payroll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.payroll-header h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.payroll-status {
+  display: inline-flex;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.payroll-status.processed { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.payroll-status.paid { background: rgba(16,185,129,0.12); color: #047857; }
+
+.payroll-stat-grid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.payroll-stat-grid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 0.7rem;
+}
+
+.payroll-stat-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+
+.payroll-stat-grid strong {
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .payroll-grid { grid-template-columns: 1fr; }
+}

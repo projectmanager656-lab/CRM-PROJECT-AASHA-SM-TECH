@@ -1,0 +1,16 @@
+.user-splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; color: #fff; background: #0c0d0e; transition: opacity .35s ease, visibility .35s ease; }
+.user-splash--leaving { opacity: 0; visibility: hidden; }
+.user-splash__content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; animation: splash-enter .7s cubic-bezier(.2,.8,.2,1) both; }
+.user-splash__logo-wrap { display: grid; place-items: center; width: 110px; height: 110px; padding: 10px; margin-bottom: 1.75rem; border: 1px solid rgba(255,255,255,.16); border-radius: 28px; background: #fff; box-shadow: 0 0 0 10px rgba(247,104,20,.12), 0 20px 48px rgba(0,0,0,.38); }
+.user-splash__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 18px; }
+.user-splash__eyebrow { margin: 0 0 .4rem; color: #f89a57; font-size: .75rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.user-splash h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.4rem); letter-spacing: -.055em; line-height: 1; }
+.user-splash__title { margin: .7rem 0 2rem; color: rgba(255,255,255,.62); font-size: .9rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+.user-splash__loader { width: 142px; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.13); }
+.user-splash__loader span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e75914, #ffb16f); animation: splash-loading 2.6s ease-in-out both; }
+.user-splash__glow { position: absolute; width: 48vw; height: 48vw; border-radius: 50%; filter: blur(24px); opacity: .24; }
+.user-splash__glow--one { top: -25vw; right: -13vw; background: #e75914; }
+.user-splash__glow--two { bottom: -30vw; left: -18vw; background: #7b2808; }
+@keyframes splash-enter { from { opacity: 0; transform: scale(.94) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes splash-loading { from { transform: translateX(-110%); } to { transform: translateX(325%); } }
+@media (prefers-reduced-motion: reduce) { .user-splash__content, .user-splash__loader span { animation: none; } .user-splash { transition-duration: .01ms; } }

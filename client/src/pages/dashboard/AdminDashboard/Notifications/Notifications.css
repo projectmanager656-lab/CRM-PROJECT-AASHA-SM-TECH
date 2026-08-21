@@ -1,0 +1,154 @@
+.notification-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.notification-compose {
+  padding: 1rem 1.1rem 1.1rem;
+  margin-bottom: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.notification-compose-header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.notification-compose-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.notification-compose-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.notification-compose-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem 1rem;
+}
+
+.notification-compose-form label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.notification-compose-form span {
+  font-size: 0.78rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.notification-compose-form input,
+.notification-compose-form select,
+.notification-compose-form textarea {
+  width: 100%;
+  border: 1px solid #dbe3f1;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  padding: 0.78rem 0.9rem;
+  outline: none;
+}
+
+.notification-compose-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.notification-title {
+  grid-column: span 1;
+}
+
+.notification-message {
+  grid-column: 1 / -1;
+}
+
+.notification-compose-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-left: 4px solid transparent;
+}
+
+.notification-item.unread {
+  background: #f0f9ff;
+  border-left-color: #3b82f6;
+}
+
+.notification-item.read {
+  opacity: 0.7;
+}
+
+.notif-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.3rem;
+}
+
+.notif-indicator.info { background: #3b82f6; }
+.notif-indicator.warning { background: #f59e0b; }
+.notif-indicator.success { background: #10b981; }
+.notif-indicator.alert,
+.notif-indicator.error { background: #ef4444; }
+
+.notif-content {
+  flex: 1;
+}
+
+.notif-content h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.notif-content p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.notif-content small {
+  display: block;
+  margin-top: 0.35rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.notif-meta {
+  white-space: nowrap;
+}
+
+.notif-meta strong {
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 720px) {
+  .notification-compose-form {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-title,
+  .notification-message,
+  .notification-compose-actions {
+    grid-column: auto;
+  }
+}

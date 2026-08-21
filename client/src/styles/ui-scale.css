@@ -1,0 +1,238 @@
+/*
+ * Application-wide readability layer.
+ * This deliberately adjusts real element dimensions rather than applying CSS
+ * zoom or transforms, so desktop and responsive layouts retain their normal
+ * coordinate system and interactions.
+ */
+html,
+body,
+#root {
+  min-width: 0;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+#root :is(button, input, textarea) {
+  font-size: 0.9375rem;
+}
+
+/* Authentication screens */
+#root .login-container,
+#root .register-container {
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+#root .login-card {
+  max-width: 30rem;
+  padding: clamp(2rem, 4vw, 3.5rem);
+}
+
+#root .register-card {
+  max-width: 34rem;
+  padding: clamp(2rem, 4vw, 3.5rem);
+}
+
+#root :is(.login-header h1, .register-header h1) {
+  font-size: 1.75rem;
+}
+
+#root :is(.login-header p, .register-header p, .login-footer p, .register-footer p, .form-group label) {
+  font-size: 0.9375rem;
+}
+
+#root :is(.form-group input, .login-button, .register-button) {
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+/* Shared role-shell proportions */
+#root :is(.admin-layout-sidebar, .user-layout-sidebar) {
+  width: 16.5rem;
+  padding: 0.85rem 0.75rem 0.75rem;
+}
+
+#root .superadmin-sidebar {
+  width: 16.5rem;
+  padding: 0.85rem 0.75rem 0.75rem;
+}
+
+#root :is(.admin-layout-content, .user-layout-content, .superadmin-main-panel) {
+  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2.25vw, 2.25rem) 2.5rem;
+}
+
+#root :is(.admin-layout-topbar, .user-layout-topbar, .superadmin-header) {
+  min-height: 5rem;
+  padding: 1.1rem 1.3rem;
+}
+
+#root :is(.admin-layout-title h1, .user-layout-title h1, .superadmin-header h1) {
+  font-size: clamp(1.6rem, 2vw, 2.15rem);
+}
+
+#root :is(.admin-sidebar-header h2, .user-sidebar-header h2, .superadmin-brand-wrap h2) {
+  font-size: 1.15rem;
+}
+
+#root :is(.admin-sidebar-header span, .user-sidebar-header span, .superadmin-brand-wrap span, .page-kicker, .eyebrow, .nav-label) {
+  font-size: 0.75rem;
+}
+
+#root :is(.admin-sidebar-profile h3, .user-sidebar-profile h3, .superadmin-user-tag strong) {
+  font-size: 1rem;
+}
+
+#root :is(.admin-sidebar-profile p, .user-sidebar-profile p, .superadmin-user-tag em, .user-status-dot, .admin-status-dot, .health-row) {
+  font-size: 0.8125rem;
+}
+
+#root :is(.admin-nav-item, .user-nav-item, .sidebar-link) {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.98rem;
+}
+
+#root :is(.admin-support-box, .user-support-box, .superadmin-sidebar-health) {
+  padding: 1rem 0.9rem;
+}
+
+#root :is(.admin-sidebar-logout, .user-sidebar-logout, .sidebar-logout, .admin-support-box button, .user-support-box button) {
+  font-size: 0.9375rem;
+}
+
+#root :is(.admin-search-box, .user-search-box, .superadmin-search) {
+  min-height: 2.9rem;
+  font-size: 0.9375rem;
+}
+
+#root :is(.admin-top-icon, .user-top-icon, .header-icon-button) {
+  width: 2.9rem;
+  height: 2.9rem;
+  font-size: 1.2rem;
+}
+
+/* User dashboard has its own shell instead of UserLayout. */
+#root .user-dashboard-shell .user-sidebar {
+  width: 16.5rem;
+  padding: 0.85rem 0.75rem 0.75rem;
+}
+
+#root .user-dashboard-shell .user-main-panel {
+  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2.25vw, 2.25rem) 2.5rem;
+}
+
+#root .user-dashboard-shell :is(.sidebar-nav .nav-item, .sidebar-support button, .sidebar-logout) {
+  font-size: 0.98rem;
+}
+
+#root .user-dashboard-shell :is(.user-topbar, .welcome-banner) {
+  padding: 1.2rem 1.35rem;
+}
+
+#root .user-dashboard-shell :is(.panel, .stat-card) {
+  padding: clamp(1rem, 1.5vw, 1.35rem);
+}
+
+/* Shared forms, resource pages, and tables. */
+#root :is(.resource-module, .admin-resource, .calendar-scheduler) {
+  gap: 1.25rem;
+}
+
+#root :is(.resource-toolbar h2, .admin-resource h2, .calendar-toolbar h2, .page-header-row h2) {
+  font-size: clamp(1.3rem, 1.6vw, 1.65rem);
+}
+
+#root :is(.resource-form, .admin-modal) {
+  padding: clamp(1.25rem, 2vw, 1.75rem);
+}
+
+#root :is(.resource-form label, .admin-modal-grid label, .field label) {
+  font-size: 0.9375rem;
+}
+
+#root :is(.resource-form input, .resource-form select, .resource-form textarea, .resource-search, .admin-resource-toolbar input, .admin-resource-toolbar select, .admin-modal input, .admin-modal select, .admin-modal textarea, .calendar-controls select) {
+  min-height: 2.8rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.9375rem;
+}
+
+#root :is(.primary-btn, .secondary-btn, .ghost-btn, .danger-btn, .action-btn, .table-action, .page-header-button) {
+  min-height: 2.6rem;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+#root :is(.resource-table, .admin-resource-table table, .data-table) {
+  font-size: 0.9375rem;
+}
+
+#root :is(.resource-table th, .resource-table td, .admin-resource-table th, .admin-resource-table td, .data-table th, .data-table td) {
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+}
+
+#root :is(.resource-table th, .admin-resource-table th, .data-table th) {
+  font-size: 0.75rem;
+}
+
+#root :is(.resource-message, .admin-resource-message, .resource-empty, .admin-resource-empty) {
+  font-size: 0.9375rem;
+}
+
+/* Dashboard-specific compact rules. */
+#root .reference-dashboard .card-heading h3,
+#root .superadmin-layout-shell :is(.chart-header h3, .table-header h3, .info-card h3) {
+  font-size: 1.08rem;
+}
+
+#root .reference-dashboard .legend-list,
+#root .reference-dashboard .task-list > div,
+#root .reference-dashboard .announcement-list > div,
+#root .reference-dashboard .mini-table > div,
+#root .reference-dashboard .leave-list > div {
+  font-size: 0.8125rem;
+}
+
+#root .reference-dashboard :is(.task-list small, .announcement-list small, .task-list em, .announcement-list em, .revenue-point small) {
+  font-size: 0.75rem;
+}
+
+#root .reference-dashboard :is(.priority, .card-heading button, .create-announcement, .quick-actions button) {
+  font-size: 0.8125rem;
+}
+
+#root .superadmin-layout-shell :is(.section-kicker, .user-pill, .status-pill, .module-pill, .activity-copy small, .system-stat small, .module-meta, .field label) {
+  font-size: 0.75rem;
+}
+
+#root .superadmin-layout-shell :is(.data-table th, .data-table td, .legend-row, .module-card p, .rbac-resource strong, .rbac-resource label) {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 980px) {
+  #root :is(.admin-layout-sidebar, .user-layout-sidebar, .superadmin-sidebar, .user-dashboard-shell .user-sidebar) {
+    width: min(20rem, 86vw);
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 15px;
+  }
+
+  #root :is(.login-card, .register-card) {
+    padding: 1.75rem 1.25rem;
+  }
+
+  #root :is(.admin-layout-content, .user-layout-content, .superadmin-main-panel, .user-dashboard-shell .user-main-panel) {
+    padding: 1rem;
+  }
+
+  #root :is(.admin-layout-topbar, .user-layout-topbar, .superadmin-header, .user-dashboard-shell .user-topbar) {
+    min-height: auto;
+    padding: 1rem;
+  }
+}

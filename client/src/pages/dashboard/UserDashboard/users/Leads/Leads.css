@@ -1,0 +1,39 @@
+.lead-table {
+  overflow: hidden;
+}
+
+.lead-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lead-table th,
+.lead-table td {
+  text-align: left;
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.lead-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.lead-badge {
+  display: inline-flex;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.lead-badge.qualified { background: rgba(16,185,129,0.12); color: #047857; }
+.lead-badge.negotiation { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.lead-badge.proposal { background: rgba(168,85,247,0.12); color: #7c3aed; }
+.lead-badge.new { background: rgba(148,163,184,0.12); color: #475569; }
+.lead-badge.high { background: rgba(239,68,68,0.12); color: #b91c1c; }
+.lead-badge.medium { background: rgba(245,158,11,0.12); color: #b45309; }
+.lead-badge.low { background: rgba(16,185,129,0.12); color: #047857; }

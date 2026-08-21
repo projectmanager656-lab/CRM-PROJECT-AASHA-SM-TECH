@@ -1,0 +1,72 @@
+.attendance-summary {
+  margin-bottom: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.summary-grid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.7rem;
+  text-align: center;
+}
+
+.summary-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-bottom: 0.3rem;
+}
+
+.summary-grid strong {
+  color: #111827;
+  font-size: 1.3rem;
+}
+
+.attendance-table {
+  overflow: hidden;
+}
+
+.attendance-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.attendance-table th,
+.attendance-table td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.attendance-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.att-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.att-status.present { background: rgba(16,185,129,0.12); color: #047857; }
+.att-status.absent { background: rgba(239,68,68,0.12); color: #b91c1c; }
+.att-status.late { background: rgba(245,158,11,0.12); color: #b45309; }
+.att-status.on-leave { background: rgba(148,163,184,0.12); color: #475569; }
+
+@media (max-width: 760px) {
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

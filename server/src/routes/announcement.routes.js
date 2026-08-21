@@ -1,0 +1,4 @@
+import { Router } from 'express';
+import { AnnouncementController } from '../controllers/AnnouncementController.js';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware.js';
+const router = Router(); router.use(authenticateToken); router.route('/').get(requirePermission('communications','announcements','view'),AnnouncementController.list).post(requirePermission('communications','announcements','create'),AnnouncementController.create); router.route('/:id').get(requirePermission('communications','announcements','view'),AnnouncementController.get).put(requirePermission('communications','announcements','edit'),AnnouncementController.update).patch(requirePermission('communications','announcements','edit'),AnnouncementController.update).delete(requirePermission('communications','announcements','delete'),AnnouncementController.remove); export default router;

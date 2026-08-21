@@ -1,0 +1,5 @@
+import {Router} from 'express';
+import {AttendanceController,LeaveController} from '../controllers/EmployeeRecordController.js';
+import {authenticateToken,requirePermission} from '../middleware/auth.middleware.js';
+export const attendanceRouter=Router();attendanceRouter.use(authenticateToken);attendanceRouter.route('/').get(requirePermission('hrms','attendance','view'),AttendanceController.list).post(requirePermission('hrms','attendance','create'),AttendanceController.mark);attendanceRouter.get('/:id',requirePermission('hrms','attendance','view'),AttendanceController.get);attendanceRouter.patch('/:id/checkout',requirePermission('hrms','attendance','edit'),AttendanceController.checkout);
+export const leaveRouter=Router();leaveRouter.use(authenticateToken);leaveRouter.route('/').get(requirePermission('hrms','leave_requests','view'),LeaveController.list).post(requirePermission('hrms','leave_requests','create'),LeaveController.create);leaveRouter.get('/:id',requirePermission('hrms','leave_requests','view'),LeaveController.get);leaveRouter.patch('/:id/status',requirePermission('hrms','leave_requests','approve'),LeaveController.review);

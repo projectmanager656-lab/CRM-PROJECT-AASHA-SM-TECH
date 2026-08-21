@@ -1,0 +1,41 @@
+.notification-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.notification-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 0.4rem;
+}
+
+.notification-dot.success { background: #22c55e; }
+.notification-dot.info { background: #3b82f6; }
+.notification-dot.warning { background: #f59e0b; }
+.notification-dot.neutral { background: #94a3b8; }
+
+.notification-item h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notification-item p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.notification-item strong {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 0.72rem;
+}

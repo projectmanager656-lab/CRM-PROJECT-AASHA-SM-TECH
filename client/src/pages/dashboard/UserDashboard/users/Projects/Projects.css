@@ -1,0 +1,137 @@
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.1rem;
+}
+
+.project-card {
+  padding: 1.1rem 1rem;
+}
+
+.project-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.project-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #111827;
+}
+
+.project-card-header span {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.project-status {
+  display: inline-flex;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.project-status.in-progress { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.project-status.on-hold { background: rgba(245,158,11,0.12); color: #b45309; }
+.project-status.completed { background: rgba(16,185,129,0.12); color: #047857; }
+.project-status.not-started { background: rgba(148,163,184,0.12); color: #475569; }
+
+.project-description {
+  margin: 0.9rem 0;
+  color: #475569;
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
+.project-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.project-meta-grid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.75rem;
+}
+
+.project-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-bottom: 0.15rem;
+}
+
+.project-meta-grid strong {
+  color: #111827;
+  font-size: 0.8rem;
+}
+
+.project-progress {
+  margin-top: 1rem;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #475569;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb 0%, #8b5cf6 100%);
+}
+
+.team-row {
+  margin-top: 0.9rem;
+}
+
+.team-row span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  margin-bottom: 0.45rem;
+}
+
+.team-stack {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.team-stack span {
+  background: #eef4ff;
+  color: #1d4ed8;
+  padding: 0.28rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.project-button {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+@media (max-width: 760px) {
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}

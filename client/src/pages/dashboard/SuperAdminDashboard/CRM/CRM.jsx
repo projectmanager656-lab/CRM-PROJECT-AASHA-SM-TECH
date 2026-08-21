@@ -1,0 +1,2 @@
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function CRM(){return <SuperAdminResourceList pageTitle="CRM" kicker="Operations" description="Leads from the shared CRM collection." endpoint="/leads" columns={[{key:'name',label:'Lead'},{key:'company',label:'Company'},{key:'email',label:'Email'},{key:'owner',label:'Assigned To'},{key:'status',label:'Status'},{key:'createdAt',label:'Created'}]}/>}

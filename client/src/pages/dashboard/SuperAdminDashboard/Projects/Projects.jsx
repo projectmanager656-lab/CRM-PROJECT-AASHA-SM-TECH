@@ -1,0 +1,2 @@
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function Projects(){return <SuperAdminResourceList pageTitle="Projects" kicker="Delivery" description="Projects from the shared operational collection." endpoint="/projects" columns={[{key:'name',label:'Project'},{key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'startDate',label:'Start'},{key:'dueDate',label:'Due'}]}/>}

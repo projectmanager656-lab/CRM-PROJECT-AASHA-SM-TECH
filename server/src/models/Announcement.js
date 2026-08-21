@@ -1,0 +1,3 @@
+import mongoose from 'mongoose';
+const schema = new mongoose.Schema({ title: { type: String, required: true, trim: true }, message: { type: String, required: true, trim: true }, status: { type: String, enum: ['Draft', 'Published'], default: 'Published' }, audience: { type: String, enum: ['All Users'], default: 'All Users' }, createdBy: { type: mongoose.Schema.Types.ObjectId, required: true }, createdByRole: { type: String, enum: ['admin', 'super_admin'], required: true } }, { timestamps: true });
+export default mongoose.models.Announcement || mongoose.model('Announcement', schema, 'announcements');

@@ -1,0 +1,77 @@
+.departments-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.department-card {
+  padding: 1rem;
+}
+
+.dept-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.dept-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dept-header span {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.dept-status {
+  display: inline-flex;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(16,185,129,0.12);
+  color: #047857;
+}
+
+.dept-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.dept-meta-grid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 0.7rem;
+}
+
+.dept-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+
+.dept-meta-grid strong {
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.department-card .action-buttons {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 760px) {
+  .departments-grid {
+    grid-template-columns: 1fr;
+  }
+  .dept-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}

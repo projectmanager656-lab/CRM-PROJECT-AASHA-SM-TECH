@@ -1,0 +1,41 @@
+.payroll-table {
+  overflow: hidden;
+}
+
+.payroll-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.payroll-table th,
+.payroll-table td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.payroll-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.net-salary {
+  font-weight: 700;
+  color: #047857;
+}
+
+.payroll-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.payroll-status.processed { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.payroll-status.paid { background: rgba(16,185,129,0.12); color: #047857; }
+.payroll-status.pending { background: rgba(245,158,11,0.12); color: #b45309; }

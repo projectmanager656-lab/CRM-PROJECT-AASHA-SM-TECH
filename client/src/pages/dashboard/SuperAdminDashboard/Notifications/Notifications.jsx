@@ -1,0 +1,2 @@
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function Notifications(){return <SuperAdminResourceList pageTitle="Notifications" kicker="Communication" description="Notifications from the shared system collection." endpoint="/notifications" columns={[{key:'title',label:'Title'},{key:'type',label:'Type'},{key:'recipient',label:'Recipient'},{key:'isRead',label:'Read'},{key:'createdAt',label:'Date'}]}/>}

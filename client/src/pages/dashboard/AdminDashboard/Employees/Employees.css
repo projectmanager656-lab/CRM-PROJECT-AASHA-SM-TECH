@@ -1,0 +1,121 @@
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.toolbar-group.right {
+  margin-left: auto;
+}
+
+.toolbar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  min-width: 260px;
+}
+
+.toolbar-search input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  width: 100%;
+}
+
+.toolbar-select {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  background: #fff;
+}
+
+.employee-table {
+  overflow: hidden;
+}
+
+.employee-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+}
+
+.employee-table th,
+.employee-table td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.employee-table th {
+  background: #f8fafc;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.status-badge.active { background: rgba(16,185,129,0.12); color: #047857; }
+.status-badge.on-leave { background: rgba(245,158,11,0.12); color: #b45309; }
+.status-badge.inactive { background: rgba(148,163,184,0.12); color: #475569; }
+
+.action-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.action-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-btn.view { background: #eef4ff; color: #1d4ed8; }
+.action-btn.edit { background: #fef3c7; color: #b45309; }
+.action-btn.delete { background: #fee2e2; color: #b91c1c; }
+
+@media (max-width: 760px) {
+  .panel-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar-group.right {
+    margin-left: 0;
+  }
+}

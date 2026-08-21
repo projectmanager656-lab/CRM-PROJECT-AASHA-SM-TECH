@@ -1,0 +1,2 @@
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function HRMS(){return <SuperAdminResourceList pageTitle="HRMS" kicker="People" description="Employee accounts and employment details." endpoint="/users" columns={[{key:'firstName',label:'First Name'},{key:'lastName',label:'Last Name'},{key:'department',label:'Department'},{key:'designation',label:'Designation'},{key:'isActive',label:'Active'}]}/>}

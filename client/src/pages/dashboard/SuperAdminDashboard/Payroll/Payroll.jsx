@@ -1,0 +1,2 @@
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function Payroll(){return <SuperAdminResourceList pageTitle="Payroll" kicker="Finance" description="Payroll records from the shared finance collection." endpoint="/payroll" columns={[{key:'user',label:'Employee'},{key:'month',label:'Month'},{key:'gross',label:'Gross'},{key:'net',label:'Net'},{key:'status',label:'Status'}]}/>}
