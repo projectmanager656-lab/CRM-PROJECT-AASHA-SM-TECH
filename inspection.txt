@@ -1,0 +1,436 @@
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Users\Users.jsx ===
+import { useEffect, useState } from 'react';
+import apiClient from '../../../../services/apiClient';
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+const accountName = (account) => `${account.firstName || ''} ${account.lastName || ''}`.trim() || account.email;
+
+export default function Users() {
+  const [accounts, setAccounts] = useState([]); const [roles, setRoles] = useState([]); const [selectedRoles, setSelectedRoles] = useState({});
+  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(''); const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const load = async () => { setLoading(true); try { const [accountResponse, roleResponse] = await Promise.all([apiClient.get('/rbac/accounts'), apiClient.get('/rbac/roles')]); const nextAccounts = accountResponse.data.data || []; setAccounts(nextAccounts); setRoles(roleResponse.data.data || []); setSelectedRoles(Object.fromEntries(nextAccounts.map((account) => [account._id, account.rbacRoleId || '']))); setError(''); } catch (requestError) { setError(requestError.response?.data?.message || 'Unable to load accounts.'); } finally { setLoading(false); } };
+  useEffect(() => { load(); }, []);
+  const assign = async (account) => { const roleId = selectedRoles[account._id]; if (!roleId) return setError('Select an RBAC role before saving.'); setSaving(account._id); try { await apiClient.patch(`/rbac/accounts/${account.accountType}/${account._id}/role`, { roleId }); setMessage(`Role updated for ${accountName(account)}.`); await load(); } catch (requestError) { setError(requestError.response?.data?.message || 'Unable to assign role.'); } finally { setSaving(''); } };
+  return <SuperAdminLayout pageTitle="Users Management"><section className="page-card"><div className="page-header-row"><div><div className="section-kicker">Manage</div><h2>Users & Role Assignment</h2><p className="section-subtitle">Assign existing MongoDB-backed RBAC roles to real accounts.</p></div></div>{error && <div className="resource-message error">{error}</div>}{message && <div className="resource-message success">{message}</div>}{loading ? <div className="resource-empty">Loading...</div> : accounts.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Name</th><th>Email</th><th>Account type</th><th>Department</th><th>Current role</th><th>Assign role</th><th>Action</th></tr></thead><tbody>{accounts.map((account) => <tr key={`${account.accountType}-${account._id}`}><td>{accountName(account)}</td><td>{account.email}</td><td>{account.accountType}</td><td>{account.department || 'Department not assigned'}</td><td>{account.rbacRoleKey || 'Legacy role'}</td><td><select value={selectedRoles[account._id] || ''} onChange={(event) => setSelectedRoles({ ...selectedRoles, [account._id]: event.target.value })}><option value="">Select role</option>{roles.map((role) => <option key={role._id} value={role._id}>{role.name} ({role.key})</option>)}</select></td><td><button type="button" className="primary-button" disabled={saving === account._id} onClick={() => assign(account)}>{saving === account._id ? 'Saving...' : 'Save role'}</button></td></tr>)}</tbody></table></div> : <div className="resource-empty">No accounts found.</div>}</section></SuperAdminLayout>;
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\AdminDashboard\Employees\Employees.jsx ===
+import AdminResourceManager from'../components/AdminResourceManager';const fields=[{name:'firstName',label:'First Name',required:true},{name:'lastName',label:'Last Name',required:true},{name:'email',label:'Email',type:'email',required:true},{name:'password',label:'Password',type:'password',required:true,createOnly:true},{name:'phone',label:'Phone'},{name:'department',label:'Department',type:'select',optionsEndpoint:'/departments'},{name:'designation',label:'Designation'},{name:'isActive',label:'Status',type:'select',options:['true','false'],defaultValue:'true'}];const columns=[{key:'firstName',label:'Name',value:x=>`${x.firstName||''} ${x.lastName||''}`},{key:'email',label:'Email'},{key:'phone',label:'Phone'},{key:'department',label:'Department'},{key:'designation',label:'Designation'},{key:'isActive',label:'Status',format:v=>v?'Active':'Inactive'}];const filters=[{name:'department',label:'All Departments',optionsEndpoint:'/departments'}];export default function Employees(){return <AdminResourceManager title="Employees" singular="Employee" endpoint="/users" fields={fields} columns={columns} filters={filters} transformSubmit={f=>({...f,isActive:f.isActive===true||f.isActive==='true',role:'employee'})}/>}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Departments\Departments.jsx ===
+import { useEffect, useMemo, useState } from 'react';
+import apiClient from '../../../../services/apiClient';
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+const errorMessage = (error) => error.response?.data?.message || 'Unable to load departments.';
+const managerName = (manager) => manager ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim() || manager.email || 'Not assigned' : 'Not assigned';
+const formattedDate = (date) => date ? new Date(date).toLocaleDateString() : '—';
+
+export default function Departments() {
+  const [departments, setDepartments] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [viewing, setViewing] = useState(null);
+
+  const loadDepartments = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.get('/admin/departments');
+      setDepartments(response.data.data || []);
+      setError('');
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadDepartments(); }, []);
+
+  const visibleDepartments = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return term ? departments.filter((department) => [department.name, department.description, managerName(department.manager), department.status].some((value) => String(value || '').toLowerCase().includes(term))) : departments;
+  }, [departments, search]);
+
+  const activeCount = departments.filter((department) => department.status === 'Active').length;
+  const inactiveCount = departments.filter((department) => department.status === 'Inactive').length;
+
+  return <SuperAdminLayout pageTitle="Departments">
+    <section className="page-card">
+      <div className="page-header-row">
+        <div>
+          <div className="section-kicker">Organisation oversight</div>
+          <h2>Department Management</h2>
+          <p className="section-subtitle">Live department records created and maintained in Admin Department Management.</p>
+        </div>
+        <button type="button" className="secondary-button" onClick={loadDepartments} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+      </div>
+
+      <div className="department-stats" aria-label="Department summary">
+        <div><span>Total Departments</span><strong>{departments.length}</strong></div>
+        <div><span>Active Departments</span><strong>{activeCount}</strong></div>
+        <div><span>Inactive Departments</span><strong>{inactiveCount}</strong></div>
+      </div>
+
+      <input className="superadmin-resource-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search departments" />
+      {error && <div className="resource-message error">{error}</div>}
+      {loading ? <div className="resource-empty">Loading departments...</div> : visibleDepartments.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Department Name</th><th>Description</th><th>Manager</th><th>Members</th><th>Status</th><th>Created Date</th><th>Action</th></tr></thead><tbody>{visibleDepartments.map((department) => <tr key={department._id}><td>{department.name}</td><td>{department.description || '—'}</td><td>{managerName(department.manager)}</td><td>{department.employeeCount || 0}</td><td><span className={`status-pill status-${String(department.status || '').toLowerCase()}`}>{department.status}</span></td><td>{formattedDate(department.createdAt)}</td><td><button type="button" className="table-action-link" onClick={() => setViewing(department)}>View Details</button></td></tr>)}</tbody></table></div> : <div className="resource-empty">No departments found.</div>}
+    </section>
+
+    {viewing && <div className="department-detail-backdrop" role="dialog" aria-modal="true" aria-label="Department details"><div className="department-detail-modal"><div className="department-detail-header"><h3>Department Details</h3><button type="button" onClick={() => setViewing(null)} aria-label="Close">×</button></div><div className="department-detail-grid"><div><span>Department Name</span><strong>{viewing.name}</strong></div><div><span>Status</span><strong>{viewing.status}</strong></div><div><span>Description</span><strong>{viewing.description || '—'}</strong></div><div><span>Manager</span><strong>{managerName(viewing.manager)}</strong></div><div><span>Members Count</span><strong>{viewing.employeeCount || 0}</strong></div><div><span>Created Date</span><strong>{formattedDate(viewing.createdAt)}</strong></div></div></div></div>}
+  </SuperAdminLayout>;
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\AdminDashboard\Departments\Departments.jsx ===
+import AdminResourceManager from'../components/AdminResourceManager';const fields=[{name:'name',label:'Department Name',required:true},{name:'description',label:'Description',type:'textarea'},{name:'manager',label:'Manager',type:'user'},{name:'members',label:'Members / Employees',type:'user',multiple:true},{name:'status',label:'Status',type:'select',options:['Active','Inactive'],defaultValue:'Active'}];const columns=[{key:'name',label:'Department'},{key:'description',label:'Description'},{key:'manager',label:'Manager'},{key:'members',label:'Members'},{key:'employeeCount',label:'Members Count'},{key:'status',label:'Status'}];export default function Departments(){return <AdminResourceManager title="Departments" singular="Department" endpoint="/admin/departments" fields={fields} columns={columns} canDelete={false}/>}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Modules\Modules.jsx ===
+import { useEffect, useState } from 'react';
+import apiClient from '../../../../services/apiClient';
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function Modules() {
+  const [modules, setModules] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  useEffect(() => { apiClient.get('/rbac/modules').then((response) => setModules(response.data.data || [])).catch((requestError) => setError(requestError.response?.data?.message || 'Unable to load modules.')).finally(() => setLoading(false)); }, []);
+  return (
+    <SuperAdminLayout pageTitle="Modules">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">Platform</div>
+            <h2>Modules</h2>
+          </div>
+        </div>
+        {error && <div className="resource-message error">{error}</div>}{loading ? <div className="resource-empty">Loading...</div> : modules.length ? <div className="page-list">
+          {modules.map((module) => (
+            <div key={module._id} className="list-item">
+              <div className="list-item-main">
+                <strong>{module.name}</strong>
+                <small>{module.description}</small>
+              </div>
+              <div className="list-actions">
+                <span className="module-pill">{module.status}</span>
+              </div>
+            </div>
+          ))}
+        </div> : <div className="resource-empty">No modules found.</div>}
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\SystemSettings\SystemSettings.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function SystemSettings() {
+  return (
+    <SuperAdminLayout pageTitle="System Settings">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">System</div>
+            <h2>System Settings</h2>
+          </div>
+          <button type="button" className="primary-button">Save Changes</button>
+        </div>
+
+        <div className="card-grid">
+          <div className="info-card">
+            <div className="chart-header">
+              <h3>General Settings</h3>
+            </div>
+            <div className="form-block">
+              <div className="field"><label>Company Name</label><input defaultValue="IT Company Management System" /></div>
+              <div className="field"><label>Default Time Zone</label><input defaultValue="UTC+05:30" /></div>
+              <div className="field"><label>Language</label><select><option>English</option><option>Hindi</option></select></div>
+            </div>
+          </div>
+
+          <div className="info-card">
+            <div className="chart-header">
+              <h3>Security</h3>
+            </div>
+            <div className="form-block">
+              <div className="field"><label>Session Timeout</label><input defaultValue="30 minutes" /></div>
+              <div className="field"><label>2FA Enforcement</label><select><option>Enabled</option><option>Disabled</option></select></div>
+              <div className="field"><label>Password Policy</label><input defaultValue="Strong" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\CRM\CRM.jsx ===
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function CRM(){return <SuperAdminResourceList pageTitle="CRM" kicker="Operations" description="Leads from the shared CRM collection." endpoint="/leads" columns={[{key:'name',label:'Lead'},{key:'company',label:'Company'},{key:'email',label:'Email'},{key:'owner',label:'Assigned To'},{key:'status',label:'Status'},{key:'createdAt',label:'Created'}]}/>}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Projects\Projects.jsx ===
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function Projects(){return <SuperAdminResourceList pageTitle="Projects" kicker="Delivery" description="Projects from the shared operational collection." endpoint="/projects" columns={[{key:'name',label:'Project'},{key:'owner',label:'Owner'},{key:'status',label:'Status'},{key:'startDate',label:'Start'},{key:'dueDate',label:'Due'}]}/>}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\HRMS\HRMS.jsx ===
+import SuperAdminResourceList from '../components/SuperAdminResourceList';
+export default function HRMS(){return <SuperAdminResourceList pageTitle="HRMS" kicker="People" description="Employee accounts and employment details." endpoint="/users" columns={[{key:'firstName',label:'First Name'},{key:'lastName',label:'Last Name'},{key:'department',label:'Department'},{key:'designation',label:'Designation'},{key:'isActive',label:'Active'}]}/>}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Reports\Reports.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+const reports = [
+  { name: 'Monthly Profit Summary', period: 'August 2026' },
+  { name: 'Employee Attendance Report', period: 'This Month' },
+  { name: 'Project Delivery Analysis', period: 'Quarterly' },
+];
+
+export default function Reports() {
+  return (
+    <SuperAdminLayout pageTitle="Reports">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">Insights</div>
+            <h2>Reports</h2>
+          </div>
+          <button type="button" className="primary-button">Generate Report</button>
+        </div>
+
+        <div className="page-list">
+          {reports.map((report) => (
+            <div key={report.name} className="list-item">
+              <div className="list-item-main">
+                <strong>{report.name}</strong>
+                <span>{report.period}</span>
+              </div>
+              <div className="list-actions">
+                <button type="button">Download</button>
+                <button type="button">View</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\AdminDashboard\Reports\Reports.jsx ===
+import AdminLayout from '../components/AdminLayout';
+import './Reports.css';
+
+const reportTypes = [
+  { id: 'REP-001', type: 'Employee Report', description: 'Overview of all employees and their details' },
+  { id: 'REP-002', type: 'Attendance Report', description: 'Monthly attendance summary by employee' },
+  { id: 'REP-003', type: 'Leave Report', description: 'Leave requests and approvals' },
+  { id: 'REP-004', type: 'Payroll Report', description: 'Salary and payroll details' },
+  { id: 'REP-005', type: 'Project Report', description: 'Project status and progress' },
+  { id: 'REP-006', type: 'Task Report', description: 'Task completion and performance metrics' },
+];
+
+export default function Reports() {
+  return (
+    <AdminLayout pageTitle="Reports">
+      <div className="admin-page">
+        <div className="admin-page-header">
+          <h2>Report Generator</h2>
+        </div>
+
+        <div className="report-filters admin-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700' }}>Report Type</label>
+              <select style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <option>Select Report Type</option>
+                {reportTypes.map((rep) => (
+                  <option key={rep.id}>{rep.type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700' }}>Date Range</label>
+              <input type="month" style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700' }}>Department</label>
+              <select style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <option>All Departments</option>
+                <option>Engineering</option>
+                <option>HR</option>
+                <option>Sales</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" className="primary-btn" style={{ marginTop: '1rem' }}>Generate Report</button>
+          <button type="button" className="secondary-btn" style={{ marginTop: '1rem', marginLeft: '0.5rem' }}>Export PDF</button>
+        </div>
+
+        <div className="reports-grid">
+          {reportTypes.map((rep) => (
+            <article key={rep.id} className="report-card admin-card">
+              <h3>{rep.type}</h3>
+              <p>{rep.description}</p>
+              <button className="secondary-btn" style={{ width: '100%', marginTop: '1rem' }}>Generate</button>
+            </article>
+          ))}
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\DatabaseBackup\DatabaseBackup.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function DatabaseBackup() {
+  return (
+    <SuperAdminLayout pageTitle="Database Backup">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">Infrastructure</div>
+            <h2>Database Backup</h2>
+          </div>
+          <button type="button" className="primary-button">Run Backup</button>
+        </div>
+
+        <div className="card-grid">
+          <div className="info-card">
+            <div className="chart-header"><h3>Backup Status</h3></div>
+            <div className="activity-list">
+              <div className="activity-item"><span>Last full backup</span><small>Today 02:00 AM</small></div>
+              <div className="activity-item"><span>Archive retention</span><small>30 days</small></div>
+              <div className="activity-item"><span>Backup size</span><small>2.45 GB</small></div>
+            </div>
+          </div>
+
+          <div className="info-card">
+            <div className="chart-header"><h3>Restore Health</h3></div>
+            <div className="activity-list">
+              <div className="activity-item"><span>Integrity test</span><small>Passed</small></div>
+              <div className="activity-item"><span>Offsite copy</span><small>Synced</small></div>
+              <div className="activity-item"><span>Recovery time objective</span><small>2 hours</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\ActivityLogs\ActivityLogs.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function ActivityLogs() {
+  return <SuperAdminLayout pageTitle="Activity Logs"><div className="page-card"><div className="page-header-row"><div><div className="section-kicker">Audit</div><h2>Activity Logs</h2></div></div><div className="resource-empty">No recent activity</div></div></SuperAdminLayout>;
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\AuditLogs\AuditLogs.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function AuditLogs() {
+  return <SuperAdminLayout pageTitle="Audit Logs"><div className="page-card"><div className="page-header-row"><div><div className="section-kicker">Compliance</div><h2>Audit Logs</h2></div></div><div className="resource-empty">No recent activity</div></div></SuperAdminLayout>;
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\APIIntegrations\APIIntegrations.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+const integrations = [
+  { name: 'Stripe', status: 'Connected' },
+  { name: 'Twilio', status: 'Connected' },
+  { name: 'Slack', status: 'Connected' },
+];
+
+export default function APIIntegrations() {
+  return (
+    <SuperAdminLayout pageTitle="API Integrations">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">System</div>
+            <h2>API Integrations</h2>
+          </div>
+          <button type="button" className="primary-button">Add Integration</button>
+        </div>
+
+        <div className="page-list">
+          {integrations.map((integration) => (
+            <div key={integration.name} className="list-item">
+              <div className="list-item-main">
+                <strong>{integration.name}</strong>
+                <small>Webhook + sync enabled</small>
+              </div>
+              <div className="list-actions">
+                <span className="module-pill">{integration.status}</span>
+                <button type="button">Manage</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\SuperAdminDashboard\Settings\Settings.jsx ===
+import SuperAdminLayout from '../components/SuperAdminLayout';
+
+export default function Settings() {
+  return (
+    <SuperAdminLayout pageTitle="Settings">
+      <div className="page-card">
+        <div className="page-header-row">
+          <div>
+            <div className="section-kicker">Preferences</div>
+            <h2>Settings</h2>
+          </div>
+          <button type="button" className="primary-button">Update Profile</button>
+        </div>
+
+        <div className="card-grid">
+          <div className="info-card">
+            <div className="chart-header"><h3>Account</h3></div>
+            <div className="form-block">
+              <div className="field"><label>Full Name</label><input defaultValue="Super Admin" /></div>
+              <div className="field"><label>Email</label><input defaultValue="admin@company.com" /></div>
+            </div>
+          </div>
+
+          <div className="info-card">
+            <div className="chart-header"><h3>Preferences</h3></div>
+            <div className="form-block">
+              <div className="field"><label>Theme</label><select><option>Dark</option><option>Light</option></select></div>
+              <div className="field"><label>Notifications</label><select><option>Enabled</option><option>Disabled</option></select></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SuperAdminLayout>
+  );
+}
+
+
+=== FILE: D:\CRM PROJECT AASHA SM\client\src\pages\dashboard\AdminDashboard\Settings\Configuration.jsx ===
+import { useEffect, useState } from 'react';
+import apiClient from '../../../../services/apiClient';
+import AdminLayout from '../components/AdminLayout';
+import './Settings.css';
+const defaults={companyName:'',companyContact:'',officeAddress:'',requiredWorkingHours:8,allowedIpAddresses:[],enableIpValidation:false,officeLatitude:'',officeLongitude:'',allowedGpsRadius:100,enableGpsValidation:false,enableAttendancePhoto:false};
+export default function Configuration(){const[form,setForm]=useState(defaults),[loading,setLoading]=useState(true),[message,setMessage]=useState(''),[error,setError]=useState('');useEffect(()=>{apiClient.get('/company-settings').then(r=>setForm({...defaults,...r.data.data,allowedIpAddresses:(r.data.data.allowedIpAddresses||[]).join(', ')})).catch(e=>setError(e.response?.data?.message||'Unable to load configuration.')).finally(()=>setLoading(false));},[]);const update=(key,value)=>setForm(f=>({...f,[key]:value}));const save=async(e)=>{e.preventDefault();try{await apiClient.put('/company-settings',{...form,requiredWorkingHours:Number(form.requiredWorkingHours),allowedGpsRadius:Number(form.allowedGpsRadius),officeLatitude:form.officeLatitude===''?null:Number(form.officeLatitude),officeLongitude:form.officeLongitude===''?null:Number(form.officeLongitude),allowedIpAddresses:String(form.allowedIpAddresses).split(',').map(x=>x.trim()).filter(Boolean)});setMessage('Configuration saved.');setError('');}catch(e){setError(e.response?.data?.message||'Unable to save configuration.');}};return <AdminLayout pageTitle="Settings"><div className="admin-page"><div className="admin-page-header"><h2>Company Configuration</h2></div>{error&&<div className="admin-resource-message error">{error}</div>}{message&&<div className="admin-resource-message success">{message}</div>}{loading?<div className="admin-resource-empty">Loading...</div>:<form className="admin-modal admin-card" onSubmit={save}><h3>Company</h3><div className="admin-modal-grid">{[['companyName','Company Name'],['companyContact','Company Contact Details'],['officeAddress','Office Address']].map(([key,label])=><label key={key}><span>{label}</span><input value={form[key]} onChange={e=>update(key,e.target.value)}/></label>)}</div><h3>Attendance</h3><div className="admin-modal-grid">{[['requiredWorkingHours','Required Working Hours','number'],['allowedIpAddresses','Allowed IP Addresses (comma separated)'],['officeLatitude','Office Latitude','number'],['officeLongitude','Office Longitude','number'],['allowedGpsRadius','Allowed GPS Radius (metres)','number']].map(([key,label,type])=><label key={key}><span>{label}</span><input type={type||'text'} value={form[key]} onChange={e=>update(key,e.target.value)}/></label>)}</div>{[['enableIpValidation','Enable IP validation'],['enableGpsValidation','Enable GPS validation'],['enableAttendancePhoto','Enable attendance photo']].map(([key,label])=><label key={key} style={{display:'block',margin:'1rem 0'}}><input type="checkbox" checked={!!form[key]} onChange={e=>update(key,e.target.checked)}/> {label}</label>)}<div className="admin-modal-actions"><button className="primary-btn">Save Configuration</button></div></form>}</div></AdminLayout>}

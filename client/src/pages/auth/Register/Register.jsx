@@ -8,10 +8,13 @@ import './Register.css';
 export default function Register() {
   const [formData, setFormData] = useState({
     email: '',
+    phone: '',
     password: '',
+    confirmPassword: '',
     firstName: '',
     lastName: '',
     department: '',
+    designation: '',
   });
   const departments = DEPARTMENTS;
   const [error, setError] = useState('');
@@ -34,9 +37,22 @@ export default function Register() {
     setSuccess('');
     setIsLoading(true);
 
-    // Validate password strength
+    // Validate password strength and confirm password
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    // Phone validation (simple pattern)
+    if (!/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
+      setError('Please provide a valid phone number');
       setIsLoading(false);
       return;
     }
@@ -46,7 +62,9 @@ export default function Register() {
       formData.password,
       formData.firstName,
       formData.lastName,
-      formData.department
+      formData.department,
+      formData.phone,
+      formData.designation
     );
 
     if (result.success) {
@@ -112,48 +130,93 @@ export default function Register() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              required
-              disabled={isLoading}
-            />
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="email">Email Address *</label>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+                required
+                disabled={isLoading}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number *</label>
+              <input
+                id="phone"
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Enter your phone number"
+                required
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password (min 6 characters)"
-              required
-              disabled={isLoading}
-            />
-            <small>Password must be at least 6 characters</small>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="password">Password *</label>
+              <input
+                id="password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                required
+                disabled={isLoading}
+              />
+              <small>Min 6 characters</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm Password *</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm your password"
+                required
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="department">Department</label>
-            <select
-              id="department"
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-            >
-              <option value="">Select Department</option>
-              {departments.map((department) => <option key={department} value={department}>{department}</option>)}
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="department">Department *</label>
+              <select
+                id="department"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+              >
+                <option value="">Select Department</option>
+                {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="designation">Designation *</label>
+              <input
+                id="designation"
+                type="text"
+                name="designation"
+                value={formData.designation}
+                onChange={handleChange}
+                placeholder="Enter your designation"
+                required
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <button

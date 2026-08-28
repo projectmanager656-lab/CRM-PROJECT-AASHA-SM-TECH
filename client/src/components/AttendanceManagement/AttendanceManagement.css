@@ -1,0 +1,164 @@
+.attendance-summary {
+  margin-bottom: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.summary-grid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 0.7rem;
+  text-align: center;
+}
+
+.summary-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-bottom: 0.3rem;
+}
+
+.summary-grid strong {
+  color: #111827;
+  font-size: 1.3rem;
+}
+
+.attendance-table {
+  overflow-x: auto;
+}
+
+.attendance-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.attendance-table th,
+.attendance-table td {
+  padding: 0.9rem 0.8rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.attendance-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.att-status-select {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: none;
+  appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.att-status-select.present { background: rgba(16,185,129,0.12); color: #047857; }
+.att-status-select.absent { background: rgba(239,68,68,0.12); color: #b91c1c; }
+.att-status-select.late { background: rgba(245,158,11,0.12); color: #b45309; }
+.att-status-select.half-day { background: rgba(148,163,184,0.12); color: #475569; }
+
+.att-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.att-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.att-btn-primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.att-btn-sm {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.att-btn-danger {
+  color: #ef4444;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.att-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.att-modal {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+.att-modal h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.att-form-group {
+  margin-bottom: 1rem;
+}
+
+.att-form-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: #475569;
+  margin-bottom: 0.25rem;
+}
+
+.att-form-group input,
+.att-form-group select,
+.att-form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.att-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 760px) {
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.att-input { padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }

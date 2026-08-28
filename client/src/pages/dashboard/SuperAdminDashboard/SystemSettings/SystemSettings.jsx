@@ -1,40 +1,116 @@
+import { useEffect, useState } from 'react';
+import apiClient from '../../../../services/apiClient';
 import SuperAdminLayout from '../components/SuperAdminLayout';
+import '../../AdminDashboard/Settings/Settings.css';
+
+const defaults = {
+  companyName: '',
+  companyContact: '',
+  officeAddress: '',
+  requiredWorkingHours: 8,
+  allowedIpAddresses: [],
+  enableIpValidation: false,
+  officeLatitude: '',
+  officeLongitude: '',
+  allowedGpsRadius: 100,
+  enableGpsValidation: false,
+  enableAttendancePhoto: false
+};
 
 export default function SystemSettings() {
+  const [form, setForm] = useState(defaults);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiClient.get('/company-settings')
+      .then(r => setForm({
+        ...defaults,
+        ...r.data.data,
+        allowedIpAddresses: (r.data.data.allowedIpAddresses || []).join(', ')
+      }))
+      .catch(e => setError(e.response?.data?.message || 'Unable to load configuration.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const update = (key, value) => setForm(f => ({ ...f, [key]: value }));
+
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      await apiClient.put('/company-settings', {
+        ...form,
+        requiredWorkingHours: Number(form.requiredWorkingHours),
+        allowedGpsRadius: Number(form.allowedGpsRadius),
+        officeLatitude: form.officeLatitude === '' ? null : Number(form.officeLatitude),
+        officeLongitude: form.officeLongitude === '' ? null : Number(form.officeLongitude),
+        allowedIpAddresses: String(form.allowedIpAddresses).split(',').map(x => x.trim()).filter(Boolean)
+      });
+      setMessage('Configuration saved.');
+      setError('');
+    } catch (e) {
+      setError(e.response?.data?.message || 'Unable to save configuration.');
+    }
+  };
+
   return (
     <SuperAdminLayout pageTitle="System Settings">
-      <div className="page-card">
-        <div className="page-header-row">
-          <div>
-            <div className="section-kicker">System</div>
-            <h2>System Settings</h2>
-          </div>
-          <button type="button" className="primary-button">Save Changes</button>
+      <div className="admin-page">
+        <div className="admin-page-header">
+          <h2>System Configuration</h2>
         </div>
+        
+        {error && <div className="admin-resource-message error">{error}</div>}
+        {message && <div className="admin-resource-message success">{message}</div>}
+        
+        {loading ? <div className="admin-resource-empty">Loading...</div> : (
+          <form className="admin-modal admin-card" onSubmit={save}>
+            <h3>Company</h3>
+            <div className="admin-modal-grid">
+              {[
+                ['companyName', 'Company Name'],
+                ['companyContact', 'Company Contact Details'],
+                ['officeAddress', 'Office Address']
+              ].map(([key, label]) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <input value={form[key]} onChange={e => update(key, e.target.value)} />
+                </label>
+              ))}
+            </div>
 
-        <div className="card-grid">
-          <div className="info-card">
-            <div className="chart-header">
-              <h3>General Settings</h3>
+            <h3>Attendance</h3>
+            <div className="admin-modal-grid">
+              {[
+                ['requiredWorkingHours', 'Required Working Hours', 'number'],
+                ['allowedIpAddresses', 'Allowed IP Addresses (comma separated)'],
+                ['officeLatitude', 'Office Latitude', 'number'],
+                ['officeLongitude', 'Office Longitude', 'number'],
+                ['allowedGpsRadius', 'Allowed GPS Radius (metres)', 'number']
+              ].map(([key, label, type]) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <input type={type || 'text'} value={form[key]} onChange={e => update(key, e.target.value)} />
+                </label>
+              ))}
             </div>
-            <div className="form-block">
-              <div className="field"><label>Company Name</label><input defaultValue="IT Company Management System" /></div>
-              <div className="field"><label>Default Time Zone</label><input defaultValue="UTC+05:30" /></div>
-              <div className="field"><label>Language</label><select><option>English</option><option>Hindi</option></select></div>
-            </div>
-          </div>
 
-          <div className="info-card">
-            <div className="chart-header">
-              <h3>Security</h3>
+            {[
+              ['enableIpValidation', 'Enable IP validation'],
+              ['enableGpsValidation', 'Enable GPS validation'],
+              ['enableAttendancePhoto', 'Enable attendance photo']
+            ].map(([key, label]) => (
+              <label key={key} style={{ display: 'block', margin: '1rem 0' }}>
+                <input type="checkbox" checked={!!form[key]} onChange={e => update(key, e.target.checked)} /> {label}
+              </label>
+            ))}
+
+            <div className="admin-modal-actions">
+              <button className="primary-btn">Save Configuration</button>
             </div>
-            <div className="form-block">
-              <div className="field"><label>Session Timeout</label><input defaultValue="30 minutes" /></div>
-              <div className="field"><label>2FA Enforcement</label><select><option>Enabled</option><option>Disabled</option></select></div>
-              <div className="field"><label>Password Policy</label><input defaultValue="Strong" /></div>
-            </div>
-          </div>
-        </div>
+          </form>
+        )}
       </div>
     </SuperAdminLayout>
   );

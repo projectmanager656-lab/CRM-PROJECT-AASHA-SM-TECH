@@ -8,14 +8,15 @@ import '../components/ResourceModule.css';
 
 const fields = [['firstName', 'First Name'], ['lastName', 'Last Name'], ['phone', 'Phone'], ['designation', 'Designation'], ['department', 'Department'], ['location', 'Location'], ['emergencyContact', 'Emergency Contact']];
 
-export default function Profile() {
+export default function Profile({ CustomLayout }) {
   const { user, updateCurrentUser } = useContext(AppContext);
   const location = useLocation();
   const navigate = useNavigate();
   const editing = location.pathname.endsWith('/edit');
+  const isSuperAdmin = user?.role === 'super_admin';
   const isAdmin = user?.role === 'admin';
-  const Layout = isAdmin ? AdminLayout : UserLayout;
-  const profilePath = isAdmin ? '/admin/profile' : '/user/profile';
+  const Layout = CustomLayout || (isAdmin ? AdminLayout : UserLayout);
+  const profilePath = isSuperAdmin ? '/super-admin/profile' : (isAdmin ? '/admin/profile' : '/user/profile');
   const [profile, setProfile] = useState(user || {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -45,5 +46,5 @@ export default function Profile() {
     }
   };
 
-  return <Layout pageTitle="My Profile"><section className="resource-module"><div className="resource-toolbar"><div><span className="page-kicker">{isAdmin ? 'Admin Account' : 'Employee Account'}</span><h2>{editing ? 'Edit Profile' : 'Profile'}</h2></div><div className="resource-actions">{editing ? <button className="ghost-btn" onClick={() => navigate(profilePath)}>Cancel</button> : <button className="primary-btn" onClick={() => navigate(`${profilePath}/edit`)}>Edit Profile</button>}</div></div>{error && <div className="resource-message error">{error}</div>}{success && <div className="resource-message success">{success}</div>}{editing ? <form className="resource-form" onSubmit={submit}>{fields.map(([key, label]) => <label key={key}><span>{label}{['firstName', 'lastName'].includes(key) ? ' *' : ''}</span><input required={['firstName', 'lastName'].includes(key)} value={profile[key] || ''} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /></label>)}<div className="resource-form-actions"><button className="primary-btn" disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</button></div></form> : <div className="resource-details"><div><span>Name</span><strong>{profile.firstName} {profile.lastName}</strong></div><div><span>Email</span><strong>{profile.email}</strong></div>{fields.slice(2).map(([key, label]) => <div key={key}><span>{label}</span><strong>{profile[key] || '-'}</strong></div>)}</div>}</section></Layout>;
+  return <Layout pageTitle="My Profile"><section className="resource-module"><div className="resource-toolbar"><div><span className="page-kicker">{isAdmin ? 'Admin Account' : (isSuperAdmin ? 'Superadmin Account' : 'Employee Account')}</span><h2>{editing ? 'Edit Profile' : 'Profile'}</h2></div><div className="resource-actions">{editing ? <button className="ghost-btn" onClick={() => navigate(profilePath)}>Cancel</button> : <button className="primary-btn" onClick={() => navigate(`${profilePath}/edit`)}>Edit Profile</button>}</div></div>{error && <div className="resource-message error">{error}</div>}{success && <div className="resource-message success">{success}</div>}{editing ? <form className="resource-form" onSubmit={submit}>{(isSuperAdmin ? [['firstName', 'First Name'], ['lastName', 'Last Name'], ['email', 'Email'], ['phone', 'Phone']] : fields).map(([key, label]) => <label key={key}><span>{label}{['firstName', 'lastName', 'email'].includes(key) ? ' *' : ''}</span><input required={['firstName', 'lastName', 'email'].includes(key)} type={key === 'email' ? 'email' : 'text'} value={profile[key] || ''} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /></label>)}<div className="resource-form-actions"><button className="primary-btn" disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</button></div></form> : <div className="resource-details"><div><span>Name</span><strong>{profile.firstName} {profile.lastName}</strong></div><div><span>Email</span><strong>{profile.email}</strong></div>{(isSuperAdmin ? [['phone', 'Phone']] : fields.slice(2)).map(([key, label]) => <div key={key}><span>{label}</span><strong>{profile[key] || '-'}</strong></div>)}</div>}</section></Layout>;
 }

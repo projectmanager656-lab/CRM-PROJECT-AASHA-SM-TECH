@@ -1,4 +1,9 @@
+import { useNavigate } from 'react-router-dom';
+import NotificationDropdown from './NotificationDropdown';
+import MessageDropdown from '../../../../components/messaging/MessageDropdown';
+
 export default function SuperAdminNavbar({ user, title }) {
+  const navigate = useNavigate();
   const fullName =
     user?.firstName && user?.lastName
       ? `${user.firstName} ${user.lastName}`
@@ -19,9 +24,21 @@ export default function SuperAdminNavbar({ user, title }) {
           <span>⌕</span>
           <input type="text" placeholder="Search..." />
         </label>
-        <button type="button" className="header-icon-button">🔔</button>
-        <button type="button" className="header-icon-button">✉️</button>
-        <button type="button" className="header-icon-button">⚙️</button>
+        
+        <NotificationDropdown />
+        <MessageDropdown />
+        
+        <button 
+          type="button" 
+          className="header-icon-button"
+          onClick={() => {
+            const baseRoute = user?.role === 'super_admin' ? '/super-admin' : (user?.role === 'admin' ? '/admin' : '/user');
+            navigate(`${baseRoute}/settings`);
+          }}
+          aria-label="Settings"
+        >
+          ⚙️
+        </button>
 
         <div className="superadmin-profile-chip">
           <div className="profile-avatar">{fullName.slice(0, 2).toUpperCase()}</div>

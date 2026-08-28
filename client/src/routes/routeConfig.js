@@ -22,6 +22,7 @@ import AdminNotifications from '../pages/dashboard/AdminDashboard/Notifications/
 import AdminPayroll from '../pages/dashboard/AdminDashboard/Payroll/Payroll';
 import AdminProjects from '../pages/dashboard/AdminDashboard/Projects/Projects';
 import AdminReports from '../pages/dashboard/AdminDashboard/Reports/Reports';
+import AdminInvoices from '../pages/dashboard/AdminDashboard/Invoices/Invoices';
 import AdminSettings from '../pages/dashboard/AdminDashboard/Settings/Configuration';
 import AdminTasks from '../pages/dashboard/AdminDashboard/Tasks/Tasks';
 import SuperAdminActivityLogs from '../pages/dashboard/SuperAdminDashboard/ActivityLogs/ActivityLogs';
@@ -34,6 +35,7 @@ import SuperAdminHRMS from '../pages/dashboard/SuperAdminDashboard/HRMS/HRMS';
 import SuperAdminModules from '../pages/dashboard/SuperAdminDashboard/Modules/Modules';
 import SuperAdminNotifications from '../pages/dashboard/SuperAdminDashboard/Notifications/Notifications';
 import SuperAdminPayroll from '../pages/dashboard/SuperAdminDashboard/Payroll/Payroll';
+import SuperAdminInvoices from '../pages/dashboard/SuperAdminDashboard/Invoices/Invoices';
 import SuperAdminProjects from '../pages/dashboard/SuperAdminDashboard/Projects/Projects';
 import SuperAdminReports from '../pages/dashboard/SuperAdminDashboard/Reports/Reports';
 import SuperAdminRolesPermissions from '../pages/dashboard/SuperAdminDashboard/RolesPermissions/RolesPermissions';
@@ -41,6 +43,8 @@ import SuperAdminSettings from '../pages/dashboard/SuperAdminDashboard/Settings/
 import SuperAdminDashboard from '../pages/dashboard/SuperAdminDashboard/SuperAdminDashboard';
 import SuperAdminSystemSettings from '../pages/dashboard/SuperAdminDashboard/SystemSettings/SystemSettings';
 import SuperAdminUsers from '../pages/dashboard/SuperAdminDashboard/Users/Users';
+import SuperAdminCalendar from '../pages/dashboard/SuperAdminDashboard/Calendar/Calendar';
+import SuperAdminAttendance from '../pages/dashboard/SuperAdminDashboard/Attendance/Attendance';
 import UserDashboard from '../pages/dashboard/UserDashboard/UserDashboard';
 import Attendance from '../pages/dashboard/UserDashboard/users/Attendance/AttendancePage';
 import Clients from '../pages/dashboard/UserDashboard/users/Clients/Clients';
@@ -55,6 +59,7 @@ import Profile from '../pages/dashboard/UserDashboard/users/Profile/Profile';
 import Projects from '../pages/dashboard/UserDashboard/users/Projects/Projects';
 import Settings from '../pages/dashboard/UserDashboard/users/Settings/Settings';
 import Tasks from '../pages/dashboard/UserDashboard/users/Tasks/Tasks';
+import Inbox from '../pages/dashboard/Chat/Inbox';
 import ProtectedRoute from './ProtectedRoute';
 
 const RootRedirect = () => {
@@ -154,6 +159,7 @@ const routeConfig = [
   { path: '/user/notifications', component: withProtected(Notifications, ['employee'], { module: 'communications', resource: 'notifications', action: 'view' }), layout: BlankLayout },
   { path: '/user/notifications/:id', component: withProtected(Notifications, ['employee']), layout: BlankLayout },
   { path: '/user/settings', component: withProtected(Settings, ['employee']), layout: BlankLayout },
+  { path: '/user/inbox', component: withProtected(Inbox, ['employee', 'user']), layout: BlankLayout },
   { path: '/admin', component: withProtected(AdminDashboard, ['admin']), layout: BlankLayout },
   { path: '/AdminDashboard', component: withProtected(AdminDashboard, ['admin']), layout: BlankLayout },
   { path: '/admin/profile', component: withProtected(Profile, ['admin']), layout: BlankLayout },
@@ -169,13 +175,17 @@ const routeConfig = [
   { path: '/admin/announcements', component: withProtected(AdminAnnouncements, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/leave-requests', component: withProtected(AdminLeaveRequests, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/payroll', component: withProtected(AdminPayroll, ['admin', 'super_admin'], { module: 'finance', resource: 'payroll', action: 'view' }), layout: BlankLayout },
+  { path: '/admin/invoices', component: withProtected(AdminInvoices, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/documents', component: withProtected(AdminDocuments, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/reports', component: withProtected(AdminReports, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/notifications', component: withProtected(AdminNotifications, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/settings', component: withProtected(AdminSettings, ['admin', 'super_admin']), layout: BlankLayout },
+  { path: '/admin/inbox', component: withProtected(Inbox, ['admin']), layout: BlankLayout },
   { path: '/super-admin', component: withProtected(SuperAdminDashboard, ['super_admin']), layout: BlankLayout },
   { path: '/SuperAdminDashboard', component: withProtected(SuperAdminDashboard, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/dashboard', component: withProtected(SuperAdminDashboard, ['super_admin']), layout: BlankLayout },
+  { path: '/super-admin/profile', component: withProtected(Profile, ['super_admin']), layout: BlankLayout },
+  { path: '/super-admin/profile/edit', component: withProtected(Profile, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/users', component: withProtected(SuperAdminUsers, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/roles-permissions', component: withProtected(SuperAdminRolesPermissions, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/departments', component: withProtected(SuperAdminDepartments, ['super_admin']), layout: BlankLayout },
@@ -185,6 +195,9 @@ const routeConfig = [
   { path: '/super-admin/projects', component: withProtected(SuperAdminProjects, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/hrms', component: withProtected(SuperAdminHRMS, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/payroll', component: withProtected(SuperAdminPayroll, ['super_admin'], { module: 'finance', resource: 'payroll', action: 'view' }), layout: BlankLayout },
+  { path: '/super-admin/invoices', component: withProtected(SuperAdminInvoices, ['super_admin']), layout: BlankLayout },
+  { path: '/super-admin/calendar', component: withProtected(SuperAdminCalendar, ['super_admin']), layout: BlankLayout },
+  { path: '/super-admin/attendance', component: withProtected(SuperAdminAttendance, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/reports', component: withProtected(SuperAdminReports, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/notifications', component: withProtected(SuperAdminNotifications, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/database-backup', component: withProtected(SuperAdminDatabaseBackup, ['super_admin']), layout: BlankLayout },
@@ -192,6 +205,7 @@ const routeConfig = [
   { path: '/super-admin/audit-logs', component: withProtected(SuperAdminAuditLogs, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/api-integrations', component: withProtected(SuperAdminAPIIntegrations, ['super_admin']), layout: BlankLayout },
   { path: '/super-admin/settings', component: withProtected(SuperAdminSettings, ['super_admin']), layout: BlankLayout },
+  { path: '/super-admin/inbox', component: withProtected(Inbox, ['super_admin']), layout: BlankLayout },
   { path: '/unauthorized', component: Unauthorized, layout: BlankLayout },
   { path: '*', component: NotFound, layout: BlankLayout },
 ];

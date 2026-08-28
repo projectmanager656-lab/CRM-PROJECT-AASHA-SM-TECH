@@ -1,11 +1,5 @@
 import SuperAdminLayout from '../components/SuperAdminLayout';
 
-const integrations = [
-  { name: 'Stripe', status: 'Connected' },
-  { name: 'Twilio', status: 'Connected' },
-  { name: 'Slack', status: 'Connected' },
-];
-
 export default function APIIntegrations() {
   return (
     <SuperAdminLayout pageTitle="API Integrations">
@@ -15,22 +9,11 @@ export default function APIIntegrations() {
             <div className="section-kicker">System</div>
             <h2>API Integrations</h2>
           </div>
-          <button type="button" className="primary-button">Add Integration</button>
         </div>
 
-        <div className="page-list">
-          {integrations.map((integration) => (
-            <div key={integration.name} className="list-item">
-              <div className="list-item-main">
-                <strong>{integration.name}</strong>
-                <small>Webhook + sync enabled</small>
-              </div>
-              <div className="list-actions">
-                <span className="module-pill">{integration.status}</span>
-                <button type="button">Manage</button>
-              </div>
-            </div>
-          ))}
+        <div className="resource-empty" style={{ marginTop: '2rem' }}>
+          <h3>Not Supported by Backend API</h3>
+          <p>The backend does not currently expose an API Integrations controller. No active Webhooks or third-party API configurations are managed here.</p>
         </div>
       </div>
     </SuperAdminLayout>

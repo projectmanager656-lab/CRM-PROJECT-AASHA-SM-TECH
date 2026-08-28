@@ -1,16 +1,108 @@
-.user-splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden; color: #fff; background: #0c0d0e; transition: opacity .35s ease, visibility .35s ease; }
-.user-splash--leaving { opacity: 0; visibility: hidden; }
-.user-splash__content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; animation: splash-enter .7s cubic-bezier(.2,.8,.2,1) both; }
-.user-splash__logo-wrap { display: grid; place-items: center; width: 110px; height: 110px; padding: 10px; margin-bottom: 1.75rem; border: 1px solid rgba(255,255,255,.16); border-radius: 28px; background: #fff; box-shadow: 0 0 0 10px rgba(247,104,20,.12), 0 20px 48px rgba(0,0,0,.38); }
-.user-splash__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 18px; }
-.user-splash__eyebrow { margin: 0 0 .4rem; color: #f89a57; font-size: .75rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
-.user-splash h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.4rem); letter-spacing: -.055em; line-height: 1; }
-.user-splash__title { margin: .7rem 0 2rem; color: rgba(255,255,255,.62); font-size: .9rem; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
-.user-splash__loader { width: 142px; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.13); }
-.user-splash__loader span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e75914, #ffb16f); animation: splash-loading 2.6s ease-in-out both; }
-.user-splash__glow { position: absolute; width: 48vw; height: 48vw; border-radius: 50%; filter: blur(24px); opacity: .24; }
-.user-splash__glow--one { top: -25vw; right: -13vw; background: #e75914; }
-.user-splash__glow--two { bottom: -30vw; left: -18vw; background: #7b2808; }
-@keyframes splash-enter { from { opacity: 0; transform: scale(.94) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes splash-loading { from { transform: translateX(-110%); } to { transform: translateX(325%); } }
-@media (prefers-reduced-motion: reduce) { .user-splash__content, .user-splash__loader span { animation: none; } .user-splash { transition-duration: .01ms; } }
+/* ==========================================================================
+   PREMIUM USER SPLASH SCREEN
+   ========================================================================== */
+
+.user-splash-premium {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: #0B0F19; /* Deep, luxury corporate dark background */
+  color: #ffffff;
+  overflow: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  animation: splash-bg-fade 2s ease-in-out forwards;
+}
+
+.user-splash-premium--leaving {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.splash-premium-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* --- TEXT WRAPPER --- */
+.splash-premium-text-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- EYEBROW: 'Welcome to' --- */
+.splash-premium-eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  animation: splash-text-enter 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards;
+}
+
+/* --- TITLE: 'AASHA SM TECH' --- */
+.splash-premium-title {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  line-height: 1.1;
+  color: #ffffff;
+  opacity: 0;
+  animation: splash-text-enter 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards,
+             splash-shimmer 2s linear 1.2s forwards;
+  background: linear-gradient(90deg, #ffffff 0%, #ffffff 40%, rgba(255,255,255,0.7) 50%, #ffffff 60%, #ffffff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ==========================================================================
+   ANIMATIONS
+   ========================================================================== */
+
+@keyframes splash-bg-fade {
+  0% { background: #000000; }
+  100% { background: #0B0F19; }
+}
+
+@keyframes splash-text-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .user-splash-premium,
+  .splash-premium-eyebrow,
+  .splash-premium-title {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .user-splash-premium {
+    transition-duration: 0ms !important;
+  }
+}

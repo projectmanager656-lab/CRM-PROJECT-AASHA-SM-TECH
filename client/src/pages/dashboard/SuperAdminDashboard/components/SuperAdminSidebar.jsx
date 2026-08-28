@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 
 const navIcons = {
   '/super-admin/dashboard': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>,
@@ -11,7 +12,10 @@ const navIcons = {
   '/super-admin/projects': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
   '/super-admin/hrms': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>,
   '/super-admin/payroll': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  '/super-admin/attendance': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 2v4M8 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M9 16h6M12 13v6"/></svg>,
+  '/super-admin/invoices': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>,
   '/super-admin/reports': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
+  '/super-admin/calendar': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
   '/super-admin/notifications': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>,
   '/super-admin/database-backup': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></svg>,
   '/super-admin/activity-logs': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
@@ -38,8 +42,11 @@ const sections = [
       { label: 'Projects', path: '/super-admin/projects' },
       { label: 'HRMS', path: '/super-admin/hrms' },
       { label: 'Payroll', path: '/super-admin/payroll' },
+      { label: 'Attendance', path: '/super-admin/attendance' },
+      { label: 'Invoices', path: '/super-admin/invoices' },
       { label: 'Reports', path: '/super-admin/reports' },
       { label: 'Notifications', path: '/super-admin/notifications' },
+      { label: 'Calendar', path: '/super-admin/calendar' },
     ],
   },
   {
@@ -55,6 +62,19 @@ const sections = [
 
 export default function SuperAdminSidebar({ user, onLogout }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const fullName =
     user?.firstName && user?.lastName
       ? `${user.firstName} ${user.lastName}`
@@ -64,15 +84,11 @@ export default function SuperAdminSidebar({ user, onLogout }) {
 
   return (
     <aside className="superadmin-sidebar">
-      <div className="superadmin-brand-wrap">
-        <img className="superadmin-brand-logo" src="/aasha-sm-logo.jpeg" alt="Aasha SM Technologies" />
-        <div className="superadmin-brand-text">
-          <h2>Aasha SM Technologies</h2>
-          <span>CRM Management System</span>
-        </div>
+      <div className="sidebar-logo-container">
+        <img className="sidebar-full-logo" src="/company-logo.jpg" alt="ASHA SM TECHNOLOGIES" />
       </div>
 
-      <div className="superadmin-user-tag">
+      <div className="superadmin-user-tag" onClick={() => { console.log('Profile card clicked, toggling dropdown to:', !dropdownOpen); setDropdownOpen(!dropdownOpen); }} ref={dropdownRef} style={{ cursor: 'pointer', position: 'relative' }}>
         <div className="superadmin-user-avatar">
           {fullName.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -81,12 +97,28 @@ export default function SuperAdminSidebar({ user, onLogout }) {
           <em>{roleLabel}</em>
           <span className="superadmin-status-dot">Online</span>
         </div>
+        <span style={{ marginLeft: 'auto', fontSize: '1rem', color: '#64748b' }}>{dropdownOpen ? '˄' : '˅'}</span>
+        
+        {dropdownOpen && (
+          <div className="superadmin-profile-dropdown" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => { setDropdownOpen(false); navigate('/super-admin/profile'); }}>
+              <span className="dropdown-icon">👤</span> View Profile
+            </button>
+            <button type="button" onClick={() => { setDropdownOpen(false); navigate('/super-admin/profile/edit'); }}>
+              <span className="dropdown-icon">✏️</span> Edit Profile
+            </button>
+            <div className="dropdown-divider"></div>
+            <button type="button" onClick={onLogout} className="dropdown-logout-btn">
+              <span className="dropdown-icon">🚪</span> Logout
+            </button>
+          </div>
+        )}
       </div>
 
       <nav className="superadmin-sidebar-nav">
         <div className="nav-label">Overview</div>
-        <NavLink 
-          to="/super-admin/dashboard" 
+        <NavLink
+          to="/super-admin/dashboard"
           end
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
         >
@@ -111,19 +143,18 @@ export default function SuperAdminSidebar({ user, onLogout }) {
         ))}
 
         <div className="nav-label">System</div>
-        <NavLink 
-          to="/super-admin/settings" 
+        <NavLink
+          to="/super-admin/settings"
           className={({ isActive }) => `sidebar-link ${isActive || location.pathname.startsWith('/super-admin/settings/') ? 'active' : ''}`}
         >
           <span className="nav-item-icon" aria-hidden="true">{navIcons['/super-admin/settings']}</span>
           <span className="nav-item-text">Settings</span>
         </NavLink>
-      </nav>
-
       <button type="button" className="sidebar-logout" onClick={onLogout}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="logout-icon"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
         Logout
       </button>
+      </nav>
     </aside>
   );
 }

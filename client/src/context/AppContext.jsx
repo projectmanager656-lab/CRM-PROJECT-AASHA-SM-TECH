@@ -1,4 +1,4 @@
-﻿import { createContext, useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 import apiClient from '../services/apiClient';
 
 export const normalizeRole = (value) => String(value || '').trim().toLowerCase();
@@ -130,10 +130,10 @@ export function AppContextProvider({ children }) {
     return result;
   };
 
-  const registerFor = async (email, password, firstName, lastName, department, endpoint = '/auth/register') => {
+  const registerFor = async (email, password, firstName, lastName, department, phone, designation, endpoint = '/auth/register') => {
     setLoading(true);
     try {
-      const response = await apiClient.post(endpoint, { email, password, firstName, lastName, department });
+      const response = await apiClient.post(endpoint, { email, password, firstName, lastName, department, phone, designation });
       const payload = response.data.data || {};
       const userData = payload.user || payload;
       const newToken = payload.token || null;
@@ -157,7 +157,7 @@ export function AppContextProvider({ children }) {
     }
   };
 
-  const register = (email, password, firstName, lastName, department) => registerFor(email, password, firstName, lastName, department);
+  const register = (email, password, firstName, lastName, department, phone, designation) => registerFor(email, password, firstName, lastName, department, phone, designation);
 
   const registerAdmin = (email, password, firstName, lastName) =>
     registerFor(email, password, firstName, lastName, '', '/auth/admin/register');

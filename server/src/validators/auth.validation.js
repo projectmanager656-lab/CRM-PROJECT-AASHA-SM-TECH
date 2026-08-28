@@ -31,6 +31,16 @@ export const validateRegister = Joi.object({
     .messages({
       'string.base': 'Department must be a string'
     }),
+  phone: Joi.string()
+    .trim()
+    .messages({
+      'string.base': 'Phone number must be a string'
+    }),
+  designation: Joi.string()
+    .trim()
+    .messages({
+      'string.base': 'Designation must be a string'
+    }),
 });
 
 export const validateEmployeeRegister = validateRegister.fork(['department'], (field) => field.required().messages({

@@ -8,7 +8,7 @@ import { validateEmployeeRegister, validateLogin, validateRegister } from '../va
 export class AuthController {
   // Register
   static register = asyncHandler(async (req, res) => {
-    const { email, password, firstName, lastName, department } = req.body;
+    const { email, password, firstName, lastName, department, phone, designation } = req.body;
 
     // Validate input
     const { error } = validateEmployeeRegister.validate({
@@ -17,6 +17,8 @@ export class AuthController {
       firstName,
       lastName,
       department,
+      phone,
+      designation,
     });
 
     if (error) {
@@ -33,7 +35,9 @@ export class AuthController {
       firstName,
       lastName,
       department,
-      'employee'
+      'employee',
+      phone,
+      designation
     );
 
     // Generate token for immediate authentication

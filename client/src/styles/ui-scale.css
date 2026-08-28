@@ -52,12 +52,12 @@ body {
 
 /* Shared role-shell proportions */
 #root :is(.admin-layout-sidebar, .user-layout-sidebar) {
-  width: 16.5rem;
+  width: clamp(14rem, 15vw, 16.5rem);
   padding: 0.85rem 0.75rem 0.75rem;
 }
 
 #root .superadmin-sidebar {
-  width: 16.5rem;
+  width: clamp(14rem, 15vw, 16.5rem);
   padding: 0.85rem 0.75rem 0.75rem;
 }
 
@@ -116,7 +116,7 @@ body {
 
 /* User dashboard has its own shell instead of UserLayout. */
 #root .user-dashboard-shell .user-sidebar {
-  width: 16.5rem;
+  width: clamp(14rem, 15vw, 16.5rem);
   padding: 0.85rem 0.75rem 0.75rem;
 }
 
@@ -189,10 +189,10 @@ body {
 }
 
 #root .reference-dashboard .legend-list,
-#root .reference-dashboard .task-list > div,
-#root .reference-dashboard .announcement-list > div,
-#root .reference-dashboard .mini-table > div,
-#root .reference-dashboard .leave-list > div {
+#root .reference-dashboard .task-list>div,
+#root .reference-dashboard .announcement-list>div,
+#root .reference-dashboard .mini-table>div,
+#root .reference-dashboard .leave-list>div {
   font-size: 0.8125rem;
 }
 

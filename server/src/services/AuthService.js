@@ -16,7 +16,7 @@ export class AuthService {
     return Model;
   }
 
-  static async register(email, password, firstName, lastName, department = '', role = 'employee') {
+  static async register(email, password, firstName, lastName, department = '', role = 'employee', phone = '', designation = '') {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!['employee', 'admin'].includes(role)) {
       throw createValidationError('Registration is not allowed for this role');
@@ -44,6 +44,8 @@ export class AuthService {
       lastName,
       department: String(department || '').trim(),
       role,
+      phone: String(phone || '').trim(),
+      designation: String(designation || '').trim(),
     });
 
     await user.save();

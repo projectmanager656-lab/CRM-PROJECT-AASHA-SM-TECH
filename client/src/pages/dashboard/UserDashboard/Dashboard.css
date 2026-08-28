@@ -8,15 +8,15 @@
 
 .welcome-banner {
   margin-top: 1.4rem;
-  padding: 1.5rem 1.4rem;
-  background: linear-gradient(120deg, #1b120d 0%, #45210e 62%, #a9420e 150%);
-  border-radius: 22px;
+  padding: 2rem;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   color: #ffffff;
-  box-shadow: 0 18px 34px rgba(115, 48, 14, 0.2);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
 }
 
 .welcome-kicker {
@@ -60,12 +60,18 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 18px;
-  padding: 1.1rem 1rem;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.03);
+  gap: 1.25rem;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  padding: 1.5rem 1.25rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
 }
 
 .stat-card.primary {
@@ -153,17 +159,17 @@
 .secondary-grid,
 .lower-grid {
   display: grid;
-  grid-template-columns: 1.5fr 0.95fr;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: 1.25rem;
   margin-top: 1.5rem;
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 22px;
-  padding: 1.25rem 1.2rem;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.03);
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.03);
 }
 
 .panel-header {
@@ -192,11 +198,17 @@
 .task-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
+  gap: 1rem;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 0.9rem 0.8rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.1rem 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.task-item:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 .task-check {
@@ -343,9 +355,15 @@
 
 .project-item {
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 16px;
-  padding: 0.9rem 0.85rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.1rem 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.project-item:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 .project-head {
@@ -404,11 +422,17 @@
 .schedule-item {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 1rem;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 0.9rem 0.8rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.1rem 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.schedule-item:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 .schedule-time {
@@ -532,11 +556,17 @@ td {
 .announcement-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
+  gap: 1rem;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 0.85rem 0.8rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.1rem 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.announcement-item:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 .announcement-icon {
@@ -579,22 +609,23 @@ td {
 }
 
 .quick-link-card {
-  background: #f8fafc;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 0.9rem 0.75rem;
+  border-radius: 14px;
+  padding: 1.25rem 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.75rem;
   color: #0f172a;
   transition: all 0.2s ease;
 }
 
 .quick-link-card:hover {
-  border-color: #93c5fd;
-  transform: translateY(-1px);
+  border-color: #94a3b8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .quick-link-card span {

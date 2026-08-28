@@ -1,3 +1,7 @@
+import dns from 'dns';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 // Server Entry Point
 import 'dotenv/config';
 import app from './app.js';

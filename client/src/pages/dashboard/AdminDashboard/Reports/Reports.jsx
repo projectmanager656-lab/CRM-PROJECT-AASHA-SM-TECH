@@ -10,9 +10,9 @@ const reportTypes = [
   { id: 'REP-006', type: 'Task Report', description: 'Task completion and performance metrics' },
 ];
 
-export default function Reports() {
+export default function Reports({ Layout = AdminLayout }) {
   return (
-    <AdminLayout pageTitle="Reports">
+    <Layout pageTitle="Reports">
       <div className="admin-page">
         <div className="admin-page-header">
           <h2>Report Generator</h2>
@@ -57,6 +57,6 @@ export default function Reports() {
           ))}
         </div>
       </div>
-    </AdminLayout>
+    </Layout>
   );
 }

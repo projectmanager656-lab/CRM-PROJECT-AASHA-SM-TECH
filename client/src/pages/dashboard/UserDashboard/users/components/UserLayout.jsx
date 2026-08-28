@@ -1,7 +1,9 @@
-import { useContext } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import apiClient from '../../../../../services/apiClient';
 import { AppContext } from '../../../../../context/AppContext';
 import { NON_TECH_LEAD_DEPARTMENTS } from '../../../../../config/departments';
+import MessageDropdown from '../../../../../components/messaging/MessageDropdown';
 import './UserLayout.css';
 
 const navItems = [
@@ -43,6 +45,37 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [latestNotification, setLatestNotification] = useState(null);
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+
+  useEffect(() => {
+    let popupTimer;
+    const loadNotifications = async () => {
+      try {
+        const response = await apiClient.get('/notifications');
+        const unread = response.data.data.filter(n => !n.isRead);
+        setUnreadNotifications(unread.length);
+        if (unread.length > 0) {
+          const latest = unread[0];
+          setLatestNotification((prev) => {
+            if (!prev || prev._id !== latest._id) {
+              setShowNotificationPopup(true);
+              if (popupTimer) clearTimeout(popupTimer);
+              popupTimer = setTimeout(() => setShowNotificationPopup(false), 5000);
+              return latest;
+            }
+            return prev;
+          });
+        }
+      } catch (e) {}
+    };
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => { clearInterval(interval); if (popupTimer) clearTimeout(popupTimer); };
+  }, []);
+
   const fullName = user?.firstName && user?.lastName
     ? `${user.firstName} ${user.lastName}`
     : user?.firstName || user?.email || 'Employee';
@@ -61,12 +94,8 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
   return (
     <div className="user-layout-shell">
       <aside className="user-layout-sidebar">
-        <div className="user-sidebar-header">
-          <img className="user-brand-logo" src="/aasha-sm-logo.jpeg" alt="Aasha SM Tech" />
-          <div className="user-brand-text">
-            <h2>Aasha SM Tech</h2>
-            <span>{pageSubtitle}</span>
-          </div>
+        <div className="sidebar-logo-container">
+          <img className="sidebar-full-logo" src="/company-logo.jpg" alt="ASHA SM TECHNOLOGIES" />
         </div>
 
         <div className="user-sidebar-profile">
@@ -81,6 +110,7 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
         <nav className="user-sidebar-nav" aria-label="User navigation">
           {navItems
             .filter((item) => (!item.permission || can(...item.permission, 'view')) && (!item.departments || item.departments.includes(user?.department)))
+            .filter((item) => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
             .map((item) => (
               <NavLink
                 key={item.path}
@@ -111,10 +141,12 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
           <div className="user-layout-actions">
             <label className="user-search-box" aria-label="Search employee area">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-              <input type="text" placeholder="Search..." />
+              <input type="text" placeholder="Search sidebar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </label>
+            <MessageDropdown />
             <button type="button" className="user-top-icon" onClick={() => navigate('/user/notifications')} aria-label="Open notifications">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              {unreadNotifications > 0 && <span className="user-badge">{unreadNotifications}</span>}
             </button>
             <button type="button" className="user-top-icon" onClick={() => navigate('/user/calendar')} aria-label="Open calendar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
@@ -125,6 +157,22 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
         <div className="user-page-body">
           {children}
         </div>
+
+        {showNotificationPopup && latestNotification && (
+          <div className="notification-popup">
+            <div className="notification-popup-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              <strong>{latestNotification.title}</strong>
+              <button onClick={() => setShowNotificationPopup(false)}>&times;</button>
+            </div>
+            <div className="notification-popup-body">
+              {latestNotification.message}
+            </div>
+            <div className="notification-popup-footer">
+              <button onClick={() => { setShowNotificationPopup(false); navigate('/user/notifications'); }}>View All</button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

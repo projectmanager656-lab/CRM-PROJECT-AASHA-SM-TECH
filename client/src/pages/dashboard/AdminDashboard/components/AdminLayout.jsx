@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../../../context/AppContext';
 import apiClient from '../../../../services/apiClient';
+import MessageDropdown from '../../../../components/messaging/MessageDropdown';
 import './AdminLayout.css';
 
 const navItems = [
@@ -14,7 +15,8 @@ const navItems = [
   { label: 'Clients', path: '/admin/clients', permission: ['crm', 'clients'] },
   { label: 'Attendance', path: '/admin/attendance', permission: ['hrms', 'attendance'] },
   { label: 'Leave Requests', path: '/admin/leave-requests', permission: ['hrms', 'leave_requests'] },
-  { label: 'Payroll', path: '/admin/payroll', permission: ['finance', 'payroll'] },
+  { label: 'Payroll', path: '/admin/payroll' },
+  { label: 'Invoices', path: '/admin/invoices' },
   { label: 'Documents', path: '/admin/documents', permission: ['documents', 'documents'] },
   { label: 'Reports', path: '/admin/reports' },
   { label: 'Notifications', path: '/admin/notifications', permission: ['communications', 'notifications'] },
@@ -34,6 +36,7 @@ const navIcons = {
   '/admin/attendance': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
   '/admin/leave-requests': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
   '/admin/payroll': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  '/admin/invoices': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" /></svg>,
   '/admin/documents': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>,
   '/admin/reports': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
   '/admin/notifications': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>,
@@ -48,6 +51,7 @@ export default function AdminLayout({ children, pageTitle, pageSubtitle = 'Admin
   const location = useLocation();
   const navigate = useNavigate();
   const [notificationCount, setNotificationCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   useEffect(() => {
     let active = true;
 
@@ -93,12 +97,8 @@ export default function AdminLayout({ children, pageTitle, pageSubtitle = 'Admin
   return (
     <div className="admin-layout-shell">
       <aside className="admin-layout-sidebar">
-        <div className="admin-sidebar-header">
-          <img className="admin-brand-logo" src="/aasha-sm-logo.jpeg" alt="Aasha SM Technologies" />
-          <div className="admin-brand-text">
-            <h2>Aasha SM Technologies</h2>
-            <span>CRM Management System</span>
-          </div>
+        <div className="sidebar-logo-container">
+          <img className="sidebar-full-logo" src="/company-logo.jpg" alt="ASHA SM TECHNOLOGIES" />
         </div>
 
         <div className="admin-sidebar-profile">
@@ -111,7 +111,10 @@ export default function AdminLayout({ children, pageTitle, pageSubtitle = 'Admin
         </div>
 
         <nav className="admin-sidebar-nav" aria-label="Admin navigation">
-          {navItems.filter((item) => !item.permission || can(...item.permission, 'view')).map((item) => (
+          {navItems
+            .filter((item) => !item.permission || can(...item.permission, 'view'))
+            .filter((item) => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -143,8 +146,10 @@ export default function AdminLayout({ children, pageTitle, pageSubtitle = 'Admin
           <div className="admin-layout-actions">
             <label className="admin-search-box" aria-label="Search admin area">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-              <input type="text" placeholder="Search workspace..." />
+              <input type="text" placeholder="Search sidebar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </label>
+
+            <MessageDropdown />
 
             <button type="button" className="admin-top-icon" onClick={() => navigate('/admin/notifications')} aria-label="Open alerts">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
