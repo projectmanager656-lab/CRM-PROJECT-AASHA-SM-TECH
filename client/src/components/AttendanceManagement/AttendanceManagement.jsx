@@ -26,7 +26,8 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
   const loadUsers = async () => {
     try {
       const response = await apiClient.get('/users');
-      setUsers(response.data.data || []);
+      const emps = (response.data.data || []).filter((u) => u.role === 'employee' && u.isActive !== false);
+      setUsers(emps);
     } catch (e) {
       console.error('Failed to load users', e);
     }
@@ -50,18 +51,21 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      const name = r.user ? `${r.user.firstName} ${r.user.lastName || ''}`.toLowerCase() : '';
-      const matchesSearch = name.includes(searchQuery.toLowerCase());
+      const name = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.toLowerCase() : '';
+      const email = r.user?.email ? r.user.email.toLowerCase() : '';
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = name.includes(q) || email.includes(q);
       const matchesStatus = statusFilter === 'All' || r.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [records, searchQuery, statusFilter]);
 
   const summary = useMemo(() => ({
-    Present: filteredRecords.filter((x) => x.status === 'Present').length,
-    Absent: filteredRecords.filter((x) => x.status === 'Absent').length,
-    Late: filteredRecords.filter((x) => x.status === 'Late').length,
-    'Half Day': filteredRecords.filter((x) => x.status === 'Half Day').length
+    present: filteredRecords.filter((x) => x.status === 'Present').length,
+    absent: filteredRecords.filter((x) => x.status === 'Absent').length,
+    late: filteredRecords.filter((x) => x.status === 'Late').length,
+    leave: filteredRecords.filter((x) => x.status === 'Half Day').length,
+    total: filteredRecords.length,
   }), [filteredRecords]);
 
   const openModal = (record = null) => {
@@ -143,14 +147,25 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
       </div>
       {error && !showModal && <div className="admin-resource-message error">{error}</div>}
       
-      <div className="attendance-summary">
-        <div className="summary-grid admin-card">
-          {Object.entries(summary).map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
+      <div className="admin-overview-panel">
+        <h3>Today's Time Summary</h3>
+        <div className="admin-overview-grid">
+          <div className="admin-overview-card success">
+            <span>Present</span>
+            <strong>{summary.present}</strong>
+          </div>
+          <div className="admin-overview-card warning">
+            <span>Late</span>
+            <strong>{summary.late}</strong>
+          </div>
+          <div className="admin-overview-card primary">
+            <span>Absent</span>
+            <strong>{summary.absent}</strong>
+          </div>
+          <div className="admin-overview-card info">
+            <span>Half Day / Leave</span>
+            <strong>{summary.leave}</strong>
+          </div>
         </div>
       </div>
 

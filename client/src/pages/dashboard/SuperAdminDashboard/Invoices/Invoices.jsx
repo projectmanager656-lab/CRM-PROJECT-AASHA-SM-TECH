@@ -1,4 +1,4 @@
-﻿import AdminResourceManager from '../../AdminDashboard/components/AdminResourceManager';
+import AdminResourceManager from '../../AdminDashboard/components/AdminResourceManager';
 import SuperAdminLayout from '../components/SuperAdminLayout';
 
 const fields = [
@@ -274,7 +274,7 @@ const downloadPdfAction = (record) => (
           <div class="header">
             <div class="logo-area">
                <!-- Company Logo -->
-               <img src="/aasha-sm-logo.jpeg" alt="AASHA-SM Logo" onerror="this.src='https://via.placeholder.com/150x50?text=Logo'"/>
+               <img src="/aasha-logo-new.jpg" alt="AASHA-SM Logo" onerror="this.src='https://via.placeholder.com/150x50?text=Logo'"/>
             </div>
             <div class="company-details">
               <h2 class="company-name">AASHA-SM TECHNOLOGIES<br>PRIVATE LIMITED.</h2>

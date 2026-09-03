@@ -61,7 +61,7 @@ body {
   padding: 0.85rem 0.75rem 0.75rem;
 }
 
-#root :is(.admin-layout-content, .user-layout-content, .superadmin-main-panel) {
+#root :is(.admin-layout-content, .superadmin-main-panel) {
   padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2.25vw, 2.25rem) 2.5rem;
 }
 
@@ -227,7 +227,7 @@ body {
     padding: 1.75rem 1.25rem;
   }
 
-  #root :is(.admin-layout-content, .user-layout-content, .superadmin-main-panel, .user-dashboard-shell .user-main-panel) {
+  #root :is(.admin-layout-content, .superadmin-main-panel, .user-dashboard-shell .user-main-panel) {
     padding: 1rem;
   }
 

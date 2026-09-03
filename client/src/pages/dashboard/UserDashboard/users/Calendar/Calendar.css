@@ -1,0 +1,1150 @@
+/* ═══════════════════════════════════════════════════════════════
+   HR CALENDAR & EVENT MANAGEMENT SYSTEM — STYLES
+   ═══════════════════════════════════════════════════════════════ */
+
+.hr-calendar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  color: #1e293b;
+  font-family: inherit;
+}
+
+/* ─── Hero Header & Stats ─── */
+.hr-cal-header-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hr-cal-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.hr-cal-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.hr-cal-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ea580c;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hr-cal-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.hr-cal-sub {
+  font-size: 0.84rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.hr-cal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.hr-cal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+.hr-cal-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.hr-cal-btn-primary {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+}
+
+.hr-cal-btn-primary:hover {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.35);
+}
+
+.hr-cal-btn-interview {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.hr-cal-btn-interview:hover {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+}
+
+.hr-cal-btn-secondary {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+
+.hr-cal-btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* ─── KPI Strip ─── */
+.hr-cal-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.hr-cal-stat-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.hr-cal-stat-item:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.hr-cal-stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hr-cal-stat-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hr-cal-stat-icon.orange { background: #ffedd5; color: #ea580c; }
+.hr-cal-stat-icon.purple { background: #eef2ff; color: #6366f1; }
+.hr-cal-stat-icon.blue { background: #e0f2fe; color: #0284c7; }
+.hr-cal-stat-icon.emerald { background: #ecfdf5; color: #059669; }
+
+.hr-cal-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-cal-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hr-cal-stat-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+/* ─── Calendar Controls & Filters Toolbar ─── */
+.hr-cal-toolbar-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.hr-cal-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.hr-cal-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.hr-cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hr-cal-nav-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.hr-cal-nav-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.hr-cal-today-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hr-cal-today-btn:hover {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+.hr-cal-heading-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.hr-cal-view-pills {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.hr-cal-view-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hr-cal-view-btn.active {
+  background: #ffffff;
+  color: #ea580c;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.hr-cal-view-btn:hover:not(.active) {
+  color: #0f172a;
+}
+
+/* ─── Search & Dropdown Filters Row ─── */
+.hr-cal-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f8fafc;
+}
+
+.hr-cal-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.hr-cal-search-box svg {
+  width: 15px;
+  height: 15px;
+  color: #94a3b8;
+}
+
+.hr-cal-search-box input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 0.825rem;
+  color: #0f172a;
+  width: 100%;
+}
+
+.hr-cal-filter-select {
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.hr-cal-filter-select:focus {
+  border-color: #ea580c;
+  background: #ffffff;
+}
+
+.hr-cal-toggle-leave {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+  margin-left: auto;
+}
+
+.hr-cal-toggle-leave input {
+  cursor: pointer;
+  accent-color: #ea580c;
+}
+
+/* ─── Calendar Main Layout ─── */
+.hr-cal-main-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .hr-cal-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hr-cal-view-container {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+/* ─── Month View Grid ─── */
+.hr-month-grid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.hr-month-weekdays-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hr-month-weekday-cell {
+  padding: 0.65rem 0.5rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hr-month-days-body {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.hr-month-day-cell {
+  min-height: 110px;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: #ffffff;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.hr-month-day-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.hr-month-day-cell.other-month {
+  background: #fafafa;
+  opacity: 0.5;
+}
+
+.hr-month-day-cell:hover:not(.other-month) {
+  background: #fffbf7;
+}
+
+.hr-month-day-cell.today {
+  background: #fff7ed;
+}
+
+.hr-month-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hr-month-day-number {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.hr-month-day-cell.today .hr-month-day-number {
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3);
+}
+
+.hr-month-add-quick {
+  opacity: 0;
+  background: transparent;
+  border: 0;
+  color: #ea580c;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: opacity 0.15s ease;
+}
+
+.hr-month-day-cell:hover .hr-month-add-quick {
+  opacity: 1;
+}
+
+.hr-month-events-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Event Pill Badges ─── */
+.hr-cal-event-pill {
+  padding: 0.2rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.hr-cal-event-pill:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.hr-pill-time {
+  font-size: 0.66rem;
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.hr-pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Color theme mappings */
+.hr-pill-interview {
+  background: #eef2ff;
+  color: #4f46e5;
+  border-color: #c7d2fe;
+}
+
+.hr-pill-hrmeeting,
+.hr-pill-hrevent {
+  background: #fff7ed;
+  color: #ea580c;
+  border-color: #ffedd5;
+}
+
+.hr-pill-employeemeeting,
+.hr-pill-meeting {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #e0f2fe;
+}
+
+.hr-pill-companyevent {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+
+.hr-pill-workshop,
+.hr-pill-training {
+  background: #f0fdfa;
+  color: #0d9488;
+  border-color: #ccfbf1;
+}
+
+.hr-pill-leave,
+.hr-pill-holiday {
+  background: #fffbeb;
+  color: #d97706;
+  border-color: #fef3c7;
+}
+
+.hr-pill-payrolldeadline,
+.hr-pill-task {
+  background: #fff1f2;
+  color: #e11d48;
+  border-color: #fecdd3;
+}
+
+.hr-pill-other,
+.hr-pill-reminder {
+  background: #f8fafc;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.hr-cal-more-btn {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #ea580c;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  padding: 0.1rem 0.2rem;
+}
+
+/* ─── Week View ─── */
+.hr-week-view-container {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+
+.hr-week-header {
+  display: grid;
+  grid-template-columns: 55px repeat(7, 1fr);
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.hr-week-header-corner {
+  border-right: 1px solid #e2e8f0;
+  padding: 0.65rem 0.25rem;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.hr-week-header-day {
+  padding: 0.65rem 0.4rem;
+  text-align: center;
+  border-right: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.hr-week-header-day.today {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.hr-week-day-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.hr-week-day-num {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.hr-week-header-day.today .hr-week-day-num {
+  color: #ea580c;
+}
+
+.hr-week-body {
+  display: grid;
+  grid-template-columns: 55px repeat(7, 1fr);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.hr-week-time-col {
+  border-right: 1px solid #e2e8f0;
+  background: #fafafa;
+}
+
+.hr-week-time-slot {
+  height: 50px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+  padding-top: 0.2rem;
+}
+
+.hr-week-day-col {
+  border-right: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.hr-week-hour-cell {
+  height: 50px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+}
+
+.hr-week-hour-cell:hover {
+  background: #fffbf7;
+}
+
+.hr-week-event-card {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.72rem;
+  border: 1px solid;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+
+.hr-week-event-card:hover {
+  transform: scale(1.02);
+  z-index: 20;
+}
+
+/* ─── Day View ─── */
+.hr-day-view-container {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.hr-day-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.hr-day-event-row {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #ea580c;
+  border-radius: 10px;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.hr-day-event-row:hover {
+  border-color: #cbd5e1;
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.hr-day-event-row.interview { border-left-color: #6366f1; }
+.hr-day-event-row.employeemeeting { border-left-color: #0284c7; }
+.hr-day-event-row.companyevent { border-left-color: #059669; }
+.hr-day-event-row.leave { border-left-color: #d97706; }
+
+.hr-day-event-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hr-day-time-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 75px;
+  padding: 0.35rem 0.55rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hr-day-event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.hr-day-event-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.hr-day-event-sub {
+  font-size: 0.8rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.hr-day-event-sub span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ─── Agenda List View ─── */
+.hr-agenda-view-container {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hr-agenda-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.hr-agenda-date-heading {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ─── Sidebar Quick Panels ─── */
+.hr-cal-side-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.hr-cal-side-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.15rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.hr-cal-side-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hr-cal-side-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.hr-cal-agenda-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hr-cal-agenda-item:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.hr-cal-agenda-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hr-cal-agenda-item-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.hr-cal-agenda-item-meta {
+  font-size: 0.74rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* ─── Viewport-Safe Modals & Sticky Footer Architecture ─── */
+.hr-cal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.hr-cal-modal-box {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 660px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  position: relative;
+  animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hr-cal-modal-box form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.hr-cal-modal-header {
+  flex-shrink: 0;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+}
+
+.hr-cal-modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.hr-cal-modal-close {
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  font-size: 1.35rem;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.hr-cal-modal-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.hr-cal-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hr-cal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .hr-cal-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hr-cal-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hr-cal-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.hr-cal-form-group label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.hr-cal-input,
+.hr-cal-select,
+.hr-cal-textarea {
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.825rem;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.hr-cal-input:focus,
+.hr-cal-select:focus,
+.hr-cal-textarea:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.hr-cal-textarea {
+  resize: vertical;
+  min-height: 52px;
+  height: 56px;
+}
+
+/* Conflict Banner */
+.hr-cal-conflict-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  color: #991b1b;
+  font-size: 0.8rem;
+}
+
+.hr-cal-conflict-banner svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hr-cal-modal-footer {
+  flex-shrink: 0;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  background: #f8fafc;
+}
+
+/* Multi-select user chip selector */
+.hr-cal-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 90px;
+  overflow-y: auto;
+  padding: 0.45rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.hr-cal-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.hr-cal-user-chip.selected {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+/* Empty State */
+.hr-cal-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  color: #64748b;
+}
+
+.hr-cal-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  margin-bottom: 0.4rem;
+}
+
+.hr-cal-empty-icon svg {
+  width: 28px;
+  height: 28px;
+}

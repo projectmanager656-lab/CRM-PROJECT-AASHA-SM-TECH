@@ -20,6 +20,12 @@ import { summary as superAdminSummary } from '../controllers/SuperAdminControlle
 import { authenticateToken, authorizeRole } from '../middleware/auth.middleware.js';
 import { CompanySettingController } from '../controllers/CompanySettingController.js';
 
+import performanceRoutes from './performance.routes.js';
+import recruitmentRoutes from './recruitment.routes.js';
+import resignationRoutes from './resignation.routes.js';
+import assetRoutes from './asset.routes.js';
+import hrReportRoutes from './hrReport.routes.js';
+
 const router = Router();
 
 // Health check endpoint
@@ -39,6 +45,11 @@ router.get('/health', asyncHandler((req, res) => {
 router.use('/auth', authRoutes);
 router.get('/departments', DepartmentController.publicList);
 router.use('/users', userRoutes);
+router.use('/performance', performanceRoutes);
+router.use('/recruitment', recruitmentRoutes);
+router.use('/resignation', resignationRoutes);
+router.use('/assets', assetRoutes);
+router.use('/reports/hr', hrReportRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/projects', ownedResourceRouters.projects);
 router.use('/leads', ownedResourceRouters.leads);

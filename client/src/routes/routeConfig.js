@@ -8,6 +8,9 @@ import Login from '../pages/auth/Login/Login';
 import Register from '../pages/auth/Register/Register';
 import UserSplash from '../pages/auth/UserSplash/UserSplash';
 import SuperAdminLogin from '../pages/auth/SuperAdminLogin/SuperAdminLogin';
+import ForgotPassword from '../pages/auth/ForgotPassword/ForgotPassword';
+import VerifyOtp from '../pages/auth/VerifyOtp/VerifyOtp';
+import ResetPassword from '../pages/auth/ResetPassword/ResetPassword';
 import AdminDashboard from '../pages/dashboard/AdminDashboard/AdminDashboard';
 import AdminAttendance from '../pages/dashboard/AdminDashboard/Attendance/Attendance';
 import AdminAnnouncements from '../pages/dashboard/AdminDashboard/Announcements/Announcements';
@@ -61,6 +64,22 @@ import Settings from '../pages/dashboard/UserDashboard/users/Settings/Settings';
 import Tasks from '../pages/dashboard/UserDashboard/users/Tasks/Tasks';
 import Inbox from '../pages/dashboard/Chat/Inbox';
 import ProtectedRoute from './ProtectedRoute';
+import { getDashboardRoute } from '../utils/dashboardUtils';
+
+// Department Dashboards & HR Modules
+import HRDashboard from '../pages/dashboard/UserDashboard/departments/HRDashboard';
+import HREmployees from '../pages/dashboard/UserDashboard/users/Employees/HREmployees';
+import HRDepartments from '../pages/dashboard/UserDashboard/users/Departments/HRDepartments';
+import Performance from '../pages/dashboard/UserDashboard/users/Performance/Performance';
+import Recruitment from '../pages/dashboard/UserDashboard/users/Recruitment/Recruitment';
+import Training from '../pages/dashboard/UserDashboard/users/Training/Training';
+import Assets from '../pages/dashboard/UserDashboard/users/Assets/Assets';
+import HRReports from '../pages/dashboard/UserDashboard/users/Reports/HRReports';
+import ResignationExit from '../pages/dashboard/UserDashboard/users/ResignationExit/ResignationExit';
+import DigitalMarketingDashboard from '../pages/dashboard/UserDashboard/departments/DigitalMarketingDashboard';
+import VideoEditorDashboard from '../pages/dashboard/UserDashboard/departments/VideoEditorDashboard';
+import BusinessDevelopmentDashboard from '../pages/dashboard/UserDashboard/departments/BusinessDevelopmentDashboard';
+import FinanceDashboard from '../pages/dashboard/UserDashboard/departments/FinanceDashboard';
 
 const RootRedirect = () => {
   const { isAuthenticated, user, loading } = useContext(AppContext);
@@ -113,10 +132,19 @@ const routeConfig = [
   { path: '/', component: RootRedirect, layout: BlankLayout },
   { path: '/login', component: withUserSplash(Login), layout: BlankLayout },
   { path: '/register', component: withUserSplash(Register), layout: BlankLayout },
+  { path: '/forgot-password', component: withUserSplash(ForgotPassword), layout: BlankLayout },
+  { path: '/verify-otp', component: withUserSplash(VerifyOtp), layout: BlankLayout },
+  { path: '/reset-password', component: withUserSplash(ResetPassword), layout: BlankLayout },
   { path: '/admin/login', component: AdminLogin, layout: BlankLayout },
   { path: '/admin/register', component: AdminRegister, layout: BlankLayout },
   { path: '/super-admin/login', component: SuperAdminLogin, layout: BlankLayout },
   { path: '/unauthorized', component: Unauthorized, layout: BlankLayout },
+  { path: '/dashboard/hr', component: withProtected(HRDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/finance', component: withProtected(FinanceDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/business-development', component: withProtected(BusinessDevelopmentDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/digital-marketing', component: withProtected(DigitalMarketingDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/video-editor', component: withProtected(VideoEditorDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/sales', component: () => React.createElement(Navigate, { to: '/dashboard/business-development', replace: true }), layout: BlankLayout },
   { path: '/dashboard', component: withProtected(UserDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/dashboard/user', component: withProtected(UserDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/admin/dashboard', component: withProtected(AdminDashboard, ['admin']), layout: BlankLayout },
@@ -158,6 +186,15 @@ const routeConfig = [
   { path: '/user/documents/:id', component: withProtected(Documents, ['employee']), layout: BlankLayout },
   { path: '/user/notifications', component: withProtected(Notifications, ['employee'], { module: 'communications', resource: 'notifications', action: 'view' }), layout: BlankLayout },
   { path: '/user/notifications/:id', component: withProtected(Notifications, ['employee']), layout: BlankLayout },
+  { path: '/user/employees', component: withProtected(HREmployees, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/departments', component: withProtected(HRDepartments, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/performance', component: withProtected(Performance, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/recruitment', component: withProtected(Recruitment, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/resignation-exit', component: withProtected(ResignationExit, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/resignation', component: withProtected(ResignationExit, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/training', component: withProtected(Training, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/assets', component: withProtected(Assets, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/reports', component: withProtected(HRReports, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/settings', component: withProtected(Settings, ['employee']), layout: BlankLayout },
   { path: '/user/inbox', component: withProtected(Inbox, ['employee', 'user']), layout: BlankLayout },
   { path: '/admin', component: withProtected(AdminDashboard, ['admin']), layout: BlankLayout },

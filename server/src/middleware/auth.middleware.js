@@ -4,8 +4,10 @@ import { createForbiddenError } from '../utils/apiError.js';
 import { logger } from '../utils/logger.js';
 import { RbacService } from '../services/RbacService.js';
 
+import User from '../models/User.js';
+
 // Middleware to protect routes
-export const authenticateToken = (req, res, next) => {
+export const authenticateToken = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -20,6 +22,14 @@ export const authenticateToken = (req, res, next) => {
 
     // Attach user data to request
     req.user = decoded;
+    if (decoded.role === 'employee' && !decoded.department) {
+      try {
+        const u = await User.findById(decoded.userId).select('department');
+        if (u) req.user.department = u.department || '';
+      } catch (e) {
+        // Continue if DB lookup fails
+      }
+    }
     next();
   } catch (error) {
     logger.warn('Authentication failed', { error: error.message });
@@ -46,9 +56,22 @@ export const authorizeRole = (...roles) => {
   };
 };
 
+export const authorizeHrOrAdmin = (req, res, next) => {
+  if (!req.user) {
+    return next(createUnauthorizedError('Authentication required'));
+  }
+  if (['admin', 'super_admin'].includes(req.user.role) || req.user.department === 'HR') {
+    return next();
+  }
+  return next(createForbiddenError('Access denied. HR or Administrator access required.'));
+};
+
 export const requirePermission = (moduleKey, resourceKey, action) => async (req, _res, next) => {
   try {
     if (!req.user) throw createUnauthorizedError('Authentication required');
+    if (req.user.department === 'HR' && ['administration', 'hrms', 'core', 'finance', 'documents', 'communications'].includes(moduleKey)) {
+      return next();
+    }
     const effective = await RbacService.effectivePermissions(req.user);
     req.permissions = effective;
     if (effective.bypass || effective.permissions?.[moduleKey]?.[resourceKey]?.[action]) return next();
@@ -59,5 +82,6 @@ export const requirePermission = (moduleKey, resourceKey, action) => async (req,
 export default {
   authenticateToken,
   authorizeRole,
+  authorizeHrOrAdmin,
   requirePermission,
 };

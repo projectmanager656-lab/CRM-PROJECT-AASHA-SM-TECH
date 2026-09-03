@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../../context/AppContext';
 import apiClient from '../../../services/apiClient';
 import { DEPARTMENTS } from '../../../config/departments';
+import { getDashboardRoute } from '../../../utils/dashboardUtils';
 import './Register.css';
 
 export default function Register() {
@@ -71,16 +72,9 @@ export default function Register() {
       setSuccess('Registration successful! Redirecting...');
 
       // If backend provided token, user is authenticated already
-      const role = String(result.user?.role || '').trim().toLowerCase();
-
       setTimeout(() => {
-        if (role === 'super_admin') {
-          navigate('/super-admin/dashboard');
-        } else if (role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        const route = getDashboardRoute(result.user);
+        navigate(route);
       }, 800);
     } else {
       setError(result.error || 'Registration failed');
@@ -93,10 +87,8 @@ export default function Register() {
     <div className="register-container">
       <div className="register-card">
         <div className="register-header">
-          <img className="auth-brand-logo" src="/aasha-sm-logo.jpeg" alt="Aasha SM Tech" />
-          <div className="register-logo">Aasha SM Tech</div>
+          <img className="auth-brand-logo" src="/aasha-logo-new.jpg" alt="Aasha SM Tech" />
           <h1>Create Account</h1>
-          <p>Join the Aasha SM Tech CRM System</p>
         </div>
 
         <form onSubmit={handleSubmit} className="register-form">

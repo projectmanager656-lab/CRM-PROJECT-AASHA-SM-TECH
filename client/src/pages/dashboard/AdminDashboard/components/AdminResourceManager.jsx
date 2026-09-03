@@ -15,7 +15,7 @@ function valueForForm(value, field) {
 
 const userName = (user) => `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
 
-export default function AdminResourceManager({ title, singular, endpoint, fields, columns, canDelete = true, transformSubmit, extraActions, filters = [], Layout = AdminLayout }) {
+export default function AdminResourceManager({ title, singular, endpoint, fields, columns, canDelete = true, transformSubmit, extraActions, filters = [], renderOverview, Layout = AdminLayout }) {
   const { can } = useContext(AppContext);
   const permissionTarget = endpoint === '/projects' ? ['projects', 'projects'] : endpoint === '/tasks' ? ['projects', 'tasks'] : endpoint === '/leads' ? ['crm', 'leads'] : endpoint === '/clients' ? ['crm', 'clients'] : endpoint === '/users' ? ['administration', 'employees'] : endpoint === '/admin/departments' ? ['administration', 'departments'] : null;
   const allowed = (action) => !permissionTarget || can(permissionTarget[0], permissionTarget[1], action);
@@ -64,7 +64,9 @@ export default function AdminResourceManager({ title, singular, endpoint, fields
 
   const employeeUsers = users.filter((user) => user.role === 'employee');
 
-  return <Layout pageTitle={title}><div className="admin-resource">
+  return <Layout pageTitle={title}>
+    {renderOverview && renderOverview(items, users)}
+    <div className="admin-resource">
     <div className="admin-page-header"><h2>{title} Management</h2>{allowed('create') && <button type="button" className="primary-btn" onClick={create}>Add {singular}</button>}</div>
     <div className="admin-resource-toolbar admin-card"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${title.toLowerCase()}`} /><input value={status} onChange={(event) => setStatus(event.target.value)} placeholder="Filter status" />{filters.map((filter) => <select key={filter.name} value={filterValues[filter.name] || ''} onChange={(event) => setFilterValues({ ...filterValues, [filter.name]: event.target.value })}><option value="">{filter.label}</option>{(fieldOptions[filter.name] || []).map((option) => <option key={option._id || optionValue(option, filter)} value={optionValue(option, filter)}>{optionLabel(option, filter)}</option>)}</select>)}</div>
     {error && <div className="admin-resource-message error">{error}</div>}{success && <div className="admin-resource-message success">{success}</div>}

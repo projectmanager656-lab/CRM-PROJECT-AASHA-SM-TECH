@@ -85,7 +85,7 @@ export default function SuperAdminSidebar({ user, onLogout }) {
   return (
     <aside className="superadmin-sidebar">
       <div className="sidebar-logo-container">
-        <img className="sidebar-full-logo" src="/company-logo.jpg" alt="ASHA SM TECHNOLOGIES" />
+        <img className="sidebar-full-logo" src="/aasha-logo-new.jpg" alt="ASHA SM TECHNOLOGIES" />
       </div>
 
       <div className="superadmin-user-tag" onClick={() => { console.log('Profile card clicked, toggling dropdown to:', !dropdownOpen); setDropdownOpen(!dropdownOpen); }} ref={dropdownRef} style={{ cursor: 'pointer', position: 'relative' }}>

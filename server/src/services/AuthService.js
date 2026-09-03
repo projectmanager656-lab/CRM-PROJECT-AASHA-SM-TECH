@@ -24,10 +24,10 @@ export class AuthService {
     const Model = this.getModel(role);
 
     if (role === 'employee') {
+      const OFFICIAL_DEPARTMENTS = ['HR', 'Sales', 'Business Development', 'Finance', 'Tech', 'Non-Tech'];
       const selectedDepartment = String(department || '').trim();
       if (!selectedDepartment) throw createValidationError('Department is required');
-      const departmentExists = await Department.exists({ name: selectedDepartment, status: 'Active' });
-      if (!departmentExists) throw createValidationError('Please select an active department');
+      if (!OFFICIAL_DEPARTMENTS.includes(selectedDepartment)) throw createValidationError('Please select a valid official department');
     }
 
     const existingUser = await Model.findOne({ email: normalizedEmail });
@@ -87,7 +87,7 @@ export class AuthService {
     await user.save();
 
     // Generate JWT token
-    const token = this.generateToken(user._id, user.email, user.role);
+    const token = this.generateToken(user._id, user.email, user.role, user.department || '');
 
     // Return user and token (without password)
     return {
@@ -97,11 +97,12 @@ export class AuthService {
   }
 
   // Generate JWT token
-  static generateToken(userId, email, role) {
+  static generateToken(userId, email, role, department = '') {
     const payload = {
       userId,
       email,
       role,
+      department,
     };
 
     return jwt.sign(payload, config.jwtSecret, {

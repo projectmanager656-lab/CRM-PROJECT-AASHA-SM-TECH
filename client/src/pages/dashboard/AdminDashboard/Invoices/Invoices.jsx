@@ -265,7 +265,7 @@ const downloadPdfAction = (record) => (
           <!-- Header -->
           <div class="header">
             <div class="logo-area">
-               <img src="/aasha-sm-logo.jpeg" alt="AASHA-SM Logo" onerror="this.src='https://via.placeholder.com/150x50?text=Logo'"/>
+               <img src="/aasha-logo-admin.jpg" alt="AASHA-SM Logo" onerror="this.src='https://via.placeholder.com/150x50?text=Logo'"/>
             </div>
             <div class="company-details">
               <h2 class="company-name">AASHA-SM TECHNOLOGIES<br>PRIVATE LIMITED.</h2>
@@ -413,7 +413,45 @@ const transformSubmit = (form) => ({
   qty: Number(form.qty) || 1
 });
 
-export default function Invoices() {
+const renderInvoicesOverview = (invoices) => {
+  const totalRevenue = invoices.reduce((acc, curr) => {
+    const amount = Number(curr.amount) || 0;
+    const cgst = Number(curr.cgst) || 0;
+    const sgst = Number(curr.sgst) || 0;
+    return acc + amount + cgst + sgst;
+  }, 0);
+  
+  const paid = invoices.filter(i => i.status === 'Paid').reduce((acc, curr) => acc + (Number(curr.amount) || 0) + (Number(curr.cgst) || 0) + (Number(curr.sgst) || 0), 0);
+  const pending = totalRevenue - paid;
+  
+  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+
+  return (
+    <div className="admin-overview-panel">
+      <h3>Revenue & Invoices Summary</h3>
+      <div className="admin-overview-grid">
+        <div className="admin-overview-card primary">
+          <span>Total Invoices</span>
+          <strong>{invoices.length}</strong>
+        </div>
+        <div className="admin-overview-card success">
+          <span>Total Revenue</span>
+          <strong>{formatCurrency(totalRevenue)}</strong>
+        </div>
+        <div className="admin-overview-card info">
+          <span>Collected (Paid)</span>
+          <strong>{formatCurrency(paid)}</strong>
+        </div>
+        <div className="admin-overview-card warning">
+          <span>Pending Collection</span>
+          <strong>{formatCurrency(pending)}</strong>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function Invoices({ Layout }) {
   return (
     <AdminResourceManager
       title="Invoices"
@@ -423,6 +461,8 @@ export default function Invoices() {
       columns={columns}
       transformSubmit={transformSubmit}
       extraActions={downloadPdfAction}
+      Layout={Layout}
+      renderOverview={renderInvoicesOverview}
     />
   );
 }

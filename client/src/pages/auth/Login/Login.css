@@ -39,15 +39,8 @@
   margin-bottom: 2rem;
 }
 
-.login-logo {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #17120e;
-  margin-bottom: 0.5rem;
-  letter-spacing: -.035em;
-}
 
-.auth-brand-logo { width: 64px; height: 64px; margin-bottom: .9rem; object-fit: contain; border-radius: 17px; box-shadow: 0 8px 22px rgba(231, 89, 20, .2); }
+.auth-brand-logo { max-width: 200px; height: 50px; margin-bottom: .9rem; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 12px rgba(15, 23, 42, .08); }
 
 .login-header h1 {
   font-size: 1.5rem;
@@ -145,16 +138,31 @@
   padding-top: 1.5rem;
 }
 
+.forgot-password-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.5rem;
+}
+
+.forgot-password-link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #e75914;
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+.forgot-password-link:hover {
+  color: #bd420c;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .login-footer p {
   margin: 0;
   font-size: 0.85rem;
   color: var(--color-gray-600);
-}
-
-.demo-text {
-  color: #c94b10;
-  font-weight: 500;
-  margin-top: 0.5rem;
 }
 
 /* Responsive Design */

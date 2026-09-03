@@ -1,17 +1,17 @@
 import { Router } from 'express';
 import UserController from '../controllers/UserController.js';
-import { authenticateToken, authorizeRole, requirePermission } from '../middleware/auth.middleware.js';
+import { authenticateToken, authorizeHrOrAdmin } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
 router.use(authenticateToken);
-router.use(authorizeRole('admin', 'super_admin'));
+router.use(authorizeHrOrAdmin);
 
-router.get('/', requirePermission('administration', 'employees', 'view'), UserController.getUsers);
-router.get('/:id', requirePermission('administration', 'employees', 'view'), UserController.getUserById);
-router.post('/', requirePermission('administration', 'employees', 'create'), UserController.createUser);
-router.put('/:id', requirePermission('administration', 'employees', 'edit'), UserController.updateUser);
-router.patch('/:id', requirePermission('administration', 'employees', 'edit'), UserController.updateUser);
-router.delete('/:id', requirePermission('administration', 'employees', 'delete'), UserController.deactivateUser);
+router.get('/', UserController.getUsers);
+router.get('/:id', UserController.getUserById);
+router.post('/', UserController.createUser);
+router.put('/:id', UserController.updateUser);
+router.patch('/:id', UserController.updateUser);
+router.delete('/:id', UserController.deactivateUser);
 
 export default router;

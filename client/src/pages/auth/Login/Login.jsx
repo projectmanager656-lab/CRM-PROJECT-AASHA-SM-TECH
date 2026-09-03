@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../../context/AppContext';
+import { getDashboardRoute } from '../../../utils/dashboardUtils';
 import './Login.css';
 
 export default function Login() {
@@ -19,15 +20,8 @@ export default function Login() {
     const result = await login(email, password);
 
     if (result.success) {
-      // Redirect based on role
-      const role = String(result.user.role || '').trim().toLowerCase();
-      if (role === 'super_admin') {
-        navigate('/super-admin/dashboard');
-      } else if (role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      const route = getDashboardRoute(result.user);
+      navigate(route);
     } else {
       setError(result.error || 'Login failed');
     }
@@ -39,10 +33,8 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <img className="auth-brand-logo" src="/aasha-sm-logo.jpeg" alt="Aasha SM Tech" />
-          <div className="login-logo">Aasha SM Tech</div>
+          <img className="auth-brand-logo" src="/aasha-logo-new.jpg" alt="Aasha SM Tech" />
           <h1>Welcome back</h1>
-          <p>Sign in to your CRM workspace</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -74,6 +66,10 @@ export default function Login() {
             />
           </div>
 
+          <div className="forgot-password-row">
+            <Link to="/forgot-password" className="forgot-password-link">Forgot password?</Link>
+          </div>
+
           <button
             type="submit"
             className="login-button"
@@ -85,7 +81,6 @@ export default function Login() {
 
         <div className="login-footer">
           <p>Don't have an account? <Link to="/register">Create one</Link></p>
-          <p className="demo-text">Aasha SM Tech CRM System</p>
         </div>
       </div>
     </div>

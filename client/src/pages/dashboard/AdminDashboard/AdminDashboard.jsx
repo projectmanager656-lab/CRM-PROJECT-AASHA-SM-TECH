@@ -9,15 +9,147 @@ const list = r => r.data.data || [];
 const name = p => p ? `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email : '—';
 const date = x => x ? new Date(x).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
+/* ─── tiny SVG icons for feature cards ──────────────────────────────────── */
+const FEAT_ICONS = {
+  tasks: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
+  board: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  ),
+  gantt: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  ),
+  timeline: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  time: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  budget: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  ),
+  team: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  report: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  leads: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
+    </svg>
+  )
+};
+
+/* ─── 8 feature card definitions ────────── */
+const ADMIN_FEATURE_CARDS = [
+  {
+    id: 'task-management',
+    icon: 'tasks',
+    title: 'Task Management',
+    desc: 'Organization tasks',
+    color: '#10B981',
+    bg: 'rgba(16,185,129,0.10)',
+    path: '/admin/tasks',
+  },
+  {
+    id: 'project-management',
+    icon: 'gantt',
+    title: 'Project Management',
+    desc: 'Organization projects',
+    color: '#3B82F6',
+    bg: 'rgba(59,130,246,0.10)',
+    path: '/admin/projects',
+  },
+  {
+    id: 'team-status',
+    icon: 'team',
+    title: 'Team Status',
+    desc: 'Managed employees',
+    color: '#EC4899',
+    bg: 'rgba(236,72,153,0.10)',
+    path: '/admin/employees', // The existing Employees component
+  },
+  {
+    id: 'time-attendance',
+    icon: 'time',
+    title: 'Time & Attendance',
+    desc: 'Employee working time',
+    color: '#F59E0B',
+    bg: 'rgba(245,158,11,0.10)',
+    path: '/admin/attendance',
+  },
+  {
+    id: 'leads-clients',
+    icon: 'leads',
+    title: 'Leads & Clients',
+    desc: 'CRM management',
+    color: '#7C3AED',
+    bg: 'rgba(124,58,237,0.10)',
+    path: '/admin/leads',
+  },
+  {
+    id: 'budget-actuals',
+    icon: 'budget',
+    title: 'Budget & Actuals',
+    desc: 'Invoices & financials',
+    color: '#059669',
+    bg: 'rgba(5,150,105,0.10)',
+    path: '/admin/invoices',
+  },
+  {
+    id: 'reports-analytics',
+    icon: 'report',
+    title: 'Reports & Analytics',
+    desc: 'Organization reporting',
+    color: '#0284C7',
+    bg: 'rgba(2,132,199,0.10)',
+    path: '/admin/reports',
+  },
+  {
+    id: 'daily-reports',
+    icon: 'board',
+    title: 'Daily Reports',
+    desc: 'Employee daily reports',
+    color: '#DC2626',
+    bg: 'rgba(220,38,38,0.10)',
+    path: '/admin/reports',
+  }
+];
+
 const ActionIcons = {
-  'Add Lead': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
-  'New Project': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
-  'Add Employee': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>,
-  'Create Invoice': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
-  'Attendance': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-  'Tasks': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
-  'Reports': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-  'Send Email': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+  'Add Lead': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>,
+  'New Project': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+  'Add Employee': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>,
+  'Create Invoice': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" /></svg>,
+  'Attendance': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  'Tasks': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
+  'Reports': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
+  'Send Email': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
 };
 
 export default function AdminDashboard() {
@@ -123,19 +255,53 @@ export default function AdminDashboard() {
   const fullName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName || user?.email || 'Admin';
 
   return (
-    <AdminLayout pageTitle="Dashboard">
+    <AdminLayout pageTitle="">
       <div className="admin-dashboard-page reference-dashboard">
         {error && <div className="admin-resource-message error">{error}</div>}
         {loading ? <div className="dashboard-loading">Loading dashboard data…</div> : <>
-          
-          <section className="admin-welcome-banner">
-            <div>
-              <p className="welcome-kicker">Good Morning, {fullName} 👋</p>
-              <h2>Manage your organization, team and CRM operations from one place.</h2>
-            </div>
-            <div className="date-picker">
-              <span>Today</span>
-              <strong>{date(new Date())}</strong>
+
+          {/* ══════════════════════════════════════════════════════════
+              NEW CONTENT — 8 Admin Main Feature Cards
+          ══════════════════════════════════════════════════════════ */}
+          <section className="ud-features-section">
+            <h3 className="ud-section-title">Main Features</h3>
+            <div className="ud-features-grid">
+              {ADMIN_FEATURE_CARDS.map((card) => {
+                let dynamicDesc = card.desc;
+                let dynamicTitle = card.title;
+
+                // Real data injection for specific cards based on API results
+                if (card.id === 'task-management' && d.tasks) {
+                  const completed = d.tasks.filter(t => t.status === 'Completed').length;
+                  dynamicDesc = `${completed}/${d.tasks.length} Completed`;
+                }
+                if (card.id === 'project-management' && d.projects) {
+                  const active = d.projects.filter(p => p.status === 'In Progress').length;
+                  dynamicDesc = `${active} Active Projects`;
+                }
+                if (card.id === 'leads-clients' && d.leads) {
+                  dynamicDesc = `${d.leads.length} Active Leads`;
+                }
+                if (card.id === 'time-attendance' && d.attendance) {
+                  const present = d.attendance.filter(a => a.status === 'Present').length;
+                  dynamicDesc = `${present} Present Today`;
+                }
+                if (card.id === 'budget-actuals' && d.invoices) {
+                  dynamicDesc = `${d.invoices.length} Invoices`;
+                }
+
+                return (
+                  <button key={card.id} type="button" className="ud-feature-card" onClick={() => navigate(card.path)} aria-label={dynamicTitle}>
+                    <div className="ud-feature-icon" style={{ background: card.bg, color: card.color }}>
+                      {FEAT_ICONS[card.icon]}
+                    </div>
+                    <div className="ud-feature-body">
+                      <strong className="ud-feature-title">{dynamicTitle}</strong>
+                      <span className="ud-feature-desc">{dynamicDesc}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -197,7 +363,7 @@ export default function AdminDashboard() {
               <div className="announcement-list">
                 {d.announcements.map(x => (
                   <div key={x._id}>
-                    <i className="announcement-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></i>
+                    <i className="announcement-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg></i>
                     <span><b>{x.title}</b><small>{x.message}</small></span>
                     <em>{date(x.createdAt)}</em>
                   </div>

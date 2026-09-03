@@ -63,53 +63,69 @@ export default function MessageDropdown() {
       </button>
 
       {isOpen && (
-        <div className="header-dropdown-menu">
-          <div className="header-dropdown-header">
-            <h4>Messages</h4>
-          </div>
-          <div className="header-dropdown-body">
-            {conversations.length === 0 ? (
-              <div className="header-dropdown-empty">No messages yet</div>
-            ) : (
-              conversations.slice(0, 5).map((c) => (
-                <div 
-                  key={c.contactId} 
-                  className={`header-dropdown-item message-item ${c.unreadCount > 0 ? 'unread' : ''}`}
-                  onClick={() => {
-                    setIsOpen(false);
-                    // Determine route base based on current user role for universal access
-                    const baseRoute = user.role === 'super_admin' ? '/super-admin' : (user.role === 'admin' ? '/admin' : '/user');
-                    navigate(`${baseRoute}/inbox?user=${c.contactId}&model=${c.contactModel || 'User'}`);
-                  }}
-                >
-                  <div className="message-avatar">
-                    {getInitials(c.firstName, c.lastName, c.email)}
-                  </div>
-                  <div className="header-dropdown-item-content">
-                    <div className="message-header">
-                      <p className="item-title">{c.firstName} {c.lastName}</p>
-                      <span className="item-time">{new Date(c.latestMessage.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <p className="item-desc truncate">{c.latestMessage.content}</p>
-                  </div>
-                  {c.unreadCount > 0 && <span className="unread-dot">{c.unreadCount}</span>}
-                </div>
-              ))
+        <div 
+          className="header-dropdown-menu compact-message-popup"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            width: '280px',
+            background: '#ffffff',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            padding: '16px',
+            zIndex: 1000,
+            marginTop: '12px',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>Messages</h4>
+            {unreadCount > 0 && (
+              <span style={{ background: '#E85D04', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold' }}>
+                {unreadCount} New
+              </span>
             )}
           </div>
-          <div className="header-dropdown-footer">
-            <button 
-              type="button" 
-              className="view-all-btn" 
-              onClick={() => {
-                setIsOpen(false);
-                const baseRoute = user?.role === 'super_admin' ? '/super-admin' : (user?.role === 'admin' ? '/admin' : '/user');
-                navigate(`${baseRoute}/inbox`);
-              }}
-            >
-              View Inbox
-            </button>
-          </div>
+          
+          <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+            {unreadCount > 0 
+              ? `You have ${unreadCount} unread message${unreadCount === 1 ? '' : 's'}.` 
+              : 'You are all caught up!'}
+          </p>
+
+          <button 
+            type="button" 
+            style={{
+              background: '#0B0F19',
+              color: '#ffffff',
+              border: 'none',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '6px',
+              width: '100%',
+              marginTop: '4px',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.background = '#1e293b'}
+            onMouseOut={(e) => e.target.style.background = '#0B0F19'}
+            onClick={() => {
+              setIsOpen(false);
+              const baseRoute = user?.role === 'super_admin' ? '/super-admin' : (user?.role === 'admin' ? '/admin' : '/user');
+              navigate(`${baseRoute}/inbox`);
+            }}
+          >
+            View Messages &rarr;
+          </button>
         </div>
       )}
     </div>
