@@ -1,4 +1,5 @@
 import Payroll from '../models/Payroll.js';
+import Attendance from '../models/Attendance.js';
 import User from '../models/User.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import Notification from '../models/Notification.js';
@@ -173,7 +174,7 @@ export const PayrollController = {
   generate: asyncHandler(async (req, res) => {
     if (!isHrOrAdmin(req.user)) throw createForbiddenError('Only HR and Administrators can generate payroll');
 
-    const { month, payPeriod = month, year, effectiveDate } = req.body;
+    const { month, payPeriod = month, year, effectiveDate, department, user: singleUserId, employeeId } = req.body;
     if (!payPeriod) throw createValidationError('Please provide a pay period / month (e.g. "2026-09")');
 
     const effDate = effectiveDate ? new Date(effectiveDate) : new Date();
@@ -183,10 +184,36 @@ export const PayrollController = {
       role: 'employee',
       isActive: true,
       employmentStatus: { $nin: ['Exited', 'Terminated'] },
-    }).select('firstName lastName email department designation jobDetails personalInfo bankDetails salaryDetails');
+    })
+      .populate('department', 'name')
+      .select('firstName lastName email department designation jobDetails personalInfo bankDetails salaryDetails');
 
     if (!activeEmployees || activeEmployees.length === 0) {
       throw createValidationError('No active employees found to generate payroll');
+    }
+
+    // Optional department / employee filter
+    let targetEmployees = activeEmployees;
+    if (singleUserId || (employeeId && employeeId !== 'All')) {
+      const targetId = String(singleUserId || employeeId);
+      targetEmployees = targetEmployees.filter((emp) => String(emp._id) === targetId);
+    } else if (department && department !== 'All') {
+      const deptNormalized = String(department).trim().toLowerCase();
+      targetEmployees = targetEmployees.filter((emp) => {
+        let empDept = '';
+        if (emp.department) {
+          if (typeof emp.department === 'object' && emp.department.name) empDept = emp.department.name;
+          else empDept = String(emp.department);
+        } else if (emp.jobDetails?.department) {
+          if (typeof emp.jobDetails.department === 'object' && emp.jobDetails.department.name) empDept = emp.jobDetails.department.name;
+          else empDept = String(emp.jobDetails.department);
+        }
+        return empDept.trim().toLowerCase() === deptNormalized;
+      });
+    }
+
+    if (!targetEmployees || targetEmployees.length === 0) {
+      throw createValidationError('No eligible active employees found for the selected department/employee scope');
     }
 
     // Check which employees already have a payroll record for this pay period
@@ -201,7 +228,7 @@ export const PayrollController = {
     const startOfMonth = pYear && pMonth ? new Date(pYear, pMonth - 1, 1) : null;
     const endOfMonth = pYear && pMonth ? new Date(pYear, pMonth, 0, 23, 59, 59) : null;
 
-    for (const emp of activeEmployees) {
+    for (const emp of targetEmployees) {
       if (existingUserIds.has(String(emp._id))) {
         skipped.push({
           userId: emp._id,
@@ -218,11 +245,15 @@ export const PayrollController = {
       const bonus = Number(empSalary.bonus) || 0;
       const standardDeductions = Number(empSalary.deductions) || 0;
 
-      // Calculate approved LOP (Unpaid Leave) if any for this month
+      // Calculate LOP: Approved Unpaid Leave + Attendance Absent records (deduplicated by date)
       let lopDays = 0;
       let lopDeductions = 0;
       if (startOfMonth && endOfMonth) {
         try {
+          const monthPrefix = `${pYear}-${String(pMonth).padStart(2, '0')}`;
+
+          // 1. Expand approved Unpaid Leave dates into a Set
+          const unpaidLeaveDates = new Set();
           const approvedUnpaidLeaves = await LeaveRequest.find({
             user: emp._id,
             status: 'Approved',
@@ -230,20 +261,33 @@ export const PayrollController = {
             startDate: { $lte: endOfMonth },
             endDate: { $gte: startOfMonth },
           });
-
           approvedUnpaidLeaves.forEach((lv) => {
-            const lvStart = new Date(Math.max(lv.startDate, startOfMonth));
-            const lvEnd = new Date(Math.min(lv.endDate, endOfMonth));
-            const days = Math.ceil((lvEnd - lvStart) / (1000 * 60 * 60 * 24)) + 1;
-            lopDays += Math.max(0, days);
+            const lvS = new Date(Math.max(new Date(lv.startDate), startOfMonth));
+            const lvE = new Date(Math.min(new Date(lv.endDate), endOfMonth));
+            const cur = new Date(lvS); cur.setHours(0, 0, 0, 0);
+            const eN = new Date(lvE); eN.setHours(0, 0, 0, 0);
+            while (cur <= eN) { unpaidLeaveDates.add(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
           });
+
+          // 2. Collect explicit Attendance Absent dates for this month
+          const attendanceAbsentDates = new Set();
+          const absentRecs = await Attendance.find({
+            user: emp._id,
+            date: { $regex: `^${monthPrefix}` },
+            status: 'Absent',
+          }).select('date').lean();
+          absentRecs.forEach((r) => attendanceAbsentDates.add(r.date));
+
+          // 3. Union — each absent/unpaid date counted exactly once
+          const lopDateSet = new Set([...unpaidLeaveDates, ...attendanceAbsentDates]);
+          lopDays = lopDateSet.size;
 
           if (lopDays > 0) {
             const dailyRate = basicSalary / 30;
             lopDeductions = round2(dailyRate * lopDays);
           }
         } catch (err) {
-          // If leave lookup fails, proceed without LOP
+          // If LOP lookup fails, proceed without LOP deduction
         }
       }
 
@@ -470,6 +514,20 @@ export const PayrollController = {
     const accNum = record.user?.bankDetails?.accountNumber ? `•••• ${record.user.bankDetails.accountNumber.slice(-4)}` : '—';
     const ifsc = record.user?.bankDetails?.ifscCode || '—';
 
+    // Fetch live attendance counts for this pay period
+    let psPresent = 0, psLate = 0, psHalfDay = 0;
+    try {
+      const mpfx = record.payPeriod ? record.payPeriod.slice(0, 7) : '';
+      if (mpfx && record.user?._id) {
+        const psa = await Attendance.find({ user: record.user._id, date: { $regex: `^${mpfx}` } }).select('status').lean();
+        psPresent = psa.filter((r) => r.status === 'Present').length;
+        psLate    = psa.filter((r) => r.status === 'Late').length;
+        psHalfDay = psa.filter((r) => r.status === 'Half Day').length;
+      }
+    } catch (_) { /* non-critical — payslip continues without attendance */ }
+    const psLopDays = record.lopDays || 0;
+    const psShowAtt = psPresent + psLate + psHalfDay + psLopDays > 0;
+
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -508,8 +566,10 @@ export const PayrollController = {
   <div class="payslip-container">
     <div class="header">
       <div>
-        <div class="company-title">${companyName}</div>
-        <div class="company-sub">Monthly Salary Statement & Payment Slip</div>
+        <div class="company-title">
+          <img src="/aasha-logo-new.jpg" alt="${companyName}" style="max-height: 42px; display: block; margin-bottom: 4px;" />
+        </div>
+        <div class="company-sub">Salary Statement & Payment Slip</div>
       </div>
       <div class="payslip-badge">
         <div>Pay Period: ${record.payPeriod}</div>
@@ -531,6 +591,16 @@ export const PayrollController = {
         <div class="meta-row"><span class="meta-label">Payment Date:</span><span class="meta-val">${record.paymentDate ? new Date(record.paymentDate).toLocaleDateString('en-GB') : '—'}</span></div>
       </div>
     </div>
+
+    ${psShowAtt ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 18px;margin-bottom:20px;">
+      <div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#475569;letter-spacing:0.05em;margin-bottom:10px;">Attendance Summary</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:12px;">
+        ${psPresent > 0 ? `<span style="display:inline-flex;flex-direction:column;"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Present</span><strong style="color:#15803d;font-size:16px;">${psPresent}</strong></span>` : ''}
+        ${psLate > 0 ? `<span style="display:inline-flex;flex-direction:column;"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Late</span><strong style="color:#d97706;font-size:16px;">${psLate}</strong></span>` : ''}
+        ${psHalfDay > 0 ? `<span style="display:inline-flex;flex-direction:column;"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">Half Day</span><strong style="color:#7c3aed;font-size:16px;">${psHalfDay}</strong></span>` : ''}
+        ${psLopDays > 0 ? `<span style="display:inline-flex;flex-direction:column;"><span style="color:#64748b;font-size:10px;text-transform:uppercase;">LOP Days</span><strong style="color:#dc2626;font-size:16px;">${psLopDays}</strong></span>` : ''}
+      </div>
+    </div>` : ''}
 
     <div class="salary-tables">
       <div>
@@ -590,6 +660,101 @@ export const PayrollController = {
     const record = await Payroll.findByIdAndDelete(req.params.id);
     if (!record) throw createNotFoundError('Payroll record not found');
     res.json(successResponse({ id: req.params.id }, 'Payroll record deleted successfully'));
+  }),
+
+  // 12. Attendance Summary — real attendance + leave data for a user + pay period
+  attendanceSummary: asyncHandler(async (req, res) => {
+    const { userId, payPeriod } = req.query;
+    if (!userId || !payPeriod) throw createValidationError('userId and payPeriod are required');
+
+    if (!isHrOrAdmin(req.user) && String(req.user.userId) !== String(userId)) {
+      throw createForbiddenError('Access denied');
+    }
+
+    const [pYear, pMonth] = payPeriod.split('-').map(Number);
+    if (!pYear || !pMonth) throw createValidationError('payPeriod must be in YYYY-MM format');
+
+    const startOfMonth = new Date(pYear, pMonth - 1, 1);
+    const endOfMonth   = new Date(pYear, pMonth, 0, 23, 59, 59);
+    const monthPrefix  = `${pYear}-${String(pMonth).padStart(2, '0')}`;
+
+    // Calendar working days (Mon–Fri only — no holiday data in this system)
+    let totalWorkingDays = 0;
+    const wdCur = new Date(startOfMonth);
+    while (wdCur <= endOfMonth) {
+      const dow = wdCur.getDay();
+      if (dow !== 0 && dow !== 6) totalWorkingDays++;
+      wdCur.setDate(wdCur.getDate() + 1);
+    }
+
+    // Attendance records for this month
+    const attRecs = await Attendance.find({
+      user: userId,
+      date: { $regex: `^${monthPrefix}` },
+    }).select('date status').lean();
+
+    const presentCount  = attRecs.filter((r) => r.status === 'Present').length;
+    const lateCount     = attRecs.filter((r) => r.status === 'Late').length;
+    const halfDayCount  = attRecs.filter((r) => r.status === 'Half Day').length;
+    const absentDates   = new Set(attRecs.filter((r) => r.status === 'Absent').map((r) => r.date));
+
+    // Leave requests overlapping this month
+    const leaveReqs = await LeaveRequest.find({
+      user: userId,
+      startDate: { $lte: endOfMonth },
+      endDate:   { $gte: startOfMonth },
+    }).select('type status startDate endDate').lean();
+
+    // Expand a date range to individual YYYY-MM-DD strings clipped to this month
+    const expandDates = (start, end) => {
+      const out = [];
+      const s = new Date(Math.max(new Date(start), startOfMonth));
+      const e = new Date(Math.min(new Date(end),   endOfMonth));
+      const cur = new Date(s); cur.setHours(0, 0, 0, 0);
+      const eN  = new Date(e); eN.setHours(0, 0, 0, 0);
+      while (cur <= eN) { out.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
+      return out;
+    };
+
+    const leaveByType = {};
+    const unpaidApprovedDates = new Set();
+    leaveReqs.forEach((lv) => {
+      const dates = expandDates(lv.startDate, lv.endDate);
+      const key   = lv.type;
+      if (!leaveByType[key]) leaveByType[key] = { pending: 0, approved: 0, rejected: 0 };
+      leaveByType[key][lv.status.toLowerCase()] = (leaveByType[key][lv.status.toLowerCase()] || 0) + dates.length;
+      if (lv.status === 'Approved' && lv.type === 'Unpaid') dates.forEach((d) => unpaidApprovedDates.add(d));
+    });
+
+    // Deduplicate: union of Absent attendance + Approved Unpaid Leave dates
+    const lopDateSet = new Set([...absentDates, ...unpaidApprovedDates]);
+    const lopDays    = lopDateSet.size;
+
+    // Salary lookup for estimated LOP amount
+    const userDoc    = await User.findById(userId).select('salaryDetails').lean();
+    const basicSal   = Number(userDoc?.salaryDetails?.basicSalary) || 0;
+    const lopDeductions = round2((basicSal / 30) * lopDays);
+
+    res.json(
+      successResponse(
+        {
+          payPeriod,
+          userId,
+          totalWorkingDays,
+          presentCount,
+          lateCount,
+          halfDayCount,
+          absentCount:          absentDates.size,
+          attendanceAbsentDays: absentDates.size,
+          unpaidApprovedDays:   unpaidApprovedDates.size,
+          lopDays,
+          lopDeductions,
+          basicSalary: basicSal,
+          leaveByType,
+        },
+        'Attendance summary retrieved'
+      )
+    );
   }),
 };
 

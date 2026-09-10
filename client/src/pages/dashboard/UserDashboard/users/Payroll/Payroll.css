@@ -23,7 +23,8 @@
   font-size: 1.6rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 2px 0;
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 
@@ -31,6 +32,7 @@
   font-size: 0.875rem;
   color: #64748b;
   margin: 0;
+  line-height: 1.3;
 }
 
 .payroll-header-actions {
@@ -506,36 +508,86 @@
   color: #64748b;
 }
 
-/* Batch Generation Workspace Card */
-.payroll-generate-card {
+/* Generate Modal Sections */
+.payroll-calc-info-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+}
+
+.payroll-calc-info-title {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.65rem;
+}
+
+.payroll-calc-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.payroll-calc-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.payroll-calc-checklist li span.check-icon {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.payroll-summary-box {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.payroll-generate-header h3 {
-  margin: 0 0 0.25rem;
-  color: #0f172a;
-  font-size: 1.15rem;
-}
-
-.payroll-generate-header p {
-  margin: 0 0 1.25rem;
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.payroll-gen-form-row {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  background: #f8fafc;
-  padding: 1.25rem;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.payroll-summary-title {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.4rem;
+}
+
+.payroll-summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.payroll-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.825rem;
+}
+
+.payroll-summary-row span {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.payroll-summary-row strong {
+  color: #0f172a;
+  font-weight: 700;
 }
 
 /* Department Grid */

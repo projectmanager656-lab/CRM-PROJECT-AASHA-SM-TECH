@@ -74,8 +74,51 @@
   gap: 0.5rem;
 }
 
+.att-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem !important;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.att-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.att-page-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.att-toolbar {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.att-overview-panel {
+  margin-bottom: 36px !important;
+}
+
+.att-overview-panel h3 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .att-btn {
-  padding: 0.5rem 1rem;
+  padding: 0 1rem;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   background: white;
@@ -84,9 +127,14 @@
 }
 
 .att-btn-primary {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background: #ea580c !important;
+  color: white !important;
+  border-color: #ea580c !important;
+}
+
+.att-btn-primary:hover {
+  background: #c2410c !important;
+  border-color: #c2410c !important;
 }
 
 .att-btn-sm {
@@ -161,4 +209,150 @@
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-.att-input { padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }
+/* Height consistency across toolbar controls */
+.att-input,
+.att-select-input,
+.att-search-input,
+.att-date-input,
+.att-btn {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.att-input,
+.att-select-input,
+.att-search-input,
+.att-date-input {
+  padding: 0 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  background-color: #ffffff;
+  color: #1e293b;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.att-input:focus,
+.att-select-input:focus,
+.att-search-input:focus,
+.att-date-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+
+/* Width for Search Input ~240px (220px to 260px) */
+.att-search-input {
+  width: 240px !important;
+  min-width: 220px;
+  max-width: 260px;
+}
+
+.att-select-input {
+  min-width: 130px;
+  cursor: pointer;
+}
+
+.att-date-input {
+  width: 140px;
+}
+
+/* Far right placement for Mark Attendance button */
+.att-btn-mark {
+  margin-left: auto !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.25rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .att-search-input {
+    width: 200px !important;
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .att-toolbar {
+    width: 100%;
+  }
+  .att-search-input {
+    width: 100% !important;
+    max-width: 100%;
+  }
+  .att-btn-mark {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+}
+
+.att-type-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  height: 38px;
+  box-sizing: border-box;
+}
+
+.att-type-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.att-type-select {
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-weight: 700;
+  color: #ea580c;
+  background: #ffffff;
+  outline: none;
+  cursor: pointer;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.att-modal.large {
+  max-width: 850px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.att-trainees-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.825rem;
+}
+
+.att-trainees-table th,
+.att-trainees-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.att-trainees-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.725rem;
+  text-transform: uppercase;
+}
+
+.att-status-select.excused {
+  background: rgba(99,102,241,0.12);
+  color: #4338ca;
+}

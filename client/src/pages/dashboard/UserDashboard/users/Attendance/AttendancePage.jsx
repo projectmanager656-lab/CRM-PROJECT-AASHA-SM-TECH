@@ -20,7 +20,9 @@ export default function AttendancePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  if (user?.department === 'HR' && !id) {
+  const isHrUser = String(user?.department || user?.jobDetails?.department || '').trim().toUpperCase() === 'HR';
+
+  if (isHrUser && !id) {
     return <AttendanceManagement Layout={UserLayout} title="Attendance Management" />;
   }
 

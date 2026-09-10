@@ -546,7 +546,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Total Documents</span>
               <strong className="doc-kpi-value">{summary.totalDocuments}</strong>
-              <span className="doc-kpi-sub">Across {summary.totalEmployees} employees</span>
             </div>
           </div>
 
@@ -564,7 +563,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Pending Verification</span>
               <strong className="doc-kpi-value">{summary.pendingVerification}</strong>
-              <span className="doc-kpi-sub">Awaiting HR Review</span>
             </div>
           </div>
 
@@ -582,7 +580,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Verified Documents</span>
               <strong className="doc-kpi-value">{summary.verifiedDocuments}</strong>
-              <span className="doc-kpi-sub">Approved & Compliant</span>
             </div>
           </div>
 
@@ -601,7 +598,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Rejected Documents</span>
               <strong className="doc-kpi-value">{summary.rejectedDocuments}</strong>
-              <span className="doc-kpi-sub">Needs Replacement</span>
             </div>
           </div>
 
@@ -620,7 +616,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Expired Documents</span>
               <strong className="doc-kpi-value">{summary.expiredDocuments}</strong>
-              <span className="doc-kpi-sub">Renewal Required</span>
             </div>
           </div>
 
@@ -639,7 +634,6 @@ export default function Documents() {
             <div className="doc-kpi-body">
               <span className="doc-kpi-label">Expiring Soon</span>
               <strong className="doc-kpi-value">{summary.expiringSoon}</strong>
-              <span className="doc-kpi-sub">Within next 30 days</span>
             </div>
           </div>
         </div>

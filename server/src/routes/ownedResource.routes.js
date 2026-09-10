@@ -7,7 +7,7 @@ import { authenticateToken, requirePermission } from '../middleware/auth.middlew
 import { OwnedResourceService } from '../services/OwnedResourceService.js';
 
 const definitions = {
-  projects: [Project, ['name', 'description', 'category', 'status', 'startDate', 'dueDate', 'owner', 'sharedWith'], ['name', 'category'], 'Project'],
+  projects: [Project, ['name', 'description', 'category', 'status', 'startDate', 'dueDate', 'owner', 'sharedWith', 'clientId', 'department', 'priority'], ['name', 'category'], 'Project'],
   leads: [Lead, ['name', 'email', 'phone', 'company', 'source', 'status', 'notes', 'decisionMaker', 'location', 'category', 'websiteStatus', 'instagramStatus', 'gmbStatus', 'requirement', 'lastContact', 'nextFollowUp', 'proposalValue', 'result', 'owner', 'sharedWith'], ['name', 'email'], 'Lead'],
   clients: [Client, ['name', 'email', 'phone', 'company', 'address', 'status', 'owner', 'sharedWith'], ['name', 'email'], 'Client'],
 };

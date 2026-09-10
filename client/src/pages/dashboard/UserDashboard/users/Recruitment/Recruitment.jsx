@@ -1,772 +1,803 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import jsPDF from 'jspdf';
 import apiClient from '../../../../../services/apiClient';
 import UserLayout from '../components/UserLayout';
 import './Recruitment.css';
 import '../Employees/HREmployees.css';
 
 const formatDate = (val) => {
-  if (!val) return '—';
-  try {
-    return new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return String(val);
-  }
+  if (!val) return 'N/A';
+  try { return new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }); }
+  catch (e) { return String(val); }
+};
+
+const getBase64ImageFromUrl = (url) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
 };
 
 const OFFICIAL_DEPARTMENTS = ['HR', 'Finance', 'Business Development', 'Digital Marketing', 'Video Editor', 'Tech'];
-const PIPELINE_STAGES = [
-  'Applied',
-  'Screening',
-  'Shortlisted',
-  'Interview',
-  'Technical Round',
-  'HR Round',
-  'Selected',
-  'Hired',
-  'Rejected',
-];
+const PIPELINE_STAGES = ['Applied','Screening','Shortlisted','Interview','Technical Round','HR Round','Selected','Hired','Rejected'];
+
+const extractCandidateArray = (res) => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.data?.data)) return res.data.data;
+  if (Array.isArray(res.data?.candidates)) return res.data.candidates;
+  if (Array.isArray(res.data?.data?.candidates)) return res.data.data.candidates;
+  if (Array.isArray(res.data)) return res.data;
+  return [];
+};
+
+const DEFAULT_OFFER_FORM = {
+  candidateId: '', offeredDesignation: '', department: 'Tech', employmentType: 'Full Time',
+  salary: '', joiningDate: new Date(Date.now() + 30*86400000).toISOString().slice(0,10),
+  offerDate: new Date().toISOString().slice(0,10),
+  expiresAt: new Date(Date.now() + 14*86400000).toISOString().slice(0,10),
+  probationPeriod: '6 Months', workLocation: '', reportingManager: '',
+  workingHours: '9:00 AM - 6:00 PM (Mon-Sat)', noticePeriod: '30 Days',
+  termsAndConditions: '', additionalNotes: '',
+};
 
 export default function Recruitment() {
+  // ── Core state ──────────────────────────────────────────────────────
   const [jobs, setJobs] = useState([]);
   const [candidates, setCandidates] = useState([]);
-  const [summary, setSummary] = useState({
-    openPositions: 0,
-    totalApplicants: 0,
-    newApplicants: 0,
-    shortlistedCandidates: 0,
-    interviewsScheduled: 0,
-    selectedCandidates: 0,
-    positionsFilled: 0,
-    stageCounts: {},
-    deptStats: {},
-  });
-
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesError, setCandidatesError] = useState('');
+  const [selectedCandidateId, setSelectedCandidateId] = useState('');
+  const [summary, setSummary] = useState({ openPositions:0, totalApplicants:0, newApplicants:0, shortlistedCandidates:0, interviewsScheduled:0, selectedCandidates:0, positionsFilled:0, stageCounts:{}, deptStats:{} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Active Tab
-  const [activeTab, setActiveTab] = useState('jobs'); // 'jobs' | 'pipeline' | 'candidates' | 'interviews' | 'offers' | 'reports'
-
-  // Search & Filter States
+  const [activeTab, setActiveTab] = useState('jobs');
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedStage, setSelectedStage] = useState('All');
 
-  // Modals
+  // ── Existing modal states (UNCHANGED) ───────────────────────────────
   const [showJobModal, setShowJobModal] = useState(false);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [showOfferModal, setShowOfferModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
-
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form States
-  const [jobForm, setJobForm] = useState({
-    title: '',
-    department: 'Tech',
-    designation: '',
-    openings: 1,
-    employmentType: 'Full Time',
-    location: 'In-Office / Hybrid',
-    experience: '1-3 Years',
-    salaryRange: 'Competitive',
-    priority: 'Medium',
-    openingDate: new Date().toISOString().slice(0, 10),
-    closingDate: '',
-    description: '',
-    requirements: '',
-    status: 'Open',
-  });
+  // ── Offer Letter system state (INDEPENDENT) ─────────────────────────
+  const [offers, setOffers] = useState([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offerSummary, setOfferSummary] = useState({ total:0, draft:0, sent:0, accepted:0, rejected:0, pendingConversion:0 });
+  const [offerSearch, setOfferSearch] = useState('');
+  const [offerStatusFilter, setOfferStatusFilter] = useState('All');
+  const [offerDeptFilter, setOfferDeptFilter] = useState('All');
+  const [offerEmpTypeFilter, setOfferEmpTypeFilter] = useState('All');
+  const [offerSortDir, setOfferSortDir] = useState('newest');
 
-  const [candidateForm, setCandidateForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    location: '',
-    appliedJob: '',
-    appliedPosition: '',
-    department: 'Tech',
-    experience: '1-2 Years',
-    skills: '',
-    education: 'Graduate',
-    currentCompany: '',
-    noticePeriod: '30 Days',
-    source: 'Direct Application',
-    notes: '',
-  });
+  // -- Independent modal states -- DO NOT conflate with general candidate modal
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [showOfferNewCandidateModal, setShowOfferNewCandidateModal] = useState(false);
+  const [showOfferPreviewModal, setShowOfferPreviewModal] = useState(false);
+  const [showOfferSendModal, setShowOfferSendModal] = useState(false);
+  const [showOfferDeleteModal, setShowOfferDeleteModal] = useState(false);
+  const [showOfferConvertModal, setShowOfferConvertModal] = useState(false);
+  const [editingOffer, setEditingOffer] = useState(null);
+  const [viewingOffer, setViewingOffer] = useState(null);
+  const [offerForm, setOfferForm] = useState(DEFAULT_OFFER_FORM);
+  const [offerSubmitting, setOfferSubmitting] = useState(false);
+  const [offerError, setOfferError] = useState('');
+  const [offerSuccess, setOfferSuccess] = useState('');
+  const [offerNewCandidateForm, setOfferNewCandidateForm] = useState({ name:'', email:'', phone:'', location:'', appliedJob:'', appliedPosition:'', department:'Tech', experience:'0-1 Years', skills:'', education:'Graduate', currentCompany:'', noticePeriod:'30 Days', source:'Direct Application', notes:'' });
+  const [offerNewCandidateSubmitting, setOfferNewCandidateSubmitting] = useState(false);
+  const [offerNewCandidateError, setOfferNewCandidateError] = useState('');
+  const [companyInfo, setCompanyInfo] = useState({ companyName: 'Aasha SM Technologies', officeAddress: '' });
 
-  const [interviewForm, setInterviewForm] = useState({
-    round: 'Technical Round 1',
-    interviewer: 'Tech Lead / HR',
-    date: new Date().toISOString().slice(0, 10),
-    time: '11:00 AM',
-    type: 'Online Video',
-    meetingLink: '',
-    notes: '',
-  });
+  // ── Existing form states ─────────────────────────────────────────────
+  const [jobForm, setJobForm] = useState({ title:'', department:'Tech', designation:'', openings:1, employmentType:'Full Time', location:'In-Office / Hybrid', experience:'1-3 Years', salaryRange:'Competitive', priority:'Medium', openingDate: new Date().toISOString().slice(0,10), closingDate:'', description:'', requirements:'', status:'Open' });
+  const [candidateForm, setCandidateForm] = useState({ name:'', email:'', phone:'', location:'', appliedJob:'', appliedPosition:'', department:'Tech', experience:'1-2 Years', skills:'', education:'Graduate', currentCompany:'', noticePeriod:'30 Days', source:'Direct Application', notes:'' });
+  const [interviewForm, setInterviewForm] = useState({ round:'Technical Round 1', interviewer:'Tech Lead / HR', date: new Date().toISOString().slice(0,10), time:'11:00 AM', type:'Online Video', meetingLink:'', notes:'' });
+  const [feedbackForm, setFeedbackForm] = useState({ technicalSkills:4, communication:4, problemSolving:4, teamwork:4, overallRating:4, strengths:'', weaknesses:'', comments:'', recommendation:'Hire' });
 
-  const [feedbackForm, setFeedbackForm] = useState({
-    technicalSkills: 4,
-    communication: 4,
-    problemSolving: 4,
-    teamwork: 4,
-    overallRating: 4,
-    strengths: '',
-    weaknesses: '',
-    comments: '',
-    recommendation: 'Hire',
-  });
-
-  const [offerForm, setOfferForm] = useState({
-    offeredDesignation: '',
-    department: '',
-    salary: '₹6,00,000 / yr',
-    joiningDate: new Date().toISOString().slice(0, 10),
-    status: 'Sent',
-    notes: '',
-  });
-
-  // Load all recruitment data from MongoDB Atlas
-  const loadRecruitmentData = async () => {
-    setLoading(true);
-    setError('');
+  // ── Data loaders ─────────────────────────────────────────────────────
+  const fetchCandidates = async () => {
+    setCandidatesLoading(true);
+    setCandidatesError('');
     try {
-      const [jobsRes, candsRes, sumRes] = await Promise.all([
+      const res = await apiClient.get('/recruitment/candidates');
+      const list = extractCandidateArray(res);
+      setCandidates(list);
+      return list;
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to load candidates.';
+      setCandidatesError(msg);
+      return [];
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const loadRecruitmentData = async () => {
+    setLoading(true); setError('');
+    try {
+      const [jr, cr, sr] = await Promise.all([
         apiClient.get('/recruitment/jobs'),
         apiClient.get('/recruitment/candidates'),
         apiClient.get('/recruitment/summary').catch(() => ({ data: { data: null } })),
       ]);
-
-      const jobsData = jobsRes.data?.data || [];
-      const candsData = candsRes.data?.data || [];
-      setJobs(jobsData);
-      setCandidates(candsData);
-
-      if (sumRes.data?.data) {
-        setSummary(sumRes.data.data);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Unable to load recruitment data from server.');
-    } finally {
-      setLoading(false);
-    }
+      setJobs(jr.data?.data || []);
+      setCandidates(extractCandidateArray(cr));
+      if (sr.data?.data) setSummary(sr.data.data);
+    } catch (err) { setError(err.response?.data?.message || 'Unable to load recruitment data.'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    loadRecruitmentData();
-  }, []);
+  const loadOfferLetters = async () => {
+    setOffersLoading(true);
+    try {
+      const params = {};
+      if (offerStatusFilter !== 'All') params.status = offerStatusFilter;
+      if (offerDeptFilter !== 'All') params.department = offerDeptFilter;
+      if (offerEmpTypeFilter !== 'All') params.employmentType = offerEmpTypeFilter;
+      if (offerSearch) params.search = offerSearch;
+      params.sort = offerSortDir;
+      const [or, sr] = await Promise.all([
+        apiClient.get('/recruitment/offer-letters', { params }),
+        apiClient.get('/recruitment/offer-letters/summary').catch(() => ({ data: { data: {} } })),
+      ]);
+      setOffers(or.data?.data || []);
+      if (sr.data?.data) setOfferSummary(sr.data.data);
+    } catch (err) { setOfferError(err.response?.data?.message || 'Unable to load offer letters.'); }
+    finally { setOffersLoading(false); }
+  };
 
-  // Filtered Jobs
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((j) => {
-      const matchesSearch =
-        j.title.toLowerCase().includes(search.toLowerCase()) ||
-        j.jobId.toLowerCase().includes(search.toLowerCase()) ||
-        j.designation.toLowerCase().includes(search.toLowerCase());
-      const matchesDept = selectedDept === 'All' || j.department === selectedDept;
-      const matchesStatus = selectedStatus === 'All' || j.status === selectedStatus;
-      return matchesSearch && matchesDept && matchesStatus;
-    });
-  }, [jobs, search, selectedDept, selectedStatus]);
+  const loadCompanyInfo = async () => {
+    try {
+      const res = await apiClient.get('/company-settings').catch(() => null);
+      if (res?.data?.data) setCompanyInfo({ companyName: res.data.data.companyName || 'Aasha SM Technologies', officeAddress: res.data.data.officeAddress || '' });
+    } catch (_e) {}
+  };
 
-  // Filtered Candidates
-  const filteredCandidates = useMemo(() => {
-    return candidates.filter((c) => {
-      const matchesSearch =
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.email.toLowerCase().includes(search.toLowerCase()) ||
-        c.candidateId.toLowerCase().includes(search.toLowerCase()) ||
-        c.appliedPosition.toLowerCase().includes(search.toLowerCase());
-      const matchesDept = selectedDept === 'All' || c.department === selectedDept;
-      const matchesStage = selectedStage === 'All' || c.stage === selectedStage;
-      const matchesStatus = selectedStatus === 'All' || c.status === selectedStatus;
-      return matchesSearch && matchesDept && matchesStage && matchesStatus;
-    });
-  }, [candidates, search, selectedDept, selectedStage, selectedStatus]);
+  useEffect(() => { loadRecruitmentData(); loadCompanyInfo(); }, []);
+  useEffect(() => { if (activeTab === 'offers') loadOfferLetters(); }, [activeTab, offerStatusFilter, offerDeptFilter, offerEmpTypeFilter, offerSortDir]);
 
-  // All Scheduled/Completed Interviews across candidates
+  // ── Computed ─────────────────────────────────────────────────────────
+  const filteredJobs = useMemo(() => jobs.filter((j) => {
+    const s = j.title.toLowerCase().includes(search.toLowerCase()) || j.jobId.toLowerCase().includes(search.toLowerCase()) || j.designation.toLowerCase().includes(search.toLowerCase());
+    return s && (selectedDept === 'All' || j.department === selectedDept) && (selectedStatus === 'All' || j.status === selectedStatus);
+  }), [jobs, search, selectedDept, selectedStatus]);
+
+  const filteredCandidates = useMemo(() => candidates.filter((c) => {
+    const s = c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()) || c.candidateId.toLowerCase().includes(search.toLowerCase()) || c.appliedPosition.toLowerCase().includes(search.toLowerCase());
+    return s && (selectedDept === 'All' || c.department === selectedDept) && (selectedStage === 'All' || c.stage === selectedStage) && (selectedStatus === 'All' || c.status === selectedStatus);
+  }), [candidates, search, selectedDept, selectedStage, selectedStatus]);
+
   const allInterviews = useMemo(() => {
     const list = [];
-    candidates.forEach((c) => {
-      (c.interviews || []).forEach((inv) => {
-        list.push({
-          ...inv,
-          candidateId: c._id,
-          candidateName: c.name,
-          candidateEmail: c.email,
-          appliedPosition: c.appliedPosition,
-          department: c.department,
-        });
-      });
-    });
+    candidates.forEach((c) => (c.interviews || []).forEach((inv) => list.push({ ...inv, candidateId: c._id, candidateName: c.name, candidateEmail: c.email, appliedPosition: c.appliedPosition, department: c.department })));
     return list.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [candidates]);
 
-  // All Offered/Selected Candidates
-  const offeredCandidates = useMemo(() => {
-    return candidates.filter((c) => c.offer || c.stage === 'Selected' || c.stage === 'Hired' || c.status === 'Offered');
-  }, [candidates]);
+  const filteredOffers = useMemo(() => {
+    let list = offers;
+    if (offerStatusFilter === 'PendingConversion') {
+      list = list.filter((o) => o.status === 'Accepted' && !o.convertedEmployee);
+    }
+    if (!offerSearch) return list;
+    const q = offerSearch.toLowerCase();
+    return list.filter((o) => (o.offerNumber || '').toLowerCase().includes(q) || (o.offeredDesignation || '').toLowerCase().includes(q) || (o.candidate?.name || '').toLowerCase().includes(q) || (o.candidate?.email || '').toLowerCase().includes(q));
+  }, [offers, offerSearch, offerStatusFilter]);
 
-  // ─── HANDLERS ─────────────────────────────────────────────────────────────
-
-  // Open Create Job Modal
+  // ── Existing handlers (UNCHANGED) ────────────────────────────────────
   const handleOpenCreateJob = (job = null) => {
     setSelectedJob(job);
-    if (job) {
-      setJobForm({
-        title: job.title || '',
-        department: job.department || 'Tech',
-        designation: job.designation || '',
-        openings: job.openings || 1,
-        employmentType: job.employmentType || 'Full Time',
-        location: job.location || 'In-Office / Hybrid',
-        experience: job.experience || '1-3 Years',
-        salaryRange: job.salaryRange || 'Competitive',
-        priority: job.priority || 'Medium',
-        openingDate: job.openingDate ? job.openingDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        closingDate: job.closingDate ? job.closingDate.slice(0, 10) : '',
-        description: job.description || '',
-        requirements: job.requirements || '',
-        status: job.status || 'Open',
-      });
-    } else {
-      setJobForm({
-        title: '',
-        department: 'Tech',
-        designation: '',
-        openings: 1,
-        employmentType: 'Full Time',
-        location: 'In-Office / Hybrid',
-        experience: '1-3 Years',
-        salaryRange: 'Competitive',
-        priority: 'Medium',
-        openingDate: new Date().toISOString().slice(0, 10),
-        closingDate: '',
-        description: '',
-        requirements: '',
-        status: 'Open',
-      });
-    }
+    if (job) setJobForm({ title:job.title||'', department:job.department||'Tech', designation:job.designation||'', openings:job.openings||1, employmentType:job.employmentType||'Full Time', location:job.location||'In-Office / Hybrid', experience:job.experience||'1-3 Years', salaryRange:job.salaryRange||'Competitive', priority:job.priority||'Medium', openingDate:job.openingDate?job.openingDate.slice(0,10):new Date().toISOString().slice(0,10), closingDate:job.closingDate?job.closingDate.slice(0,10):'', description:job.description||'', requirements:job.requirements||'', status:job.status||'Open' });
+    else setJobForm({ title:'', department:'Tech', designation:'', openings:1, employmentType:'Full Time', location:'In-Office / Hybrid', experience:'1-3 Years', salaryRange:'Competitive', priority:'Medium', openingDate:new Date().toISOString().slice(0,10), closingDate:'', description:'', requirements:'', status:'Open' });
     setShowJobModal(true);
   };
 
-  // Save Job Requisition
   const handleSaveJob = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
+    e.preventDefault(); setSubmitting(true); setError('');
     try {
-      if (selectedJob) {
-        await apiClient.put(`/recruitment/jobs/${selectedJob._id}`, jobForm);
-        setSuccess('Job requisition updated successfully!');
-      } else {
-        await apiClient.post('/recruitment/jobs', jobForm);
-        setSuccess('Job requisition published successfully!');
-      }
-      setShowJobModal(false);
-      await loadRecruitmentData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save job requisition.');
-    } finally {
-      setSubmitting(false);
-    }
+      if (selectedJob) { await apiClient.put('/recruitment/jobs/'+selectedJob._id, jobForm); setSuccess('Job updated!'); }
+      else { await apiClient.post('/recruitment/jobs', jobForm); setSuccess('Job published!'); }
+      setShowJobModal(false); await loadRecruitmentData();
+    } catch (err) { setError(err.response?.data?.message || 'Failed to save job.'); }
+    finally { setSubmitting(false); }
   };
 
-  // Open Add Candidate Modal
+  // GENERAL + Add Candidate (unchanged, independent of offer modal)
   const handleOpenAddCandidate = () => {
-    setCandidateForm({
-      name: '',
-      email: '',
-      phone: '',
-      location: '',
-      appliedJob: jobs[0]?._id || '',
-      appliedPosition: jobs[0]?.title || 'Software Engineer',
-      department: jobs[0]?.department || 'Tech',
-      experience: '1-2 Years',
-      skills: '',
-      education: 'Graduate',
-      currentCompany: '',
-      noticePeriod: '30 Days',
-      source: 'Direct Application',
-      notes: '',
-    });
+    setCandidateForm({ name:'', email:'', phone:'', location:'', appliedJob:jobs[0]?._id||'', appliedPosition:jobs[0]?.title||'Software Engineer', department:jobs[0]?.department||'Tech', experience:'1-2 Years', skills:'', education:'Graduate', currentCompany:'', noticePeriod:'30 Days', source:'Direct Application', notes:'' });
     setShowCandidateModal(true);
   };
 
-  // Save Candidate
   const handleSaveCandidate = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
+    e.preventDefault(); setSubmitting(true); setError('');
     try {
       await apiClient.post('/recruitment/candidates', candidateForm);
-      setShowCandidateModal(false);
-      setSuccess('Candidate profile created successfully!');
-      await loadRecruitmentData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to register candidate.');
-    } finally {
-      setSubmitting(false);
-    }
+      setShowCandidateModal(false); setSuccess('Candidate created!'); await loadRecruitmentData();
+    } catch (err) { setError(err.response?.data?.message || 'Failed to register candidate.'); }
+    finally { setSubmitting(false); }
   };
 
-  // Open Candidate Profile
-  const handleOpenProfile = (candidate) => {
-    setSelectedCandidate(candidate);
-    setShowProfileModal(true);
+  const handleOpenProfile = (c) => { setSelectedCandidate(c); setShowProfileModal(true); };
+
+  const handleShortlist = async (id) => {
+    try { await apiClient.patch('/recruitment/candidates/'+id+'/shortlist'); setSuccess('Candidate shortlisted!'); await loadRecruitmentData(); if (selectedCandidate?._id===id) { const u=await apiClient.get('/recruitment/candidates/'+id); setSelectedCandidate(u.data?.data); } }
+    catch { setError('Failed to shortlist.'); }
   };
 
-  // Update Candidate Stage
-  const handleUpdateStage = async (candidateId, newStage) => {
-    try {
-      await apiClient.patch(`/recruitment/candidates/${candidateId}/stage`, { stage: newStage });
-      setSuccess(`Candidate moved to stage: ${newStage}`);
-      await loadRecruitmentData();
-      if (selectedCandidate && selectedCandidate._id === candidateId) {
-        const updated = await apiClient.get(`/recruitment/candidates/${candidateId}`);
-        setSelectedCandidate(updated.data?.data);
-      }
-    } catch (err) {
-      setError('Failed to update candidate stage.');
-    }
+  const handleReject = async (id) => {
+    try { await apiClient.patch('/recruitment/candidates/'+id+'/reject'); setSuccess('Candidate rejected.'); await loadRecruitmentData(); if (selectedCandidate?._id===id) { const u=await apiClient.get('/recruitment/candidates/'+id); setSelectedCandidate(u.data?.data); } }
+    catch { setError('Failed to reject.'); }
   };
 
-  // Shortlist Candidate
-  const handleShortlist = async (candidateId) => {
-    try {
-      await apiClient.patch(`/recruitment/candidates/${candidateId}/shortlist`);
-      setSuccess('Candidate successfully shortlisted for interview rounds!');
-      await loadRecruitmentData();
-      if (selectedCandidate && selectedCandidate._id === candidateId) {
-        const updated = await apiClient.get(`/recruitment/candidates/${candidateId}`);
-        setSelectedCandidate(updated.data?.data);
-      }
-    } catch (err) {
-      setError('Failed to shortlist candidate.');
-    }
-  };
-
-  // Reject Candidate
-  const handleReject = async (candidateId) => {
-    try {
-      await apiClient.patch(`/recruitment/candidates/${candidateId}/reject`);
-      setSuccess('Candidate marked as Rejected.');
-      await loadRecruitmentData();
-      if (selectedCandidate && selectedCandidate._id === candidateId) {
-        const updated = await apiClient.get(`/recruitment/candidates/${candidateId}`);
-        setSelectedCandidate(updated.data?.data);
-      }
-    } catch (err) {
-      setError('Failed to reject candidate.');
-    }
-  };
-
-  // Open Schedule Interview Modal
-  const handleOpenSchedule = (cand) => {
-    setSelectedCandidate(cand);
-    setInterviewForm({
-      round: 'Technical Round 1',
-      interviewer: 'Tech Lead / HR Manager',
-      date: new Date().toISOString().slice(0, 10),
-      time: '11:00 AM',
-      type: 'Online Video',
-      meetingLink: 'https://meet.google.com/xyz-abcd-efg',
-      notes: '',
-    });
+  const handleOpenSchedule = (c) => {
+    setSelectedCandidate(c);
+    setInterviewForm({ round:'Technical Round 1', interviewer:'Tech Lead / HR Manager', date:new Date().toISOString().slice(0,10), time:'11:00 AM', type:'Online Video', meetingLink:'https://meet.google.com/xyz-abcd-efg', notes:'' });
     setShowInterviewModal(true);
   };
 
-  // Submit Interview Schedule
   const handleSaveInterview = async (e) => {
-    e.preventDefault();
-    if (!selectedCandidate) return;
-    setSubmitting(true);
-    setError('');
+    e.preventDefault(); if (!selectedCandidate) return; setSubmitting(true); setError('');
     try {
-      await apiClient.post(`/recruitment/candidates/${selectedCandidate._id}/interviews`, interviewForm);
-      setShowInterviewModal(false);
-      setSuccess('Interview scheduled successfully!');
-      await loadRecruitmentData();
-      const updated = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
-      setSelectedCandidate(updated.data?.data);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to schedule interview.');
-    } finally {
-      setSubmitting(false);
-    }
+      await apiClient.post('/recruitment/candidates/'+selectedCandidate._id+'/interviews', interviewForm);
+      setShowInterviewModal(false); setSuccess('Interview scheduled!'); await loadRecruitmentData();
+      const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+    } catch (err) { setError(err.response?.data?.message || 'Failed to schedule interview.'); }
+    finally { setSubmitting(false); }
   };
 
-  // Open Interview Feedback Modal
   const handleOpenFeedback = (cand, inv) => {
-    setSelectedCandidate(cand);
-    setSelectedInterview(inv);
-    setFeedbackForm({
-      technicalSkills: inv.feedback?.technicalSkills || 4,
-      communication: inv.feedback?.communication || 4,
-      problemSolving: inv.feedback?.problemSolving || 4,
-      teamwork: inv.feedback?.teamwork || 4,
-      overallRating: inv.feedback?.overallRating || 4,
-      strengths: inv.feedback?.strengths || '',
-      weaknesses: inv.feedback?.weaknesses || '',
-      comments: inv.feedback?.comments || '',
-      recommendation: inv.feedback?.recommendation || 'Hire',
-    });
+    setSelectedCandidate(cand); setSelectedInterview(inv);
+    setFeedbackForm({ technicalSkills:inv.feedback?.technicalSkills||4, communication:inv.feedback?.communication||4, problemSolving:inv.feedback?.problemSolving||4, teamwork:inv.feedback?.teamwork||4, overallRating:inv.feedback?.overallRating||4, strengths:inv.feedback?.strengths||'', weaknesses:inv.feedback?.weaknesses||'', comments:inv.feedback?.comments||'', recommendation:inv.feedback?.recommendation||'Hire' });
     setShowFeedbackModal(true);
   };
 
-  // Submit Interview Feedback
   const handleSaveFeedback = async (e) => {
-    e.preventDefault();
-    if (!selectedCandidate || !selectedInterview) return;
-    setSubmitting(true);
-    setError('');
+    e.preventDefault(); if (!selectedCandidate||!selectedInterview) return; setSubmitting(true); setError('');
     try {
-      await apiClient.patch(
-        `/recruitment/candidates/${selectedCandidate._id}/interviews/${selectedInterview._id}`,
-        {
-          feedback: feedbackForm,
-          status: 'Completed',
-        }
-      );
-      setShowFeedbackModal(false);
-      setSuccess('Interview feedback and rating submitted!');
-      await loadRecruitmentData();
-      const updated = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
-      setSelectedCandidate(updated.data?.data);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit interview feedback.');
-    } finally {
-      setSubmitting(false);
-    }
+      await apiClient.patch('/recruitment/candidates/'+selectedCandidate._id+'/interviews/'+selectedInterview._id, { feedback:feedbackForm, status:'Completed' });
+      setShowFeedbackModal(false); setSuccess('Feedback submitted!'); await loadRecruitmentData();
+      const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+    } catch (err) { setError(err.response?.data?.message||'Failed to submit feedback.'); }
+    finally { setSubmitting(false); }
   };
 
-  // Open Create Offer Modal
-  const handleOpenOffer = (cand) => {
-    setSelectedCandidate(cand);
-    setOfferForm({
-      offeredDesignation: cand.appliedPosition || 'Software Engineer',
-      department: cand.department || 'Tech',
-      salary: cand.offer?.salary || '₹6,50,000 / yr',
-      joiningDate: cand.offer?.joiningDate ? cand.offer.joiningDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
-      status: cand.offer?.status || 'Sent',
-      notes: cand.offer?.notes || '',
-    });
+  const handleConvertEmployee = async () => {
+    if (!selectedCandidate) return; setSubmitting(true); setError('');
+    try {
+      await apiClient.post('/recruitment/candidates/'+selectedCandidate._id+'/convert-employee');
+      setShowConvertModal(false); if (showProfileModal) setShowProfileModal(false);
+      setSuccess('Candidate onboarded as Employee!'); await loadRecruitmentData();
+    } catch (err) { setError(err.response?.data?.message||'Conversion failed.'); }
+    finally { setSubmitting(false); }
+  };
+
+  // ── Offer Letter handlers ────────────────────────────────────────────
+  const handleOpenCreateOffer = (existing = null) => {
+    setOfferError(''); setOfferSuccess('');
+    // Refresh real candidates from MongoDB on modal open so dropdown is always populated
+    fetchCandidates();
+
+    if (existing) {
+      const existingCandId = existing.candidate?._id || existing.candidate || '';
+      setSelectedCandidateId(existingCandId);
+      setEditingOffer(existing);
+      setOfferForm({
+        candidateId: existingCandId,
+        offeredDesignation: existing.offeredDesignation || '',
+        department: existing.department || 'Tech',
+        employmentType: existing.employmentType || 'Full Time',
+        salary: existing.salary || '',
+        joiningDate: existing.joiningDate ? existing.joiningDate.slice(0,10) : DEFAULT_OFFER_FORM.joiningDate,
+        offerDate: existing.offerDate ? existing.offerDate.slice(0,10) : DEFAULT_OFFER_FORM.offerDate,
+        expiresAt: existing.expiresAt ? existing.expiresAt.slice(0,10) : DEFAULT_OFFER_FORM.expiresAt,
+        probationPeriod: existing.probationPeriod || '6 Months',
+        workLocation: existing.workLocation || '',
+        reportingManager: existing.reportingManager || '',
+        workingHours: existing.workingHours || '9:00 AM - 6:00 PM (Mon-Sat)',
+        noticePeriod: existing.noticePeriod || '30 Days',
+        termsAndConditions: existing.termsAndConditions || '',
+        additionalNotes: existing.additionalNotes || '',
+      });
+    } else {
+      setSelectedCandidateId('');
+      setEditingOffer(null);
+      setOfferForm({ ...DEFAULT_OFFER_FORM });
+    }
     setShowOfferModal(true);
   };
 
-  // Save Offer
   const handleSaveOffer = async (e) => {
     e.preventDefault();
-    if (!selectedCandidate) return;
-    setSubmitting(true);
-    setError('');
+    if (!offerForm.candidateId) { setOfferError('Please select a candidate.'); return; }
+    setOfferSubmitting(true); setOfferError('');
     try {
-      await apiClient.post(`/recruitment/candidates/${selectedCandidate._id}/offer`, offerForm);
+      if (editingOffer) {
+        await apiClient.put('/recruitment/offer-letters/' + editingOffer._id, offerForm);
+        setOfferSuccess('Offer updated successfully in MongoDB!');
+      } else {
+        await apiClient.post('/recruitment/offer-letters', offerForm);
+        setOfferSuccess('Offer saved as Draft in MongoDB!');
+      }
       setShowOfferModal(false);
-      setSuccess('Job offer generated and saved successfully!');
-      await loadRecruitmentData();
-      const updated = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
-      setSelectedCandidate(updated.data?.data);
+      await Promise.all([loadOfferLetters(), loadRecruitmentData()]);
+    } catch (err) { setOfferError(err.response?.data?.message || 'Failed to save offer.'); }
+    finally { setOfferSubmitting(false); }
+  };
+
+  const handleDeleteOffer = async () => {
+    if (!viewingOffer) return; setOfferSubmitting(true); setOfferError('');
+    try {
+      await apiClient.delete('/recruitment/offer-letters/' + viewingOffer._id);
+      setShowOfferDeleteModal(false);
+      setViewingOffer(null);
+      setOfferSuccess('Offer deleted from system.');
+      await loadOfferLetters();
+    } catch (err) { setOfferError(err.response?.data?.message || 'Delete failed.'); }
+    finally { setOfferSubmitting(false); }
+  };
+
+  const handleSendOffer = async () => {
+    if (!viewingOffer) return; setOfferSubmitting(true); setOfferError('');
+    try {
+      await apiClient.post('/recruitment/offer-letters/' + viewingOffer._id + '/send');
+      setShowOfferSendModal(false);
+      setOfferSuccess('Offer sent successfully to ' + viewingOffer.candidate?.email);
+      await loadOfferLetters();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create offer.');
+      setOfferError(err.response?.data?.message || 'Send failed. Check SMTP configuration. Offer was NOT marked as Sent.');
+    } finally { setOfferSubmitting(false); }
+  };
+
+  const handleStatusAction = async (offerId, action, payload = {}) => {
+    setOfferSubmitting(true); setOfferError('');
+    try {
+      await apiClient.post('/recruitment/offer-letters/' + offerId + '/' + action, payload);
+      setOfferSuccess('Offer status updated to ' + action.charAt(0).toUpperCase() + action.slice(1) + '!');
+      await loadOfferLetters();
+    } catch (err) { setOfferError(err.response?.data?.message || 'Action failed.'); }
+    finally { setOfferSubmitting(false); }
+  };
+
+  const handleConvertFromOffer = async () => {
+    if (!viewingOffer) return; setOfferSubmitting(true); setOfferError('');
+    try {
+      const res = await apiClient.post('/recruitment/offer-letters/' + viewingOffer._id + '/convert-employee');
+      setShowOfferConvertModal(false);
+      setOfferSuccess(res.data?.message || 'Candidate converted to Employee successfully!');
+      await Promise.all([loadOfferLetters(), loadRecruitmentData()]);
+    } catch (err) { setOfferError(err.response?.data?.message || 'Conversion failed.'); }
+    finally { setOfferSubmitting(false); }
+  };
+
+  // Contextual Add New Candidate (INSIDE offer modal — INDEPENDENT of general candidate modal)
+  const handleOpenOfferNewCandidate = () => {
+    // CRITICAL: DO NOT close offer modal! DO NOT touch showCandidateModal!
+    setOfferNewCandidateForm({
+      name: '',
+      email: '',
+      phone: '',
+      location: offerForm.workLocation || '',
+      appliedJob: '',
+      appliedPosition: offerForm.offeredDesignation || '',
+      department: offerForm.department || 'Tech',
+      experience: '0-1 Years',
+      skills: '',
+      education: 'Graduate',
+      currentCompany: '',
+      noticePeriod: offerForm.noticePeriod || '30 Days',
+      source: 'Direct Application',
+      notes: '',
+    });
+    setOfferNewCandidateError('');
+    setShowOfferNewCandidateModal(true);
+  };
+
+  const handleSaveOfferNewCandidate = async (e) => {
+    e.preventDefault();
+    setOfferNewCandidateSubmitting(true);
+    setOfferNewCandidateError('');
+    try {
+      const res = await apiClient.post('/recruitment/candidates', offerNewCandidateForm);
+      const newCand = res.data?.data || res.data?.candidate || res.data;
+      // Refresh candidate list from MongoDB using existing API
+      await fetchCandidates();
+
+      // Auto-select in offerForm while strictly preserving every already entered offer field
+      if (newCand?._id) {
+        setSelectedCandidateId(newCand._id);
+        setOfferForm((prev) => ({
+          ...prev,
+          candidateId: newCand._id,
+          offeredDesignation: (prev.offeredDesignation && prev.offeredDesignation.trim())
+            ? prev.offeredDesignation
+            : (newCand.appliedPosition || ''),
+          department: (prev.department && prev.department !== 'Tech')
+            ? prev.department
+            : (newCand.department || prev.department || 'Tech'),
+        }));
+      }
+
+      // ONLY close contextual modal — offer modal remains alive and mounted!
+      setShowOfferNewCandidateModal(false);
+      setOfferSuccess(`Candidate "${newCand?.name || 'New Candidate'}" created and selected!`);
+    } catch (err) {
+      setOfferNewCandidateError(err.response?.data?.message || 'Failed to create candidate.');
     } finally {
-      setSubmitting(false);
+      setOfferNewCandidateSubmitting(false);
     }
   };
 
-  // Convert Candidate to Employee
-  const handleConvertEmployee = async () => {
-    if (!selectedCandidate) return;
-    setSubmitting(true);
-    setError('');
+  // PDF generation using jsPDF
+  const handleDownloadPDF = async (offer) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const cand = offer.candidate || {};
+    const companyName = 'AASHA SM TECHNOLOGIES PRIVATE LIMITED';
+    const fd = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'As mutually agreed';
+    const pageW = 210;
+    const m = 18;
+    let y = 14;
+
+    // 1. Header with Dashboard Logo
     try {
-      const res = await apiClient.post(`/recruitment/candidates/${selectedCandidate._id}/convert-employee`);
-      setShowConvertModal(false);
-      if (showProfileModal) setShowProfileModal(false);
-      setSuccess(`Candidate successfully converted & onboarded as Employee in the live users directory!`);
-      await loadRecruitmentData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to convert candidate to employee.');
-    } finally {
-      setSubmitting(false);
+      const logoData = await getBase64ImageFromUrl('/aasha-logo-new.jpg');
+      if (logoData) {
+        doc.addImage(logoData, 'JPEG', m, y - 2, 42, 13);
+      }
+    } catch (_e) {}
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text(companyName, pageW - m, y + 3, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Corporate HR & Talent Acquisition', pageW - m, y + 8, { align: 'right' });
+    doc.text('Aasha SM Technologies · IT Services & Solutions', pageW - m, y + 12, { align: 'right' });
+
+    y += 18;
+    // Orange brand accent divider
+    doc.setDrawColor(234, 88, 12);
+    doc.setLineWidth(0.8);
+    doc.line(m, y, pageW - m, y);
+    y += 8;
+
+    // 2. Meta & Recipient
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Offer No:', pageW - m - 45, y);
+    doc.setTextColor(15, 23, 42);
+    doc.text(offer.offerNumber || 'OFR-00000', pageW - m, y, { align: 'right' });
+    y += 4.5;
+
+    doc.setTextColor(100, 116, 139);
+    doc.text('Offer Date:', pageW - m - 45, y);
+    doc.setTextColor(15, 23, 42);
+    doc.text(fd(offer.offerDate), pageW - m, y, { align: 'right' });
+    y += 4.5;
+
+    if (offer.expiresAt) {
+      doc.setTextColor(100, 116, 139);
+      doc.text('Valid Until:', pageW - m - 45, y);
+      doc.setTextColor(15, 23, 42);
+      doc.text(fd(offer.expiresAt), pageW - m, y, { align: 'right' });
+      y += 4.5;
     }
+
+    const recY = y - (offer.expiresAt ? 13.5 : 9);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('To,', m, recY);
+    doc.text(cand.name || 'Candidate Name', m, recY + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    if (cand.email) doc.text(`Email: ${cand.email}`, m, recY + 9);
+    if (cand.phone) doc.text(`Mobile: ${cand.phone}`, m, recY + 13);
+
+    y = Math.max(y, recY + 18) + 4;
+
+    // 3. Subject
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(234, 88, 12);
+    doc.text(`Sub: Formal Employment Offer — ${offer.offeredDesignation || 'Position'}`, m, y);
+    y += 6;
+
+    // 4. Salutation & Introduction
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Dear ${cand.name || 'Candidate'},`, m, y);
+    y += 5.5;
+
+    const introText = `We are pleased to extend this formal offer of employment with ${companyName}. Following our interview rounds and assessment, we are impressed with your qualifications and enthusiastic about the value and expertise you will bring to our team.`;
+    const introLines = doc.splitTextToSize(introText, pageW - 2 * m);
+    doc.text(introLines, m, y);
+    y += introLines.length * 4.5 + 4;
+
+    // 5. Key Employment Details Table Box
+    const tableRows = [
+      ['Offered Designation:', offer.offeredDesignation || '—'],
+      ['Department:', offer.department || '—'],
+      ['Employment Type:', offer.employmentType || 'Full Time'],
+      ['Annual CTC / Salary:', offer.salary || 'As discussed'],
+      ['Joining Date:', fd(offer.joiningDate)],
+      ['Work Location:', offer.workLocation || 'Office / Hybrid'],
+      ['Probation Period:', offer.probationPeriod || '6 Months'],
+      ['Reporting Manager:', offer.reportingManager || 'Management'],
+      ['Working Hours:', offer.workingHours || '9:00 AM - 6:00 PM (Mon-Sat)'],
+      ['Notice Period:', offer.noticePeriod || '30 Days'],
+    ];
+
+    const boxH = tableRows.length * 5.2 + 6;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(m, y, pageW - 2 * m, boxH, 2, 2, 'FD');
+    y += 5;
+
+    tableRows.forEach(([lbl, val]) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(lbl, m + 4, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(val), m + 50, y);
+      y += 5.2;
+    });
+    y += 5;
+
+    // 6. Numbered Terms & Conditions
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('TERMS & CONDITIONS:', m, y);
+    y += 5;
+
+    const termsList = [
+      `1. Offer Acceptance: Please sign and return a duplicate copy of this letter prior to ${fd(offer.expiresAt)} to confirm your acceptance.`,
+      `2. Probation & Confirmation: You will serve a probation of ${offer.probationPeriod || '6 Months'}, post which employment will be confirmed in writing subject to performance.`,
+      `3. Confidentiality & Code of Conduct: You agree to uphold company data confidentiality, non-disclosure (NDA), and IP security policies at all times.`,
+      `4. Notice Period: Either party may terminate employment by providing ${offer.noticePeriod || '30 Days'} written notice or equivalent compensation in lieu thereof.`,
+    ];
+
+    if (offer.termsAndConditions && offer.termsAndConditions.trim()) {
+      termsList.push(`5. Additional Terms: ${offer.termsAndConditions.trim()}`);
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(51, 65, 85);
+    termsList.forEach((t) => {
+      const tLines = doc.splitTextToSize(t, pageW - 2 * m);
+      doc.text(tLines, m, y);
+      y += tLines.length * 3.8 + 1.5;
+    });
+
+    if (offer.additionalNotes && offer.additionalNotes.trim()) {
+      y += 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('ADDITIONAL NOTES:', m, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      const noteLines = doc.splitTextToSize(offer.additionalNotes.trim(), pageW - 2 * m);
+      doc.text(noteLines, m, y);
+      y += noteLines.length * 3.8 + 2;
+    }
+
+    // 7. Closing & Sign-off
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text('We look forward to welcoming you to the team!', m, y);
+    y += 6;
+    doc.text('Warm regards,', m, y);
+    y += 4.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('Human Resources & Talent Acquisition', m, y);
+    y += 4;
+    doc.setTextColor(234, 88, 12);
+    doc.text(companyName, m, y);
+
+    // 8. Footer (at bottom of A4)
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 282, pageW, 15, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, 282, pageW, 282);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`${companyName} · Confidential Employment Document · Generated via HRMS`, pageW / 2, 290, { align: 'center' });
+
+    const safeName = (cand.name || 'Candidate').trim().replace(/[^a-zA-Z0-9]/g, '_');
+    const safeOfr = (offer.offerNumber || 'OFR').trim().replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Offer_Letter_${safeName}_${safeOfr}.pdf`);
   };
+
+  const sbCls = (s) => { const m={Draft:'rec-badge-draft',Sent:'rec-badge-sent',Accepted:'rec-badge-accepted',Rejected:'rec-badge-rejected',Expired:'rec-badge-expired',Withdrawn:'rec-badge-withdrawn',Hired:'hired'}; return 'rec-badge '+(m[s]||''); };
 
   return (
     <UserLayout pageTitle="Recruitment & Hiring">
       <div className="rec-container">
         {/* Header */}
         <div className="rec-header">
-          <div className="rec-title-area">
-            <h2>Recruitment & Hiring Management</h2>
-            <p>Manage job requisitions, candidate pipelines, interviews, offers, and employee conversions.</p>
-          </div>
+          <div className="rec-title-area"><h2>Recruitment &amp; Hiring Management</h2><p>Manage job requisitions, candidate pipelines, interviews, offers, and employee conversions.</p></div>
           <div className="rec-header-actions">
-            <button type="button" className="rec-secondary-btn" onClick={() => handleOpenAddCandidate()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="16" y1="11" x2="22" y2="11" />
-              </svg>
-              Add Candidate
+            <button type="button" className="rec-secondary-btn" onClick={handleOpenAddCandidate}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'16px',height:'16px'}}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+              + Add Candidate
             </button>
             <button type="button" className="rec-primary-btn" onClick={() => handleOpenCreateJob()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:'16px',height:'16px'}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Create Job Requisition
             </button>
           </div>
         </div>
 
-        {/* Real-time KPI Metric Cards */}
+        {/* KPI Cards */}
         <div className="rec-kpi-grid">
-          <div className="rec-kpi-card accent">
-            <span className="rec-kpi-label">Open Positions</span>
-            <strong className="rec-kpi-value">{summary.openPositions}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">Total Applicants</span>
-            <strong className="rec-kpi-value">{summary.totalApplicants}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">New Applicants</span>
-            <strong className="rec-kpi-value">{summary.newApplicants}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">Shortlisted</span>
-            <strong className="rec-kpi-value">{summary.shortlistedCandidates}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">Interviews</span>
-            <strong className="rec-kpi-value">{summary.interviewsScheduled}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">Selected</span>
-            <strong className="rec-kpi-value">{summary.selectedCandidates}</strong>
-          </div>
-          <div className="rec-kpi-card">
-            <span className="rec-kpi-label">Positions Filled</span>
-            <strong className="rec-kpi-value">{summary.positionsFilled}</strong>
-          </div>
+          <div className="rec-kpi-card accent"><span className="rec-kpi-label">Open Positions</span><strong className="rec-kpi-value">{summary.openPositions}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">Total Applicants</span><strong className="rec-kpi-value">{summary.totalApplicants}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">New Applicants</span><strong className="rec-kpi-value">{summary.newApplicants}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">Shortlisted</span><strong className="rec-kpi-value">{summary.shortlistedCandidates}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">Interviews</span><strong className="rec-kpi-value">{summary.interviewsScheduled}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">Selected</span><strong className="rec-kpi-value">{summary.selectedCandidates}</strong></div>
+          <div className="rec-kpi-card"><span className="rec-kpi-label">Positions Filled</span><strong className="rec-kpi-value">{summary.positionsFilled}</strong></div>
         </div>
 
-        {/* Alerts */}
-        {error && <div style={{ background: '#FEE2E2', color: '#B91C1C', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
-        {success && <div style={{ background: '#DCFCE7', color: '#15803D', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>{success}</div>}
+        {error && <div style={{background:'#FEE2E2',color:'#B91C1C',padding:'0.75rem 1rem',borderRadius:'8px',marginBottom:'1rem',fontSize:'0.875rem'}}>{error}</div>}
+        {success && <div style={{background:'#DCFCE7',color:'#15803D',padding:'0.75rem 1rem',borderRadius:'8px',marginBottom:'1rem',fontSize:'0.875rem'}}>{success}</div>}
 
-        {/* Workspace Tabs */}
-        <div className="rec-nav-tabs-wrap">
-          <div className="rec-nav-tabs">
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'jobs' ? 'active' : ''}`}
-              onClick={() => setActiveTab('jobs')}
-            >
-              Job Requisitions ({jobs.length})
-            </button>
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'pipeline' ? 'active' : ''}`}
-              onClick={() => setActiveTab('pipeline')}
-            >
-              Recruitment Pipeline Board
-            </button>
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'candidates' ? 'active' : ''}`}
-              onClick={() => setActiveTab('candidates')}
-            >
-              Candidate Directory ({candidates.length})
-            </button>
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'interviews' ? 'active' : ''}`}
-              onClick={() => setActiveTab('interviews')}
-            >
-              Interviews Schedule ({allInterviews.length})
-            </button>
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'offers' ? 'active' : ''}`}
-              onClick={() => setActiveTab('offers')}
-            >
-              Offers & Conversions ({offeredCandidates.length})
-            </button>
-            <button
-              type="button"
-              className={`rec-tab-btn ${activeTab === 'reports' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reports')}
-            >
-              Hiring Analytics
-            </button>
-          </div>
-        </div>
+        {/* Tabs */}
+        <div className="rec-nav-tabs-wrap"><div className="rec-nav-tabs">
+          {[['jobs','Job Requisitions ('+jobs.length+')'],['pipeline','Recruitment Pipeline Board'],['candidates','Candidate Directory ('+candidates.length+')'],['interviews','Interviews ('+allInterviews.length+')'],['offers','Offer Letters ('+(offerSummary.total||0)+')'],['reports','Hiring Analytics']].map(([t,l])=>(
+            <button key={t} type="button" className={'rec-tab-btn '+(activeTab===t?'active':'')} onClick={()=>setActiveTab(t)}>{l}</button>
+          ))}
+        </div></div>
 
-        {/* ─── TAB 1: JOB REQUISITIONS ─── */}
-        {activeTab === 'jobs' && (
+        {/* TAB 1: JOB REQUISITIONS */}
+        {activeTab==='jobs' && (
           <div>
             <div className="rec-toolbar">
-              <div className="rec-search-wrap">
-                <svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search jobs by title, ID, or designation..."
-                  className="rec-search-input"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-
-              <select className="rec-filter-select" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                <option value="All">All Departments</option>
-                {OFFICIAL_DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-
-              <select className="rec-filter-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-                <option value="All">All Statuses</option>
-                <option value="Open">Open</option>
-                <option value="On Hold">On Hold</option>
-                <option value="Closed">Closed</option>
-                <option value="Draft">Draft</option>
-              </select>
+              <div className="rec-search-wrap"><svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Search jobs by title, ID, or designation..." className="rec-search-input" value={search} onChange={(e)=>setSearch(e.target.value)}/></div>
+              <select className="rec-filter-select" value={selectedDept} onChange={(e)=>setSelectedDept(e.target.value)}><option value="All">All Departments</option>{OFFICIAL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select>
+              <select className="rec-filter-select" value={selectedStatus} onChange={(e)=>setSelectedStatus(e.target.value)}><option value="All">All Statuses</option><option value="Open">Open</option><option value="On Hold">On Hold</option><option value="Closed">Closed</option><option value="Draft">Draft</option></select>
             </div>
-
             <div className="rec-table-card">
-              {loading ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>Loading job requisitions...</div>
-              ) : filteredJobs.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                  No job requisitions found. Click "Create Job Requisition" to publish an opening.
-                </div>
-              ) : (
-                <div className="rec-table-wrap">
-                  <table className="rec-table">
-                    <thead>
-                      <tr>
-                        <th>Job ID</th>
-                        <th>Job Title</th>
-                        <th>Department</th>
-                        <th>Designation</th>
-                        <th>Openings</th>
-                        <th>Type</th>
-                        <th>Experience</th>
-                        <th>Applicants</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredJobs.map((job) => (
-                        <tr key={job._id}>
-                          <td><strong>{job.jobId}</strong></td>
-                          <td>
-                            <strong>{job.title}</strong>
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>{job.location}</span>
-                          </td>
-                          <td><span className="hr-emp-dept-pill">{job.department}</span></td>
-                          <td>{job.designation}</td>
-                          <td><strong>{job.openings}</strong> vacancy</td>
-                          <td>{job.employmentType}</td>
-                          <td>{job.experience}</td>
-                          <td>
-                            <span style={{ fontWeight: '700', color: '#EA580C' }}>{job.applicantCount}</span> applicants
-                          </td>
-                          <td>
-                            <span className={`rec-badge ${job.status.toLowerCase().replace(' ', '_')}`}>
-                              {job.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="rec-actions-wrap">
-                              <button
-                                type="button"
-                                className="rec-btn-sm view"
-                                onClick={() => handleOpenCreateJob(job)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                className="rec-btn-sm interview"
-                                onClick={() => {
-                                  setSelectedDept(job.department);
-                                  setActiveTab('candidates');
-                                }}
-                              >
-                                View Candidates
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {loading ? <div style={{padding:'3rem',textAlign:'center',color:'#64748b'}}>Loading...</div>
+              : filteredJobs.length===0 ? <div style={{padding:'3rem',textAlign:'center',color:'#64748b'}}>No job requisitions found.</div>
+              : <div className="rec-table-wrap"><table className="rec-table"><thead><tr><th>Job ID</th><th>Job Title</th><th>Department</th><th>Designation</th><th>Openings</th><th>Type</th><th>Experience</th><th>Applicants</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>{filteredJobs.map(j=><tr key={j._id}><td><strong>{j.jobId}</strong></td><td><strong>{j.title}</strong><span style={{display:'block',fontSize:'0.75rem',color:'#64748b'}}>{j.location}</span></td><td><span className="hr-emp-dept-pill">{j.department}</span></td><td>{j.designation}</td><td><strong>{j.openings}</strong> vacancy</td><td>{j.employmentType}</td><td>{j.experience}</td><td><span style={{fontWeight:'700',color:'#EA580C'}}>{j.applicantCount}</span> applicants</td><td><span className={'rec-badge '+j.status.toLowerCase().replace(' ','_')}>{j.status}</span></td><td><div className="rec-actions-wrap"><button type="button" className="rec-btn-sm view" onClick={()=>handleOpenCreateJob(j)}>Edit</button><button type="button" className="rec-btn-sm interview" onClick={()=>{setSelectedDept(j.department);setActiveTab('candidates');}}>Candidates</button></div></td></tr>)}</tbody></table></div>}
             </div>
           </div>
         )}
 
-        {/* ─── TAB 2: VISUAL RECRUITMENT PIPELINE BOARD ─── */}
-        {activeTab === 'pipeline' && (
+        {/* TAB 2: PIPELINE BOARD */}
+        {activeTab==='pipeline' && (
           <div className="rec-pipeline-board">
-            {PIPELINE_STAGES.map((stage) => {
-              const stageCandidates = candidates.filter((c) => c.stage === stage);
-              return (
-                <div key={stage} className="rec-pipeline-column">
-                  <div className="rec-col-header">
-                    <h4>{stage}</h4>
-                    <span className="rec-col-count">{stageCandidates.length}</span>
-                  </div>
-
-                  <div className="rec-col-cards">
-                    {stageCandidates.length === 0 ? (
-                      <div style={{ fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', padding: '1.5rem 0' }}>
-                        No candidates
-                      </div>
-                    ) : (
-                      stageCandidates.map((cand) => (
-                        <div
-                          key={cand._id}
-                          className="rec-cand-card"
-                          onClick={() => handleOpenProfile(cand)}
-                        >
-                          <h5 className="rec-cand-card-name">{cand.name}</h5>
-                          <p className="rec-cand-card-pos">{cand.appliedPosition} · {cand.department}</p>
-                          <div className="rec-cand-card-footer">
-                            <span>{cand.experience}</span>
-                            <span>{cand.candidateId}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
+            {PIPELINE_STAGES.map(stage=>{
+              const sc=candidates.filter(c=>c.stage===stage);
+              return <div key={stage} className="rec-pipeline-column"><div className="rec-col-header"><h4>{stage}</h4><span className="rec-col-count">{sc.length}</span></div><div className="rec-col-cards">{sc.length===0?<div style={{fontSize:'0.78rem',color:'#94a3b8',textAlign:'center',padding:'1.5rem 0'}}>No candidates</div>:sc.map(c=><div key={c._id} className="rec-cand-card" onClick={()=>handleOpenProfile(c)}><h5 className="rec-cand-card-name">{c.name}</h5><p className="rec-cand-card-pos">{c.appliedPosition} &middot; {c.department}</p><div className="rec-cand-card-footer"><span>{c.experience}</span><span>{c.candidateId}</span></div></div>)}</div></div>;
             })}
           </div>
         )}
 
-        {/* ─── TAB 3: CANDIDATE DIRECTORY ─── */}
-        {activeTab === 'candidates' && (
+        {/* TAB 3: CANDIDATE DIRECTORY */}
+        {activeTab==='candidates' && (
           <div>
             <div className="rec-toolbar">
+              <div className="rec-search-wrap"><svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Search candidates..." className="rec-search-input" value={search} onChange={(e)=>setSearch(e.target.value)}/></div>
+              <select className="rec-filter-select" value={selectedDept} onChange={(e)=>setSelectedDept(e.target.value)}><option value="All">All Departments</option>{OFFICIAL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select>
+              <select className="rec-filter-select" value={selectedStage} onChange={(e)=>setSelectedStage(e.target.value)}><option value="All">All Stages</option>{PIPELINE_STAGES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+            </div>
+            <div className="rec-table-card">
+              {filteredCandidates.length===0?<div style={{padding:'3rem',textAlign:'center',color:'#64748b'}}>No candidates found.</div>
+              :<div className="rec-table-wrap"><table className="rec-table"><thead><tr><th>Candidate Name</th><th>Email &amp; Phone</th><th>Applied Position</th><th>Department</th><th>Experience</th><th>Pipeline Stage</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>{filteredCandidates.map(c=><tr key={c._id}><td><strong>{c.name}</strong><span style={{display:'block',fontSize:'0.75rem',color:'#64748b'}}>{c.candidateId}</span></td><td><div>{c.email}</div><span style={{fontSize:'0.75rem',color:'#64748b'}}>{c.phone}</span></td><td>{c.appliedPosition}</td><td><span className="hr-emp-dept-pill">{c.department}</span></td><td>{c.experience}</td><td><span className={'rec-badge '+c.stage.toLowerCase().replace(' ','_')}>{c.stage}</span></td><td><span className={'rec-badge '+c.status.toLowerCase().replace(' ','_')}>{c.status}</span></td>
+              <td><div className="rec-actions-wrap"><button type="button" className="rec-btn-sm view" onClick={()=>handleOpenProfile(c)}>Profile</button>{c.stage==='Applied'&&<button type="button" className="rec-btn-sm shortlist" onClick={()=>handleShortlist(c._id)}>Shortlist</button>}{['Shortlisted','Interview','Technical Round','HR Round'].includes(c.stage)&&<button type="button" className="rec-btn-sm interview" onClick={()=>handleOpenSchedule(c)}>Interview</button>}{c.stage==='Selected'&&!c.convertedEmployeeId&&<button type="button" className="rec-btn-sm convert" onClick={()=>{setSelectedCandidate(c);setShowConvertModal(true);}}>Hire</button>}</div></td></tr>)}</tbody></table></div>}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: INTERVIEWS */}
+        {activeTab==='interviews' && (
+          <div className="rec-table-card">
+            {allInterviews.length===0?<div style={{padding:'3rem',textAlign:'center',color:'#64748b'}}>No interviews scheduled.</div>
+            :<div className="rec-table-wrap"><table className="rec-table"><thead><tr><th>Candidate</th><th>Position &amp; Dept</th><th>Interview Round</th><th>Interviewer</th><th>Date &amp; Time</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>{allInterviews.map(inv=><tr key={inv._id}><td><strong>{inv.candidateName}</strong><span style={{display:'block',fontSize:'0.75rem',color:'#64748b'}}>{inv.candidateEmail}</span></td><td><div>{inv.appliedPosition}</div><span className="hr-emp-dept-pill">{inv.department}</span></td><td><strong>{inv.round}</strong></td><td>{inv.interviewer}</td><td><div>{formatDate(inv.date)}</div><span style={{fontSize:'0.75rem',color:'#64748b'}}>{inv.time}</span></td><td>{inv.type}</td><td><span className={'rec-badge '+inv.status.toLowerCase()}>{inv.status}</span></td>
+            <td><div className="rec-actions-wrap">{inv.status!=='Completed'&&<button type="button" className="rec-btn-sm shortlist" onClick={()=>{const c=candidates.find(x=>x._id===inv.candidateId);handleOpenFeedback(c,inv);}}>Feedback</button>}{inv.feedback&&<span style={{fontSize:'0.8rem',fontWeight:'700',color:'#15803D'}}>&#9733; {inv.feedback.overallRating}/5</span>}</div></td></tr>)}</tbody></table></div>}
+          </div>
+        )}
+
+        {/* TAB 5: OFFER LETTERS & CONVERSIONS */}
+        {activeTab==='offers' && (
+          <div>
+            {/* Premium Offer Header */}
+            <div className="rec-offer-header">
+              <div className="rec-offer-header-info">
+                <h3>Offer Letters &amp; Conversions</h3>
+                <p>Manage offer letters, track real-time candidate status, and convert accepted candidates to official employees.</p>
+              </div>
+              <button type="button" className="rec-primary-btn" onClick={() => handleOpenCreateOffer()}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Create Offer Letter
+              </button>
+            </div>
+
+            {offerError && <div className="rec-form-error"><span>⚠️</span><span>{offerError}</span></div>}
+            {offerSuccess && <div className="rec-form-success"><span>✓</span><span>{offerSuccess}</span></div>}
+
+            {/* 6 Luxury KPI Cards */}
+            <div className="rec-offer-kpi-grid">
+              {[
+                { key: 'total', label: 'Total Offers', value: offerSummary.total, filter: 'All', helper: 'All offer letters', icon: '📄', color: '#0f172a', bg: '#f8fafc' },
+                { key: 'draft', label: 'Draft', value: offerSummary.draft, filter: 'Draft', helper: 'Saved drafts', icon: '📝', color: '#64748b', bg: '#f1f5f9' },
+                { key: 'sent', label: 'Sent', value: offerSummary.sent, filter: 'Sent', helper: 'Awaiting candidate reply', icon: '✉️', color: '#2563eb', bg: '#eff6ff' },
+                { key: 'accepted', label: 'Accepted', value: offerSummary.accepted, filter: 'Accepted', helper: 'Approved by candidate', icon: '✓', color: '#15803d', bg: '#ecfdf5' },
+                { key: 'rejected', label: 'Rejected', value: offerSummary.rejected, filter: 'Rejected', helper: 'Declined offers', icon: '✕', color: '#dc2626', bg: '#fef2f2' },
+                { key: 'pending', label: 'Pending Conversion', value: offerSummary.pendingConversion, filter: 'PendingConversion', helper: 'Ready for onboarding', icon: '👤', color: '#ea580c', bg: '#fff7ed' },
+              ].map((k) => {
+                const isActive = (k.filter === 'PendingConversion')
+                  ? offerStatusFilter === 'PendingConversion'
+                  : offerStatusFilter === k.filter;
+                return (
+                  <div
+                    key={k.key}
+                    className={`rec-offer-kpi-card ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      setOfferStatusFilter(k.filter);
+                    }}
+                  >
+                    <div className="rec-kpi-card-top">
+                      <span className="rec-kpi-card-label">{k.label}</span>
+                      <div className="rec-kpi-card-icon" style={{ background: k.bg, color: k.color }}>{k.icon}</div>
+                    </div>
+                    <div className="rec-kpi-card-val" style={{ color: k.color }}>
+                      {offersLoading ? '...' : (k.value ?? 0)}
+                    </div>
+                    <p className="rec-kpi-card-helper">{k.helper}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Offer Toolbar */}
+            <div className="rec-toolbar" style={{ marginTop: '1rem' }}>
               <div className="rec-search-wrap">
                 <svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8" />
@@ -774,997 +805,608 @@ export default function Recruitment() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search candidates by name, email, ID, or position..."
+                  placeholder="Search offer number, candidate, designation..."
                   className="rec-search-input"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={offerSearch}
+                  onChange={(e) => setOfferSearch(e.target.value)}
                 />
               </div>
-
-              <select className="rec-filter-select" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
+              <select className="rec-filter-select" value={offerStatusFilter} onChange={(e) => setOfferStatusFilter(e.target.value)}>
+                <option value="All">All Statuses</option>
+                <option value="Draft">Draft</option>
+                <option value="Sent">Sent</option>
+                <option value="Accepted">Accepted</option>
+                <option value="PendingConversion">Pending Conversion</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Expired">Expired</option>
+                <option value="Withdrawn">Withdrawn</option>
+              </select>
+              <select className="rec-filter-select" value={offerDeptFilter} onChange={(e) => setOfferDeptFilter(e.target.value)}>
                 <option value="All">All Departments</option>
                 {OFFICIAL_DEPARTMENTS.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
-
-              <select className="rec-filter-select" value={selectedStage} onChange={(e) => setSelectedStage(e.target.value)}>
-                <option value="All">All Stages</option>
-                {PIPELINE_STAGES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+              <select className="rec-filter-select" value={offerEmpTypeFilter} onChange={(e) => setOfferEmpTypeFilter(e.target.value)}>
+                <option value="All">All Employment Types</option>
+                <option value="Full Time">Full Time</option>
+                <option value="Part Time">Part Time</option>
+                <option value="Contract">Contract</option>
+                <option value="Intern">Intern</option>
               </select>
-            </div>
-
-            <div className="rec-table-card">
-              {filteredCandidates.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                  No candidates found matching the filters. Click "Add Candidate" to register an applicant.
-                </div>
-              ) : (
-                <div className="rec-table-wrap">
-                  <table className="rec-table">
-                    <thead>
-                      <tr>
-                        <th>Candidate Name</th>
-                        <th>Email & Phone</th>
-                        <th>Applied Position</th>
-                        <th>Department</th>
-                        <th>Experience</th>
-                        <th>Pipeline Stage</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCandidates.map((cand) => (
-                        <tr key={cand._id}>
-                          <td>
-                            <strong>{cand.name}</strong>
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>{cand.candidateId}</span>
-                          </td>
-                          <td>
-                            <div>{cand.email}</div>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{cand.phone}</span>
-                          </td>
-                          <td>{cand.appliedPosition}</td>
-                          <td><span className="hr-emp-dept-pill">{cand.department}</span></td>
-                          <td>{cand.experience}</td>
-                          <td>
-                            <span className={`rec-badge ${cand.stage.toLowerCase().replace(' ', '_')}`}>
-                              {cand.stage}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`rec-badge ${cand.status.toLowerCase().replace(' ', '_')}`}>
-                              {cand.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="rec-actions-wrap">
-                              <button type="button" className="rec-btn-sm view" onClick={() => handleOpenProfile(cand)}>
-                                Profile
-                              </button>
-                              {cand.stage === 'Applied' && (
-                                <button type="button" className="rec-btn-sm shortlist" onClick={() => handleShortlist(cand._id)}>
-                                  Shortlist
-                                </button>
-                              )}
-                              {['Shortlisted', 'Interview', 'Technical Round', 'HR Round'].includes(cand.stage) && (
-                                <button type="button" className="rec-btn-sm interview" onClick={() => handleOpenSchedule(cand)}>
-                                  Interview
-                                </button>
-                              )}
-                              {cand.stage === 'Selected' && !cand.convertedEmployeeId && (
-                                <button
-                                  type="button"
-                                  className="rec-btn-sm convert"
-                                  onClick={() => {
-                                    setSelectedCandidate(cand);
-                                    setShowConvertModal(true);
-                                  }}
-                                >
-                                  Hire
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─── TAB 4: INTERVIEWS SCHEDULE ─── */}
-        {activeTab === 'interviews' && (
-          <div>
-            <div className="rec-table-card">
-              {allInterviews.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                  No interviews scheduled. Select a candidate to schedule an interview round.
-                </div>
-              ) : (
-                <div className="rec-table-wrap">
-                  <table className="rec-table">
-                    <thead>
-                      <tr>
-                        <th>Candidate</th>
-                        <th>Position & Dept</th>
-                        <th>Interview Round</th>
-                        <th>Interviewer</th>
-                        <th>Date & Time</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allInterviews.map((inv) => (
-                        <tr key={inv._id}>
-                          <td>
-                            <strong>{inv.candidateName}</strong>
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>{inv.candidateEmail}</span>
-                          </td>
-                          <td>
-                            <div>{inv.appliedPosition}</div>
-                            <span className="hr-emp-dept-pill">{inv.department}</span>
-                          </td>
-                          <td><strong>{inv.round}</strong></td>
-                          <td>{inv.interviewer}</td>
-                          <td>
-                            <div>{formatDate(inv.date)}</div>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{inv.time}</span>
-                          </td>
-                          <td>{inv.type}</td>
-                          <td>
-                            <span className={`rec-badge ${inv.status.toLowerCase()}`}>
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="rec-actions-wrap">
-                              {inv.status !== 'Completed' && (
-                                <button
-                                  type="button"
-                                  className="rec-btn-sm shortlist"
-                                  onClick={() => {
-                                    const cand = candidates.find((c) => c._id === inv.candidateId);
-                                    handleOpenFeedback(cand, inv);
-                                  }}
-                                >
-                                  Submit Feedback
-                                </button>
-                              )}
-                              {inv.feedback && (
-                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#15803D' }}>
-                                  ⭐ {inv.feedback.overallRating}/5 ({inv.feedback.recommendation})
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─── TAB 5: OFFERS & EMPLOYEE CONVERSIONS ─── */}
-        {activeTab === 'offers' && (
-          <div>
-            <div className="rec-table-card">
-              {offeredCandidates.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                  No job offers recorded yet. Select candidates from the directory to generate offer letters.
-                </div>
-              ) : (
-                <div className="rec-table-wrap">
-                  <table className="rec-table">
-                    <thead>
-                      <tr>
-                        <th>Candidate</th>
-                        <th>Offered Designation</th>
-                        <th>Department</th>
-                        <th>Offered Salary</th>
-                        <th>Joining Date</th>
-                        <th>Offer Status</th>
-                        <th>Employee Onboarding</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {offeredCandidates.map((cand) => (
-                        <tr key={cand._id}>
-                          <td>
-                            <strong>{cand.name}</strong>
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>{cand.email}</span>
-                          </td>
-                          <td>{cand.offer?.offeredDesignation || cand.appliedPosition}</td>
-                          <td><span className="hr-emp-dept-pill">{cand.offer?.department || cand.department}</span></td>
-                          <td><strong>{cand.offer?.salary || 'Competitive'}</strong></td>
-                          <td>{formatDate(cand.offer?.joiningDate)}</td>
-                          <td>
-                            <span className={`rec-badge ${cand.offer?.status?.toLowerCase() || 'sent'}`}>
-                              {cand.offer?.status || 'Sent'}
-                            </span>
-                          </td>
-                          <td>
-                            {cand.convertedEmployeeId || cand.status === 'Hired' ? (
-                              <span className="rec-badge hired">✅ Onboarded Employee</span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="rec-btn-sm convert"
-                                onClick={() => {
-                                  setSelectedCandidate(cand);
-                                  setShowConvertModal(true);
-                                }}
-                              >
-                                Convert to Employee
-                              </button>
-                            )}
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="rec-btn-sm view"
-                              onClick={() => handleOpenOffer(cand)}
-                            >
-                              Edit Offer
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─── TAB 6: HIRING ANALYTICS & REPORTS ─── */}
-        {activeTab === 'reports' && (
-          <div className="rec-analytics-grid">
-            <div className="rec-analytics-card">
-              <h4>Open Positions & Applicants by Department</h4>
-              {OFFICIAL_DEPARTMENTS.map((dept) => {
-                const st = summary.deptStats?.[dept] || { openJobs: 0, applicants: 0, hired: 0 };
-                return (
-                  <div key={dept} style={{ marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                      <span>{dept}</span>
-                      <span>{st.openJobs} vacancies · {st.applicants} applicants</span>
-                    </div>
-                    <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, st.applicants * 15)}%`, height: '100%', background: '#EA580C', borderRadius: '4px' }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="rec-analytics-card">
-              <h4>Recruitment Pipeline Conversion Distribution</h4>
-              {PIPELINE_STAGES.map((st) => {
-                const cnt = summary.stageCounts?.[st] || 0;
-                const pct = summary.totalApplicants > 0 ? ((cnt / summary.totalApplicants) * 100).toFixed(1) : 0;
-                return (
-                  <div key={st} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.85rem' }}>
-                    <span style={{ fontWeight: '600', color: '#334155' }}>{st}</span>
-                    <div>
-                      <strong style={{ color: '#0f172a', marginRight: '0.5rem' }}>{cnt}</strong>
-                      <span style={{ color: '#64748b', fontSize: '0.78rem' }}>({pct}%)</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ─── CREATE/EDIT JOB REQUISITION MODAL ─── */}
-        {showJobModal && (
-          <div className="hr-modal-overlay" onClick={() => setShowJobModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
-              <div className="hr-modal-header">
-                <h3>{selectedJob ? 'Edit Job Requisition' : 'Create Job Requisition'}</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowJobModal(false)}>&times;</button>
-              </div>
-
-              <form onSubmit={handleSaveJob}>
-                <div className="hr-modal-body">
-                  <div className="hr-form-grid">
-                    <div className="hr-form-group">
-                      <label>Job Title *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Senior Frontend Engineer"
-                        value={jobForm.title}
-                        onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Department *</label>
-                      <select
-                        required
-                        value={jobForm.department}
-                        onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })}
-                      >
-                        {OFFICIAL_DEPARTMENTS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Designation *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. React Developer"
-                        value={jobForm.designation}
-                        onChange={(e) => setJobForm({ ...jobForm, designation: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Number of Openings *</label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={jobForm.openings}
-                        onChange={(e) => setJobForm({ ...jobForm, openings: Number(e.target.value) })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Employment Type</label>
-                      <select
-                        value={jobForm.employmentType}
-                        onChange={(e) => setJobForm({ ...jobForm, employmentType: e.target.value })}
-                      >
-                        <option value="Full Time">Full Time</option>
-                        <option value="Part Time">Part Time</option>
-                        <option value="Intern">Intern</option>
-                        <option value="Contract">Contract</option>
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Priority</label>
-                      <select
-                        value={jobForm.priority}
-                        onChange={(e) => setJobForm({ ...jobForm, priority: e.target.value })}
-                      >
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Urgent">Urgent</option>
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Salary Range / CTC</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. ₹8,00,000 - ₹12,00,000 / yr"
-                        value={jobForm.salaryRange}
-                        onChange={(e) => setJobForm({ ...jobForm, salaryRange: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Experience Required</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 2-4 Years"
-                        value={jobForm.experience}
-                        onChange={(e) => setJobForm({ ...jobForm, experience: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Job Description & Responsibilities</label>
-                      <textarea
-                        rows={3}
-                        placeholder="Key responsibilities and day-to-day deliverables..."
-                        value={jobForm.description}
-                        onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Requirements & Required Skills</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Required technical skills, education, certifications..."
-                        value={jobForm.requirements}
-                        onChange={(e) => setJobForm({ ...jobForm, requirements: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Status</label>
-                      <select
-                        value={jobForm.status}
-                        onChange={(e) => setJobForm({ ...jobForm, status: e.target.value })}
-                      >
-                        <option value="Open">Open</option>
-                        <option value="Draft">Draft</option>
-                        <option value="On Hold">On Hold</option>
-                        <option value="Closed">Closed</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hr-modal-footer">
-                  <button type="button" className="hr-btn-secondary" onClick={() => setShowJobModal(false)}>Cancel</button>
-                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
-                    {submitting ? 'Saving...' : selectedJob ? 'Save Changes' : 'Publish Job'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── ADD CANDIDATE MODAL ─── */}
-        {showCandidateModal && (
-          <div className="hr-modal-overlay" onClick={() => setShowCandidateModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
-              <div className="hr-modal-header">
-                <h3>Register Candidate</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowCandidateModal(false)}>&times;</button>
-              </div>
-
-              <form onSubmit={handleSaveCandidate}>
-                <div className="hr-modal-body">
-                  <div className="hr-form-grid">
-                    <div className="hr-form-group">
-                      <label>Candidate Name *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Sameer Kulkarni"
-                        value={candidateForm.name}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Email Address *</label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="sameer.k@example.com"
-                        value={candidateForm.email}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, email: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Phone Number *</label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="+91 9876543210"
-                        value={candidateForm.phone}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, phone: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Department *</label>
-                      <select
-                        required
-                        value={candidateForm.department}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, department: e.target.value })}
-                      >
-                        {OFFICIAL_DEPARTMENTS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Applied Position *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Software Engineer"
-                        value={candidateForm.appliedPosition}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, appliedPosition: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Experience</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 3 Years"
-                        value={candidateForm.experience}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, experience: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Key Skills (comma separated)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. React, Node.js, TypeScript, MongoDB"
-                        value={candidateForm.skills}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, skills: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Current Company</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Acme Tech Ltd"
-                        value={candidateForm.currentCompany}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, currentCompany: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Notice Period</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 15 Days / Immediate"
-                        value={candidateForm.noticePeriod}
-                        onChange={(e) => setCandidateForm({ ...candidateForm, noticePeriod: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hr-modal-footer">
-                  <button type="button" className="hr-btn-secondary" onClick={() => setShowCandidateModal(false)}>Cancel</button>
-                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
-                    {submitting ? 'Registering...' : 'Save Candidate'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── CANDIDATE PROFILE MODAL ─── */}
-        {showProfileModal && selectedCandidate && (
-          <div className="hr-modal-overlay" onClick={() => setShowProfileModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px' }}>
-              <div className="hr-modal-header">
-                <h3>Candidate Profile: {selectedCandidate.name}</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowProfileModal(false)}>&times;</button>
-              </div>
-
-              <div className="hr-modal-body">
-                {/* Banner */}
-                <div className="hr-profile-header-banner">
-                  <div className="hr-profile-avatar-lg">
-                    {selectedCandidate.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="hr-profile-main-info">
-                    <h4>{selectedCandidate.name}</h4>
-                    <span>{selectedCandidate.appliedPosition} · {selectedCandidate.department}</span>
-                  </div>
-                  <div>
-                    <span className={`rec-badge ${selectedCandidate.stage.toLowerCase().replace(' ', '_')}`}>
-                      {selectedCandidate.stage}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Details Grid */}
-                <div className="hr-profile-details-grid" style={{ marginBottom: '1.25rem' }}>
-                  <div className="hr-profile-item">
-                    <span>Email Address</span>
-                    <strong>{selectedCandidate.email}</strong>
-                  </div>
-                  <div className="hr-profile-item">
-                    <span>Phone Number</span>
-                    <strong>{selectedCandidate.phone}</strong>
-                  </div>
-                  <div className="hr-profile-item">
-                    <span>Total Experience</span>
-                    <strong>{selectedCandidate.experience}</strong>
-                  </div>
-                  <div className="hr-profile-item">
-                    <span>Current Company</span>
-                    <strong>{selectedCandidate.currentCompany || 'Not specified'}</strong>
-                  </div>
-                  <div className="hr-profile-item">
-                    <span>Notice Period</span>
-                    <strong>{selectedCandidate.noticePeriod}</strong>
-                  </div>
-                  <div className="hr-profile-item">
-                    <span>Candidate ID</span>
-                    <strong>{selectedCandidate.candidateId}</strong>
-                  </div>
-                </div>
-
-                {/* Skills */}
-                {selectedCandidate.skills?.length > 0 && (
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>Skills:</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.35rem' }}>
-                      {selectedCandidate.skills.map((s, i) => (
-                        <span key={i} style={{ background: '#f1f5f9', color: '#334155', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Scheduled Interviews */}
-                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <h5 style={{ margin: 0, fontWeight: '700', color: '#0f172a' }}>Interview History</h5>
-                    <button type="button" className="rec-btn-sm interview" onClick={() => handleOpenSchedule(selectedCandidate)}>
-                      + Schedule Round
-                    </button>
-                  </div>
-                  {selectedCandidate.interviews?.length === 0 ? (
-                    <p style={{ margin: 0, fontSize: '0.825rem', color: '#64748b' }}>No interview rounds recorded yet.</p>
-                  ) : (
-                    selectedCandidate.interviews?.map((inv) => (
-                      <div key={inv._id} style={{ padding: '0.65rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <strong>{inv.round}</strong> ({formatDate(inv.date)} at {inv.time})
-                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Interviewer: {inv.interviewer} · {inv.type}</div>
-                        </div>
-                        <div>
-                          <span className={`rec-badge ${inv.status.toLowerCase()}`}>{inv.status}</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Offer Section */}
-                {selectedCandidate.offer && (
-                  <div style={{ background: '#ECFDF5', padding: '1rem', borderRadius: '8px', border: '1px solid #A7F3D0', marginBottom: '1rem' }}>
-                    <h5 style={{ margin: '0 0 0.35rem 0', fontWeight: '700', color: '#065F46' }}>Job Offer Details</h5>
-                    <div style={{ fontSize: '0.85rem', color: '#047857' }}>
-                      Designation: <strong>{selectedCandidate.offer.offeredDesignation}</strong> · Salary: <strong>{selectedCandidate.offer.salary}</strong> · Joining Date: <strong>{formatDate(selectedCandidate.offer.joiningDate)}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="hr-modal-footer">
-                <button type="button" className="hr-btn-secondary" onClick={() => setShowProfileModal(false)}>Close</button>
-                {selectedCandidate.stage !== 'Shortlisted' && selectedCandidate.stage !== 'Hired' && (
-                  <button type="button" className="rec-btn-sm shortlist" onClick={() => handleShortlist(selectedCandidate._id)}>
-                    Shortlist
-                  </button>
-                )}
-                <button type="button" className="rec-btn-sm interview" onClick={() => handleOpenOffer(selectedCandidate)}>
-                  Create / View Offer
-                </button>
-                {!selectedCandidate.convertedEmployeeId && selectedCandidate.status !== 'Hired' && (
-                  <button
-                    type="button"
-                    className="rec-btn-sm convert"
-                    onClick={() => setShowConvertModal(true)}
-                  >
-                    Convert to Employee
-                  </button>
-                )}
-                {selectedCandidate.stage !== 'Rejected' && (
-                  <button type="button" className="rec-btn-sm reject" onClick={() => handleReject(selectedCandidate._id)}>
-                    Reject
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ─── SCHEDULE INTERVIEW MODAL ─── */}
-        {showInterviewModal && selectedCandidate && (
-          <div className="hr-modal-overlay" onClick={() => setShowInterviewModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
-              <div className="hr-modal-header">
-                <h3>Schedule Interview: {selectedCandidate.name}</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowInterviewModal(false)}>&times;</button>
-              </div>
-
-              <form onSubmit={handleSaveInterview}>
-                <div className="hr-modal-body">
-                  <div className="hr-form-grid">
-                    <div className="hr-form-group full-width">
-                      <label>Interview Round *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Technical Round 1 / System Design"
-                        value={interviewForm.round}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, round: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Interviewer Name / Lead *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Rohit Sharma"
-                        value={interviewForm.interviewer}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, interviewer: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Interview Type</label>
-                      <select
-                        value={interviewForm.type}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, type: e.target.value })}
-                      >
-                        <option value="Online Video">Online Video</option>
-                        <option value="In-Person">In-Person</option>
-                        <option value="Telephonic">Telephonic</option>
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Interview Date *</label>
-                      <input
-                        type="date"
-                        required
-                        value={interviewForm.date}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Interview Time</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 02:30 PM"
-                        value={interviewForm.time}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, time: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Meeting Link / Location</label>
-                      <input
-                        type="text"
-                        placeholder="https://meet.google.com/..."
-                        value={interviewForm.meetingLink}
-                        onChange={(e) => setInterviewForm({ ...interviewForm, meetingLink: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hr-modal-footer">
-                  <button type="button" className="hr-btn-secondary" onClick={() => setShowInterviewModal(false)}>Cancel</button>
-                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
-                    {submitting ? 'Scheduling...' : 'Schedule Interview'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── INTERVIEW FEEDBACK MODAL ─── */}
-        {showFeedbackModal && selectedCandidate && (
-          <div className="hr-modal-overlay" onClick={() => setShowFeedbackModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-              <div className="hr-modal-header">
-                <h3>Submit Interview Feedback</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowFeedbackModal(false)}>&times;</button>
-              </div>
-
-              <form onSubmit={handleSaveFeedback}>
-                <div className="hr-modal-body">
-                  <div className="perf-rating-grid">
-                    {[
-                      { key: 'technicalSkills', label: 'Technical Competency' },
-                      { key: 'communication', label: 'Communication Skills' },
-                      { key: 'problemSolving', label: 'Problem Solving' },
-                      { key: 'teamwork', label: 'Cultural & Team Fit' },
-                      { key: 'overallRating', label: 'Overall Candidate Score' },
-                    ].map((cat) => (
-                      <div key={cat.key} className="perf-rating-item">
-                        <div className="perf-rating-header">
-                          <span>{cat.label}</span>
-                          <strong>{feedbackForm[cat.key]} / 5 ⭐</strong>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="5"
-                          step="1"
-                          className="perf-rating-slider"
-                          value={feedbackForm[cat.key]}
-                          onChange={(e) => setFeedbackForm({ ...feedbackForm, [cat.key]: Number(e.target.value) })}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="hr-form-grid">
-                    <div className="hr-form-group full-width">
-                      <label>Hiring Recommendation *</label>
-                      <select
-                        required
-                        value={feedbackForm.recommendation}
-                        onChange={(e) => setFeedbackForm({ ...feedbackForm, recommendation: e.target.value })}
-                      >
-                        <option value="Strong Hire">Strong Hire</option>
-                        <option value="Hire">Hire</option>
-                        <option value="Hold">Hold</option>
-                        <option value="Reject">Reject</option>
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Strengths & Observations</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Key technical and interpersonal strengths..."
-                        value={feedbackForm.strengths}
-                        onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group full-width">
-                      <label>Evaluation Comments</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Interviewer notes and next round recommendations..."
-                        value={feedbackForm.comments}
-                        onChange={(e) => setFeedbackForm({ ...feedbackForm, comments: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hr-modal-footer">
-                  <button type="button" className="hr-btn-secondary" onClick={() => setShowFeedbackModal(false)}>Cancel</button>
-                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
-                    {submitting ? 'Submitting...' : 'Save Feedback'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── CREATE OFFER MODAL ─── */}
-        {showOfferModal && selectedCandidate && (
-          <div className="hr-modal-overlay" onClick={() => setShowOfferModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
-              <div className="hr-modal-header">
-                <h3>Job Offer: {selectedCandidate.name}</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowOfferModal(false)}>&times;</button>
-              </div>
-
-              <form onSubmit={handleSaveOffer}>
-                <div className="hr-modal-body">
-                  <div className="hr-form-grid">
-                    <div className="hr-form-group full-width">
-                      <label>Offered Designation *</label>
-                      <input
-                        type="text"
-                        required
-                        value={offerForm.offeredDesignation}
-                        onChange={(e) => setOfferForm({ ...offerForm, offeredDesignation: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Department *</label>
-                      <select
-                        required
-                        value={offerForm.department}
-                        onChange={(e) => setOfferForm({ ...offerForm, department: e.target.value })}
-                      >
-                        {OFFICIAL_DEPARTMENTS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Salary / CTC (Annual) *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. ₹7,50,000 / yr"
-                        value={offerForm.salary}
-                        onChange={(e) => setOfferForm({ ...offerForm, salary: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Target Joining Date *</label>
-                      <input
-                        type="date"
-                        required
-                        value={offerForm.joiningDate}
-                        onChange={(e) => setOfferForm({ ...offerForm, joiningDate: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="hr-form-group">
-                      <label>Offer Status</label>
-                      <select
-                        value={offerForm.status}
-                        onChange={(e) => setOfferForm({ ...offerForm, status: e.target.value })}
-                      >
-                        <option value="Sent">Sent</option>
-                        <option value="Draft">Draft</option>
-                        <option value="Accepted">Accepted</option>
-                        <option value="Rejected">Rejected</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hr-modal-footer">
-                  <button type="button" className="hr-btn-secondary" onClick={() => setShowOfferModal(false)}>Cancel</button>
-                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
-                    {submitting ? 'Saving Offer...' : 'Save & Send Offer'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ─── CONVERT TO EMPLOYEE CONFIRMATION MODAL ─── */}
-        {showConvertModal && selectedCandidate && (
-          <div className="hr-modal-overlay" onClick={() => setShowConvertModal(false)}>
-            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-              <div className="hr-modal-header">
-                <h3>Onboard Candidate to Workforce</h3>
-                <button type="button" className="hr-modal-close" onClick={() => setShowConvertModal(false)}>&times;</button>
-              </div>
-
-              <div className="hr-modal-body">
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎉</div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a' }}>Convert {selectedCandidate.name} to Active Employee?</h4>
-                  <p style={{ color: '#64748b', fontSize: '0.875rem', lineHeight: '1.5' }}>
-                    This action will create an official employee record in the live <strong>users</strong> collection, generate an Employee ID, link the candidate profile, and mark their status as <strong>Hired</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="hr-modal-footer">
-                <button type="button" className="hr-btn-secondary" onClick={() => setShowConvertModal(false)}>Cancel</button>
+              <select className="rec-filter-select" value={offerSortDir} onChange={(e) => setOfferSortDir(e.target.value)}>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+              {(offerSearch || offerStatusFilter !== 'All' || offerDeptFilter !== 'All' || offerEmpTypeFilter !== 'All') && (
                 <button
                   type="button"
-                  className="rec-btn-sm convert"
-                  style={{ padding: '0.65rem 1.25rem', fontSize: '0.875rem' }}
-                  disabled={submitting}
-                  onClick={handleConvertEmployee}
+                  className="rec-btn-sm view"
+                  onClick={() => {
+                    setOfferSearch('');
+                    setOfferStatusFilter('All');
+                    setOfferDeptFilter('All');
+                    setOfferEmpTypeFilter('All');
+                  }}
                 >
-                  {submitting ? 'Onboarding...' : 'Confirm & Convert'}
+                  Reset Filters
+                </button>
+              )}
+            </div>
+
+            {/* Offers Table */}
+            <div className="rec-table-card" style={{ marginTop: '1rem' }}>
+              {offersLoading ? (
+                <div style={{ padding: '3.5rem', textAlign: 'center', color: '#64748b' }}>Loading offer letters from database...</div>
+              ) : filteredOffers.length === 0 ? (
+                <div style={{ padding: '3.5rem', textAlign: 'center', color: '#64748b' }}>
+                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#334155' }}>No offer letters found.</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem' }}>Click &quot;Create Offer Letter&quot; to prepare a new offer.</p>
+                </div>
+              ) : (
+                <div className="rec-table-wrap">
+                  <table className="rec-table">
+                    <thead>
+                      <tr>
+                        <th>Offer No.</th>
+                        <th>Candidate</th>
+                        <th>Designation</th>
+                        <th>Department</th>
+                        <th>Salary</th>
+                        <th>Joining Date</th>
+                        <th>Status</th>
+                        <th>Offer Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOffers.map((o) => (
+                        <tr key={o._id}>
+                          <td>
+                            <strong style={{ color: '#ea580c', fontFamily: 'monospace', fontSize: '0.85rem' }}>{o.offerNumber}</strong>
+                          </td>
+                          <td>
+                            <div className="rec-cand-cell">
+                              <div className="rec-cand-avatar">
+                                {(o.candidate?.name || 'C').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="rec-cand-info">
+                                <span className="rec-cand-name">{o.candidate?.name || 'Candidate'}</span>
+                                <span className="rec-cand-email">{o.candidate?.email || 'No email'}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{o.offeredDesignation}</td>
+                          <td><span className="hr-emp-dept-pill">{o.department}</span></td>
+                          <td><strong>{o.salary || 'Competitive'}</strong></td>
+                          <td>{formatDate(o.joiningDate)}</td>
+                          <td><span className={sbCls(o.status)}>{o.status}</span></td>
+                          <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{formatDate(o.offerDate)}</td>
+                          <td>
+                            <div className="rec-actions-wrap">
+                              <button type="button" className="rec-btn-sm view" onClick={() => { setViewingOffer(o); setShowOfferPreviewModal(true); }}>
+                                Preview
+                              </button>
+                              <button type="button" className="rec-btn-sm interview" onClick={() => handleDownloadPDF(o)}>
+                                PDF
+                              </button>
+                              {['Draft', 'Rejected'].includes(o.status) && (
+                                <button type="button" className="rec-btn-sm shortlist" onClick={() => handleOpenCreateOffer(o)}>
+                                  Edit
+                                </button>
+                              )}
+                              {o.status === 'Draft' && (
+                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferSendModal(true); }}>
+                                  {offerSubmitting ? 'Sending...' : 'Send'}
+                                </button>
+                              )}
+                              {o.status === 'Sent' && (
+                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'resend')}>
+                                  {offerSubmitting ? 'Resending...' : 'Resend'}
+                                </button>
+                              )}
+                              {['Draft', 'Sent'].includes(o.status) && (
+                                <>
+                                  <button type="button" className="rec-btn-sm" style={{ background: '#15803d', color: '#fff', border: 'none' }} disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'accept', { note: 'Accepted by HR' })}>
+                                    Accept
+                                  </button>
+                                  <button type="button" className="rec-btn-sm reject" disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'reject', { reason: 'Declined' })}>
+                                    Reject
+                                  </button>
+                                  <button type="button" className="rec-btn-sm" style={{ background: '#78716c', color: '#fff', border: 'none' }} disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'withdraw')}>
+                                    Withdraw
+                                  </button>
+                                </>
+                              )}
+                              {o.status === 'Accepted' && !o.convertedEmployee && (
+                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferConvertModal(true); }}>
+                                  {offerSubmitting ? 'Converting...' : 'Convert to Employee'}
+                                </button>
+                              )}
+                              {o.convertedEmployee && (
+                                <span className="rec-badge hired" style={{ fontSize: '0.72rem' }}>✓ Hired</span>
+                              )}
+                              {['Draft', 'Rejected', 'Withdrawn', 'Expired'].includes(o.status) && (
+                                <button type="button" className="rec-btn-sm reject" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferDeleteModal(true); }}>
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: HIRING ANALYTICS */}
+        {activeTab==='reports' && (
+          <div className="rec-analytics-grid">
+            <div className="rec-analytics-card"><h4>Open Positions &amp; Applicants by Department</h4>
+              {OFFICIAL_DEPARTMENTS.map(dept=>{const st=summary.deptStats?.[dept]||{openJobs:0,applicants:0};return(<div key={dept} style={{marginBottom:'1rem'}}><div style={{display:'flex',justifyContent:'space-between',fontSize:'0.85rem',fontWeight:'600',marginBottom:'0.25rem'}}><span>{dept}</span><span>{st.openJobs} vacancies &middot; {st.applicants} applicants</span></div><div style={{height:'8px',background:'#f1f5f9',borderRadius:'4px',overflow:'hidden'}}><div style={{width:Math.min(100,st.applicants*15)+'%',height:'100%',background:'#EA580C',borderRadius:'4px'}}/></div></div>);})}
+            </div>
+            <div className="rec-analytics-card"><h4>Recruitment Pipeline Conversion Distribution</h4>
+              {PIPELINE_STAGES.map(st=>{const cnt=summary.stageCounts?.[st]||0;const pct=summary.totalApplicants>0?((cnt/summary.totalApplicants)*100).toFixed(1):0;return(<div key={st} style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'0.75rem',fontSize:'0.85rem'}}><span style={{fontWeight:'600',color:'#334155'}}>{st}</span><div><strong style={{color:'#0f172a',marginRight:'0.5rem'}}>{cnt}</strong><span style={{color:'#64748b',fontSize:'0.78rem'}}>({pct}%)</span></div></div>);})}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== MODALS ==================== */}
+
+        {/* Create/Edit Job Modal */}
+        {showJobModal&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowJobModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'680px'}}>
+              <div className="hr-modal-header"><h3>{selectedJob?'Edit Job Requisition':'Create Job Requisition'}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowJobModal(false)}>&times;</button></div>
+              <form onSubmit={handleSaveJob}><div className="hr-modal-body"><div className="hr-form-grid">
+                <div className="hr-form-group"><label>Job Title *</label><input type="text" required placeholder="e.g. Senior Frontend Engineer" value={jobForm.title} onChange={e=>setJobForm({...jobForm,title:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Department *</label><select required value={jobForm.department} onChange={e=>setJobForm({...jobForm,department:e.target.value})}>{OFFICIAL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+                <div className="hr-form-group"><label>Designation *</label><input type="text" required placeholder="e.g. React Developer" value={jobForm.designation} onChange={e=>setJobForm({...jobForm,designation:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Number of Openings *</label><input type="number" min="1" required value={jobForm.openings} onChange={e=>setJobForm({...jobForm,openings:Number(e.target.value)})}/></div>
+                <div className="hr-form-group"><label>Employment Type</label><select value={jobForm.employmentType} onChange={e=>setJobForm({...jobForm,employmentType:e.target.value})}><option>Full Time</option><option>Part Time</option><option>Intern</option><option>Contract</option></select></div>
+                <div className="hr-form-group"><label>Priority</label><select value={jobForm.priority} onChange={e=>setJobForm({...jobForm,priority:e.target.value})}><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></div>
+                <div className="hr-form-group"><label>Salary Range / CTC</label><input type="text" placeholder="e.g. 8-12 LPA" value={jobForm.salaryRange} onChange={e=>setJobForm({...jobForm,salaryRange:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Experience Required</label><input type="text" placeholder="e.g. 2-4 Years" value={jobForm.experience} onChange={e=>setJobForm({...jobForm,experience:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Job Description &amp; Responsibilities</label><textarea rows={3} value={jobForm.description} onChange={e=>setJobForm({...jobForm,description:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Requirements &amp; Skills</label><textarea rows={2} value={jobForm.requirements} onChange={e=>setJobForm({...jobForm,requirements:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Status</label><select value={jobForm.status} onChange={e=>setJobForm({...jobForm,status:e.target.value})}><option>Open</option><option>Draft</option><option>On Hold</option><option>Closed</option></select></div>
+              </div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowJobModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Saving...':selectedJob?'Save Changes':'Publish Job'}</button></div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* General Add Candidate Modal — INDEPENDENT of offer letter modal */}
+        {showCandidateModal&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowCandidateModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'640px'}}>
+              <div className="hr-modal-header"><h3>Register Candidate</h3><button type="button" className="hr-modal-close" onClick={()=>setShowCandidateModal(false)}>&times;</button></div>
+              <form onSubmit={handleSaveCandidate}><div className="hr-modal-body"><div className="hr-form-grid">
+                <div className="hr-form-group"><label>Candidate Name *</label><input type="text" required placeholder="Full Name" value={candidateForm.name} onChange={e=>setCandidateForm({...candidateForm,name:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Email Address *</label><input type="email" required value={candidateForm.email} onChange={e=>setCandidateForm({...candidateForm,email:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Phone Number *</label><input type="tel" required value={candidateForm.phone} onChange={e=>setCandidateForm({...candidateForm,phone:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Department *</label><select required value={candidateForm.department} onChange={e=>setCandidateForm({...candidateForm,department:e.target.value})}>{OFFICIAL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+                <div className="hr-form-group"><label>Applied Position *</label><input type="text" required value={candidateForm.appliedPosition} onChange={e=>setCandidateForm({...candidateForm,appliedPosition:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Experience</label><input type="text" placeholder="e.g. 3 Years" value={candidateForm.experience} onChange={e=>setCandidateForm({...candidateForm,experience:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Key Skills (comma separated)</label><input type="text" value={candidateForm.skills} onChange={e=>setCandidateForm({...candidateForm,skills:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Current Company</label><input type="text" value={candidateForm.currentCompany} onChange={e=>setCandidateForm({...candidateForm,currentCompany:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Notice Period</label><input type="text" value={candidateForm.noticePeriod} onChange={e=>setCandidateForm({...candidateForm,noticePeriod:e.target.value})}/></div>
+              </div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowCandidateModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Registering...':'Save Candidate'}</button></div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Candidate Profile Modal */}
+        {showProfileModal&&selectedCandidate&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowProfileModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'720px'}}>
+              <div className="hr-modal-header"><h3>Candidate Profile: {selectedCandidate.name}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowProfileModal(false)}>&times;</button></div>
+              <div className="hr-modal-body">
+                <div className="hr-profile-header-banner"><div className="hr-profile-avatar-lg">{selectedCandidate.name.slice(0,2).toUpperCase()}</div><div className="hr-profile-main-info"><h4>{selectedCandidate.name}</h4><span>{selectedCandidate.appliedPosition} &middot; {selectedCandidate.department}</span></div><div><span className={'rec-badge '+selectedCandidate.stage.toLowerCase().replace(' ','_')}>{selectedCandidate.stage}</span></div></div>
+                <div className="hr-profile-details-grid" style={{marginBottom:'1.25rem'}}>
+                  <div className="hr-profile-item"><span>Email</span><strong>{selectedCandidate.email}</strong></div>
+                  <div className="hr-profile-item"><span>Phone</span><strong>{selectedCandidate.phone}</strong></div>
+                  <div className="hr-profile-item"><span>Experience</span><strong>{selectedCandidate.experience}</strong></div>
+                  <div className="hr-profile-item"><span>Current Company</span><strong>{selectedCandidate.currentCompany||'Not specified'}</strong></div>
+                  <div className="hr-profile-item"><span>Notice Period</span><strong>{selectedCandidate.noticePeriod}</strong></div>
+                  <div className="hr-profile-item"><span>Candidate ID</span><strong>{selectedCandidate.candidateId}</strong></div>
+                </div>
+                {selectedCandidate.skills?.length>0&&<div style={{marginBottom:'1.25rem'}}><span style={{fontSize:'0.8rem',color:'#64748b',fontWeight:'600'}}>Skills:</span><div style={{display:'flex',flexWrap:'wrap',gap:'0.4rem',marginTop:'0.35rem'}}>{selectedCandidate.skills.map((s,i)=><span key={i} style={{background:'#f1f5f9',color:'#334155',padding:'0.2rem 0.6rem',borderRadius:'4px',fontSize:'0.78rem',fontWeight:'600'}}>{s}</span>)}</div></div>}
+                <div style={{background:'#f8fafc',padding:'1rem',borderRadius:'8px',border:'1px solid #e2e8f0',marginBottom:'1.25rem'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem'}}><h5 style={{margin:0,fontWeight:'700',color:'#0f172a'}}>Interview History</h5><button type="button" className="rec-btn-sm interview" onClick={()=>handleOpenSchedule(selectedCandidate)}>+ Schedule Round</button></div>
+                  {selectedCandidate.interviews?.length===0?<p style={{margin:0,fontSize:'0.825rem',color:'#64748b'}}>No interview rounds yet.</p>:selectedCandidate.interviews?.map(inv=><div key={inv._id} style={{padding:'0.65rem',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><strong>{inv.round}</strong> ({formatDate(inv.date)} at {inv.time})<div style={{fontSize:'0.75rem',color:'#64748b'}}>Interviewer: {inv.interviewer} &middot; {inv.type}</div></div><div><span className={'rec-badge '+inv.status.toLowerCase()}>{inv.status}</span></div></div>)}
+                </div>
+                {selectedCandidate.offer&&<div style={{background:'#ECFDF5',padding:'1rem',borderRadius:'8px',border:'1px solid #A7F3D0',marginBottom:'1rem'}}><h5 style={{margin:'0 0 0.35rem 0',fontWeight:'700',color:'#065F46'}}>Job Offer Details</h5><div style={{fontSize:'0.85rem',color:'#047857'}}>Designation: <strong>{selectedCandidate.offer.offeredDesignation}</strong> &middot; Salary: <strong>{selectedCandidate.offer.salary}</strong> &middot; Joining: <strong>{formatDate(selectedCandidate.offer.joiningDate)}</strong></div></div>}
+              </div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowProfileModal(false)}>Close</button>{selectedCandidate.stage!=='Shortlisted'&&selectedCandidate.stage!=='Hired'&&<button type="button" className="rec-btn-sm shortlist" onClick={()=>handleShortlist(selectedCandidate._id)}>Shortlist</button>}{!selectedCandidate.convertedEmployeeId&&selectedCandidate.status!=='Hired'&&<button type="button" className="rec-btn-sm convert" onClick={()=>setShowConvertModal(true)}>Convert to Employee</button>}{selectedCandidate.stage!=='Rejected'&&<button type="button" className="rec-btn-sm reject" onClick={()=>handleReject(selectedCandidate._id)}>Reject</button>}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Schedule Interview Modal */}
+        {showInterviewModal&&selectedCandidate&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowInterviewModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'540px'}}>
+              <div className="hr-modal-header"><h3>Schedule Interview: {selectedCandidate.name}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowInterviewModal(false)}>&times;</button></div>
+              <form onSubmit={handleSaveInterview}><div className="hr-modal-body"><div className="hr-form-grid">
+                <div className="hr-form-group full-width"><label>Interview Round *</label><input type="text" required value={interviewForm.round} onChange={e=>setInterviewForm({...interviewForm,round:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Interviewer *</label><input type="text" required value={interviewForm.interviewer} onChange={e=>setInterviewForm({...interviewForm,interviewer:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Type</label><select value={interviewForm.type} onChange={e=>setInterviewForm({...interviewForm,type:e.target.value})}><option>Online Video</option><option>In-Person</option><option>Telephonic</option></select></div>
+                <div className="hr-form-group"><label>Date *</label><input type="date" required value={interviewForm.date} onChange={e=>setInterviewForm({...interviewForm,date:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Time</label><input type="text" placeholder="02:30 PM" value={interviewForm.time} onChange={e=>setInterviewForm({...interviewForm,time:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Meeting Link / Location</label><input type="text" value={interviewForm.meetingLink} onChange={e=>setInterviewForm({...interviewForm,meetingLink:e.target.value})}/></div>
+              </div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowInterviewModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Scheduling...':'Schedule Interview'}</button></div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Interview Feedback Modal */}
+        {showFeedbackModal&&selectedCandidate&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowFeedbackModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'600px'}}>
+              <div className="hr-modal-header"><h3>Submit Interview Feedback</h3><button type="button" className="hr-modal-close" onClick={()=>setShowFeedbackModal(false)}>&times;</button></div>
+              <form onSubmit={handleSaveFeedback}><div className="hr-modal-body">
+                <div className="perf-rating-grid">
+                  {[{key:'technicalSkills',label:'Technical Competency'},{key:'communication',label:'Communication Skills'},{key:'problemSolving',label:'Problem Solving'},{key:'teamwork',label:'Cultural & Team Fit'},{key:'overallRating',label:'Overall Score'}].map(cat=><div key={cat.key} className="perf-rating-item"><div className="perf-rating-header"><span>{cat.label}</span><strong>{feedbackForm[cat.key]} / 5 &#9733;</strong></div><input type="range" min="1" max="5" step="1" className="perf-rating-slider" value={feedbackForm[cat.key]} onChange={e=>setFeedbackForm({...feedbackForm,[cat.key]:Number(e.target.value)})}/></div>)}
+                </div>
+                <div className="hr-form-grid">
+                  <div className="hr-form-group full-width"><label>Hiring Recommendation *</label><select required value={feedbackForm.recommendation} onChange={e=>setFeedbackForm({...feedbackForm,recommendation:e.target.value})}><option>Strong Hire</option><option>Hire</option><option>Hold</option><option>Reject</option></select></div>
+                  <div className="hr-form-group full-width"><label>Strengths &amp; Observations</label><textarea rows={2} value={feedbackForm.strengths} onChange={e=>setFeedbackForm({...feedbackForm,strengths:e.target.value})}/></div>
+                  <div className="hr-form-group full-width"><label>Evaluation Comments</label><textarea rows={2} value={feedbackForm.comments} onChange={e=>setFeedbackForm({...feedbackForm,comments:e.target.value})}/></div>
+                </div>
+              </div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowFeedbackModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Submitting...':'Save Feedback'}</button></div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Convert to Employee Modal (from candidate profile) */}
+        {showConvertModal&&selectedCandidate&&(
+          <div className="hr-modal-overlay" onClick={()=>setShowConvertModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'500px'}}>
+              <div className="hr-modal-header"><h3>Onboard Candidate to Workforce</h3><button type="button" className="hr-modal-close" onClick={()=>setShowConvertModal(false)}>&times;</button></div>
+              <div className="hr-modal-body"><div style={{textAlign:'center',padding:'1rem 0'}}><div style={{fontSize:'3rem',marginBottom:'0.5rem'}}>&#127881;</div><h4 style={{margin:'0 0 0.5rem 0',color:'#0f172a'}}>Convert {selectedCandidate.name} to Active Employee?</h4><p style={{color:'#64748b',fontSize:'0.875rem',lineHeight:'1.5'}}>This action will create an official employee record, generate an Employee ID, and mark their status as <strong>Hired</strong>.</p></div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowConvertModal(false)}>Cancel</button><button type="button" className="rec-btn-sm convert" style={{padding:'0.65rem 1.25rem',fontSize:'0.875rem'}} disabled={submitting} onClick={handleConvertEmployee}>{submitting?'Onboarding...':'Confirm & Convert'}</button></div>
+            </div>
+          </div>
+        )}
+
+        {/* ============= OFFER LETTER MODALS ============= */}
+
+        {/* Create/Edit Offer Letter Modal */}
+        {showOfferModal&&(
+          <div className="hr-modal-overlay" style={{zIndex:1100}} onClick={()=>setShowOfferModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'720px',zIndex:1101}}>
+              <div className="hr-modal-header"><h3>{editingOffer?'Edit Offer: '+editingOffer.offerNumber:'Create New Offer Letter'}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowOfferModal(false)}>&times;</button></div>
+              {offerError&&<div style={{margin:'0 1.5rem',padding:'0.65rem 1rem',background:'#FEE2E2',color:'#B91C1C',borderRadius:'8px',fontSize:'0.85rem'}}>{offerError}</div>}
+              <form onSubmit={handleSaveOffer}><div className="hr-modal-body"><div className="hr-form-grid">
+
+                {/* Candidate selector + EXACTLY ONE contextual + Add New Candidate */}
+                <div className="hr-form-group full-width"><label>Candidate *</label>
+                  <div style={{display:'flex',gap:'0.5rem',alignItems:'center'}}>
+                    <select
+                      required
+                      value={offerForm.candidateId || selectedCandidateId}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        setSelectedCandidateId(selectedId);
+                        const c = candidates.find((x) => String(x._id) === String(selectedId));
+                        setOfferForm((prev) => ({
+                          ...prev,
+                          candidateId: selectedId,
+                          offeredDesignation: (prev.offeredDesignation && prev.offeredDesignation.trim())
+                            ? prev.offeredDesignation
+                            : (c?.appliedPosition || ''),
+                          department: (prev.department && prev.department !== 'Tech')
+                            ? prev.department
+                            : (c?.department || prev.department || 'Tech'),
+                        }));
+                      }}
+                      style={{flex:1}}
+                    >
+                      <option value="">-- Select Candidate --</option>
+                      {candidatesLoading ? (
+                        <option disabled value="">Loading candidates...</option>
+                      ) : candidatesError ? (
+                        <option disabled value="">Error: {candidatesError}</option>
+                      ) : candidates.length === 0 ? (
+                        <option disabled value="">No candidates found. Use + Add New Candidate</option>
+                      ) : (
+                        candidates.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            {c.name} — {c.appliedPosition || ''}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    {/* EXACTLY ONE CONTEXTUAL button — does NOT close/affect offer modal */}
+                    <button
+                      type="button"
+                      className="rec-secondary-btn"
+                      style={{whiteSpace:'nowrap',fontSize:'0.8rem',flexShrink:0}}
+                      onClick={handleOpenOfferNewCandidate}
+                    >
+                      + Add New Candidate
+                    </button>
+                  </div>
+                  {candidatesError && (
+                    <span style={{fontSize:'0.78rem',color:'#dc2626',marginTop:'0.25rem',display:'block'}}>
+                      {candidatesError}
+                    </span>
+                  )}
+                  {(offerForm.candidateId || selectedCandidateId) && (() => {
+                    const currentId = offerForm.candidateId || selectedCandidateId;
+                    const c = candidates.find((x) => String(x._id) === String(currentId));
+                    return c ? (
+                      <span style={{fontSize:'0.78rem',color:'#64748b',marginTop:'0.25rem',display:'block'}}>
+                        {c.email} &middot; {c.phone} {c.location ? `· ${c.location}` : ''}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+
+                <div className="hr-form-group"><label>Offered Designation *</label><input type="text" required placeholder="e.g. Software Engineer" value={offerForm.offeredDesignation} onChange={e=>setOfferForm({...offerForm,offeredDesignation:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Department *</label><select required value={offerForm.department} onChange={e=>setOfferForm({...offerForm,department:e.target.value})}>{OFFICIAL_DEPARTMENTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+                <div className="hr-form-group"><label>Employment Type</label><select value={offerForm.employmentType} onChange={e=>setOfferForm({...offerForm,employmentType:e.target.value})}><option>Full Time</option><option>Part Time</option><option>Contract</option><option>Intern</option></select></div>
+                <div className="hr-form-group"><label>Salary / CTC (Annual) *</label><input type="text" required placeholder="e.g. 7,50,000 / yr" value={offerForm.salary} onChange={e=>setOfferForm({...offerForm,salary:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Offer Date</label><input type="date" value={offerForm.offerDate} onChange={e=>setOfferForm({...offerForm,offerDate:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Joining Date</label><input type="date" value={offerForm.joiningDate} onChange={e=>setOfferForm({...offerForm,joiningDate:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Offer Expiry Date</label><input type="date" value={offerForm.expiresAt} onChange={e=>setOfferForm({...offerForm,expiresAt:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Probation Period</label><input type="text" placeholder="6 Months" value={offerForm.probationPeriod} onChange={e=>setOfferForm({...offerForm,probationPeriod:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Work Location</label><input type="text" placeholder="Mumbai / Remote / Hybrid" value={offerForm.workLocation} onChange={e=>setOfferForm({...offerForm,workLocation:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Reporting Manager</label><input type="text" placeholder="e.g. Priya Sharma" value={offerForm.reportingManager} onChange={e=>setOfferForm({...offerForm,reportingManager:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Working Hours</label><input type="text" placeholder="9:00 AM - 6:00 PM" value={offerForm.workingHours} onChange={e=>setOfferForm({...offerForm,workingHours:e.target.value})}/></div>
+                <div className="hr-form-group"><label>Notice Period</label><input type="text" placeholder="30 Days" value={offerForm.noticePeriod} onChange={e=>setOfferForm({...offerForm,noticePeriod:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Terms &amp; Conditions</label><textarea rows={3} placeholder="Employment terms, confidentiality clause, etc." value={offerForm.termsAndConditions} onChange={e=>setOfferForm({...offerForm,termsAndConditions:e.target.value})}/></div>
+                <div className="hr-form-group full-width"><label>Additional Notes</label><textarea rows={2} value={offerForm.additionalNotes} onChange={e=>setOfferForm({...offerForm,additionalNotes:e.target.value})}/></div>
+              </div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowOfferModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={offerSubmitting}>{offerSubmitting?'Saving...':editingOffer?'Update Offer':'Save as Draft'}</button></div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Contextual Add New Candidate Modal (z-index above offer modal) — offer modal stays alive */}
+        {showOfferNewCandidateModal && (
+          <div className="hr-modal-overlay" style={{ zIndex: 1200 }} onClick={(e) => { e.stopPropagation(); setOfferNewCandidateError(''); setShowOfferNewCandidateModal(false); }}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', zIndex: 1201 }}>
+              <div className="hr-modal-header">
+                <h3>Add New Candidate</h3>
+                <button type="button" className="hr-modal-close" onClick={() => { setOfferNewCandidateError(''); setShowOfferNewCandidateModal(false); }}>&times;</button>
+              </div>
+              {offerNewCandidateError && <div className="rec-form-error" style={{ margin: '0 1.5rem 0.5rem' }}><span>⚠️</span><span>{offerNewCandidateError}</span></div>}
+              <form onSubmit={handleSaveOfferNewCandidate}>
+                <div className="hr-modal-body">
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.75rem', padding: '0.5rem 0.75rem', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #ea580c' }}>
+                    After saving, this candidate will be registered in MongoDB and automatically selected in the Offer Letter form above.
+                  </div>
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group"><label>Candidate Name *</label><input type="text" required placeholder="Full Name" value={offerNewCandidateForm.name} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, name: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Email *</label><input type="email" required placeholder="candidate@example.com" value={offerNewCandidateForm.email} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, email: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Phone *</label><input type="tel" required placeholder="+91 9876543210" value={offerNewCandidateForm.phone} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, phone: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Department *</label><select required value={offerNewCandidateForm.department} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, department: e.target.value })}>{OFFICIAL_DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}</select></div>
+                    <div className="hr-form-group"><label>Applied Position *</label><input type="text" required placeholder="e.g. Software Engineer" value={offerNewCandidateForm.appliedPosition} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, appliedPosition: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Experience</label><input type="text" placeholder="e.g. 2 Years" value={offerNewCandidateForm.experience} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, experience: e.target.value })} /></div>
+                    <div className="hr-form-group full-width"><label>Key Skills</label><input type="text" placeholder="React, Node.js, MongoDB..." value={offerNewCandidateForm.skills} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, skills: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Notice Period</label><input type="text" placeholder="30 Days" value={offerNewCandidateForm.noticePeriod} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, noticePeriod: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Current Company</label><input type="text" placeholder="Previous Employer" value={offerNewCandidateForm.currentCompany} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, currentCompany: e.target.value })} /></div>
+                    <div className="hr-form-group"><label>Location</label><input type="text" placeholder="City / State" value={offerNewCandidateForm.location} onChange={(e) => setOfferNewCandidateForm({ ...offerNewCandidateForm, location: e.target.value })} /></div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => { setOfferNewCandidateError(''); setShowOfferNewCandidateModal(false); }}>Cancel</button>
+                  <button type="submit" className="hr-btn-primary" disabled={offerNewCandidateSubmitting}>{offerNewCandidateSubmitting ? 'Creating in MongoDB...' : 'Save & Select Candidate'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Preview Offer Letter Modal */}
+        {showOfferPreviewModal && viewingOffer && (
+          <div className="hr-modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowOfferPreviewModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px', zIndex: 1101, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+              <div className="hr-modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '1rem 1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <img src="/aasha-logo-new.jpg" alt="AASHA SM" style={{ height: '32px', objectFit: 'contain' }} />
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', margin: 0, color: '#0f172a' }}>
+                      Offer Letter &mdash; {viewingOffer.offerNumber}
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</span>
+                  </div>
+                </div>
+                <button type="button" className="hr-modal-close" onClick={() => setShowOfferPreviewModal(false)}>&times;</button>
+              </div>
+
+              <div className="hr-modal-body" style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, background: '#f8fafc' }}>
+                <div className="offer-preview-paper" style={{ background: '#fff', borderRadius: '12px', padding: '2.25rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', maxWidth: '750px', margin: '0 auto' }}>
+                  
+                  {/* Corporate Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #ea580c', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <img src="/aasha-logo-new.jpg" alt="AASHA SM TECHNOLOGIES" style={{ height: '48px', objectFit: 'contain' }} />
+                      <div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.01em' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Corporate HR &amp; Talent Acquisition · IT Services &amp; Consulting</div>
+                      </div>
+                    </div>
+                    <span className="rec-badge" style={{ background: '#ffedd5', color: '#c2410c', fontWeight: '700', fontSize: '0.75rem', padding: '0.35rem 0.75rem', letterSpacing: '0.05em' }}>OFFER LETTER</span>
+                  </div>
+
+                  {/* Meta Details Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', background: '#f8fafc', padding: '1rem 1.25rem', borderRadius: '8px', border: '1px solid #f1f5f9', marginBottom: '1.25rem', fontSize: '0.875rem' }}>
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700', display: 'block', marginBottom: '0.25rem' }}>To (Candidate)</span>
+                      <strong style={{ fontSize: '1rem', color: '#0f172a', display: 'block' }}>{viewingOffer.candidate?.name || 'Candidate'}</strong>
+                      <div style={{ color: '#475569', fontSize: '0.82rem', marginTop: '0.2rem' }}>{viewingOffer.candidate?.email || '—'}</div>
+                      <div style={{ color: '#475569', fontSize: '0.82rem' }}>{viewingOffer.candidate?.phone || ''}</div>
+                      {viewingOffer.candidate?.location && <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{viewingOffer.candidate.location}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ marginBottom: '0.35rem' }}><span style={{ color: '#64748b', fontSize: '0.8rem' }}>Offer Number: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.offerNumber}</strong></div>
+                      <div style={{ marginBottom: '0.35rem' }}><span style={{ color: '#64748b', fontSize: '0.8rem' }}>Offer Date: </span><span style={{ fontWeight: '600', color: '#0f172a' }}>{formatDate(viewingOffer.offerDate)}</span></div>
+                      {viewingOffer.expiresAt && <div><span style={{ color: '#64748b', fontSize: '0.8rem' }}>Valid Until: </span><span style={{ fontWeight: '600', color: '#ea580c' }}>{formatDate(viewingOffer.expiresAt)}</span></div>}
+                    </div>
+                  </div>
+
+                  {/* Subject */}
+                  <div style={{ fontSize: '0.92rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.75rem' }}>
+                    Sub: Formal Employment Offer for the position of &ldquo;{viewingOffer.offeredDesignation}&rdquo;
+                  </div>
+
+                  {/* Salutation & Intro */}
+                  <div style={{ fontSize: '0.9rem', color: '#0f172a', marginBottom: '0.5rem' }}>
+                    Dear <strong>{viewingOffer.candidate?.name || 'Candidate'}</strong>,
+                  </div>
+                  <p style={{ fontSize: '0.85rem', lineHeight: '1.6', color: '#334155', margin: '0 0 1.25rem' }}>
+                    We are pleased to extend this formal offer of employment to you on behalf of <strong>AASHA SM TECHNOLOGIES PRIVATE LIMITED</strong>. Following our evaluation and interview discussions, we are confident that your background and capabilities will make a significant contribution to our organization.
+                  </p>
+
+                  {/* Employment Details Grid */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+                      Key Employment Details
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem 1.5rem', fontSize: '0.84rem' }}>
+                      <div><span style={{ color: '#64748b' }}>Offered Designation: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.offeredDesignation || '—'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Department: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.department || '—'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Employment Type: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.employmentType || 'Full Time'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Annual CTC / Salary: </span><strong style={{ color: '#16a34a' }}>{viewingOffer.salary || 'Competitive'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Date of Joining: </span><strong style={{ color: '#0f172a' }}>{formatDate(viewingOffer.joiningDate)}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Work Location: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.workLocation || 'Office / Hybrid'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Probation Period: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.probationPeriod || '6 Months'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Reporting Manager: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.reportingManager || 'Management'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Working Hours: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.workingHours || '9:00 AM - 6:00 PM (Mon-Sat)'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Notice Period: </span><strong style={{ color: '#0f172a' }}>{viewingOffer.noticePeriod || '30 Days'}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Terms & Conditions */}
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                      Terms &amp; Conditions
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.82rem', lineHeight: '1.6', color: '#475569' }}>
+                      <li><strong>Acceptance of Offer:</strong> Please sign and return a duplicate copy of this letter on or before {viewingOffer.expiresAt ? formatDate(viewingOffer.expiresAt) : 'the validity date'} to signify your acceptance.</li>
+                      <li><strong>Probation &amp; Confirmation:</strong> You will serve a probation of {viewingOffer.probationPeriod || '6 Months'}. Upon successful completion and performance review, employment will be confirmed in writing.</li>
+                      <li><strong>Confidentiality &amp; IP:</strong> You shall strictly protect all proprietary software, client data, intellectual property, and trade secrets of AASHA SM Technologies.</li>
+                      <li><strong>Notice Period:</strong> Either party may initiate separation by serving {viewingOffer.noticePeriod || '30 Days'} notice or basic salary equivalent in lieu of notice.</li>
+                      {viewingOffer.termsAndConditions && <li>{viewingOffer.termsAndConditions}</li>}
+                    </ol>
+                  </div>
+
+                  {/* Additional Notes */}
+                  {viewingOffer.additionalNotes && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#92400e' }}>
+                      <strong>Additional Notes:</strong> {viewingOffer.additionalNotes}
+                    </div>
+                  )}
+
+                  {/* Closing & Sign-off */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem', marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.85rem' }}>
+                    <div>
+                      <p style={{ margin: '0 0 0.25rem', color: '#475569' }}>Warm regards,</p>
+                      <strong style={{ display: 'block', color: '#0f172a' }}>Human Resources &amp; Talent Acquisition</strong>
+                      <span style={{ color: '#ea580c', fontWeight: '700', fontSize: '0.82rem' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#94a3b8' }}>
+                      Confidential · Authorized Document
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="hr-modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#fff', borderTop: '1px solid #e2e8f0', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowOfferPreviewModal(false)}>Close</button>
+                <button type="button" className="rec-primary-btn" onClick={() => handleDownloadPDF(viewingOffer)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '15px', height: '15px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download PDF
                 </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Send Offer Confirmation Modal */}
+        {showOfferSendModal&&viewingOffer&&(
+          <div className="hr-modal-overlay" style={{zIndex:1100}} onClick={()=>setShowOfferSendModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'480px',zIndex:1101}}>
+              <div className="hr-modal-header"><h3>Send Offer Letter</h3><button type="button" className="hr-modal-close" onClick={()=>setShowOfferSendModal(false)}>&times;</button></div>
+              <div className="hr-modal-body">
+                <div style={{background:'#f8fafc',padding:'1.25rem',borderRadius:'10px',border:'1px solid #e2e8f0'}}>
+                  <p style={{margin:'0 0 0.5rem',fontSize:'0.9rem',color:'#374151'}}>You are about to send offer letter <strong>{viewingOffer.offerNumber}</strong> to:</p>
+                  <div style={{margin:'0.75rem 0',padding:'0.75rem',background:'#fff',borderRadius:'8px',border:'1px solid #e2e8f0'}}><div style={{fontWeight:'700',color:'#0f172a'}}>{viewingOffer.candidate?.name||'—'}</div><div style={{fontSize:'0.85rem',color:'#64748b'}}>{viewingOffer.candidate?.email||'No email on record'}</div></div>
+                  {!viewingOffer.candidate?.email&&<div style={{color:'#dc2626',fontSize:'0.85rem',marginTop:'0.5rem'}}>&#9888;&#65039; No email address found. Cannot send offer.</div>}
+                  <p style={{margin:'0.5rem 0 0',fontSize:'0.82rem',color:'#64748b'}}>Note: Status will only change to "Sent" if SMTP email delivery succeeds.</p>
+                </div>
+              </div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowOfferSendModal(false)}>Cancel</button><button type="button" className="hr-btn-primary" disabled={offerSubmitting||!viewingOffer.candidate?.email} onClick={handleSendOffer}>{offerSubmitting?'Sending...':'Send Offer Letter'}</button></div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Offer Confirmation */}
+        {showOfferDeleteModal&&viewingOffer&&(
+          <div className="hr-modal-overlay" style={{zIndex:1100}} onClick={()=>setShowOfferDeleteModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'440px',zIndex:1101}}>
+              <div className="hr-modal-header"><h3>Delete Offer Letter</h3><button type="button" className="hr-modal-close" onClick={()=>setShowOfferDeleteModal(false)}>&times;</button></div>
+              <div className="hr-modal-body"><div style={{textAlign:'center',padding:'0.5rem 0'}}><div style={{fontSize:'2.5rem',marginBottom:'0.5rem'}}>&#128465;&#65039;</div><h4 style={{margin:'0 0 0.5rem',color:'#0f172a'}}>Delete {viewingOffer.offerNumber}?</h4><p style={{color:'#64748b',fontSize:'0.875rem'}}>This will remove the offer letter for <strong>{viewingOffer.candidate?.name}</strong>. This cannot be undone.</p></div></div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowOfferDeleteModal(false)}>Cancel</button><button type="button" className="rec-btn-sm reject" style={{padding:'0.65rem 1.25rem',fontSize:'0.875rem'}} disabled={offerSubmitting} onClick={handleDeleteOffer}>{offerSubmitting?'Deleting...':'Yes, Delete'}</button></div>
+            </div>
+          </div>
+        )}
+
+        {/* Convert From Offer Modal */}
+        {showOfferConvertModal&&viewingOffer&&(
+          <div className="hr-modal-overlay" style={{zIndex:1100}} onClick={()=>setShowOfferConvertModal(false)}>
+            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'520px',zIndex:1101}}>
+              <div className="hr-modal-header"><h3>Convert to Employee</h3><button type="button" className="hr-modal-close" onClick={()=>setShowOfferConvertModal(false)}>&times;</button></div>
+              <div className="hr-modal-body">
+                <div style={{textAlign:'center',padding:'0.75rem 0'}}><div style={{fontSize:'2.5rem',marginBottom:'0.5rem'}}>&#127881;</div><h4 style={{margin:'0 0 0.5rem',color:'#0f172a'}}>Onboard as Employee?</h4></div>
+                <div style={{background:'#f8fafc',padding:'1rem',borderRadius:'10px',border:'1px solid #e2e8f0'}}>
+                  {[['Offer No',viewingOffer.offerNumber],['Candidate',viewingOffer.candidate?.name],['Email',viewingOffer.candidate?.email],['Designation',viewingOffer.offeredDesignation],['Department',viewingOffer.department],['Salary',viewingOffer.salary],['Joining Date',formatDate(viewingOffer.joiningDate)],['Employment Type',viewingOffer.employmentType]].map(([l,v])=>(
+                    <div key={l} style={{display:'flex',justifyContent:'space-between',fontSize:'0.85rem',padding:'0.3rem 0',borderBottom:'1px solid #e2e8f0'}}><span style={{color:'#64748b'}}>{l}</span><strong style={{color:'#0f172a'}}>{v||'—'}</strong></div>
+                  ))}
+                </div>
+                <p style={{color:'#64748b',fontSize:'0.82rem',marginTop:'0.75rem'}}>This will create an employee record, generate an Employee ID, and link the candidate.</p>
+              </div>
+              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowOfferConvertModal(false)}>Cancel</button><button type="button" className="rec-btn-sm convert" style={{padding:'0.65rem 1.25rem',fontSize:'0.875rem'}} disabled={offerSubmitting} onClick={handleConvertFromOffer}>{offerSubmitting?'Converting...':'Confirm & Onboard Employee'}</button></div>
+            </div>
+          </div>
+        )}
+
       </div>
     </UserLayout>
   );

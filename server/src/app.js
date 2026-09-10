@@ -14,6 +14,8 @@ const allowedOrigins = new Set([config.clientUrl]);
 if (config.nodeEnv === 'development') {
   allowedOrigins.add('http://localhost:5173');
   allowedOrigins.add('http://127.0.0.1:5173');
+  allowedOrigins.add('http://localhost:5174');
+  allowedOrigins.add('http://127.0.0.1:5174');
 }
 
 // Middleware - Body Parsing

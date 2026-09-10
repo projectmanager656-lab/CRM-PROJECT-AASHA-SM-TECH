@@ -44,9 +44,47 @@ const getEmployeeName = (u) => {
   return full || u.email || 'Employee';
 };
 
-const getEmployeeDepartment = (u) => {
+// Normalize string for case/whitespace-insensitive matching
+const normalizeDeptKey = (val) => String(val || '').trim().toLowerCase();
+
+/**
+ * Resolves canonical department name from a User or Payroll record
+ * against the list of database Department objects.
+ * Supports:
+ * - user.department (string, ObjectId, or populated object)
+ * - user.jobDetails.department (string or populated object)
+ * - casing/whitespace differences ("Tech", " tech ", "TECH")
+ */
+const resolveDepartmentName = (u, deptList = []) => {
   if (!u) return '—';
-  return u.department || u.jobDetails?.department || '—';
+
+  let raw = u.department || u.jobDetails?.department;
+  if (!raw) return '—';
+
+  // If populated object with name
+  if (typeof raw === 'object' && raw !== null) {
+    if (raw.name) return String(raw.name).trim();
+    raw = raw._id;
+  }
+
+  const str = String(raw).trim();
+  if (!str) return '—';
+
+  // Check if str is an ObjectId matching a department's _id
+  if (deptList && deptList.length > 0) {
+    const byId = deptList.find((d) => d && String(d._id) === str);
+    if (byId && byId.name) return String(byId.name).trim();
+
+    // Check case-insensitive match against department name in deptList
+    const byName = deptList.find((d) => d && d.name && normalizeDeptKey(d.name) === normalizeDeptKey(str));
+    if (byName && byName.name) return String(byName.name).trim();
+  }
+
+  return str;
+};
+
+const getEmployeeDepartment = (u, deptList = []) => {
+  return resolveDepartmentName(u, deptList);
 };
 
 const getEmployeeDesignation = (u) => {
@@ -59,8 +97,6 @@ const getEmployeeId = (u) => {
   return u.jobDetails?.employeeId || (u._id ? `EMP-${String(u._id).slice(-5).toUpperCase()}` : '—');
 };
 
-const OFFICIAL_DEPARTMENTS = ['Tech', 'Finance', 'Business Development', 'Digital Marketing', 'Video Editor', 'HR'];
-
 export default function Payroll() {
   const { user } = useContext(AppContext);
   const isHR = ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR';
@@ -68,6 +104,7 @@ export default function Payroll() {
   // Data States
   const [payrollRecords, setPayrollRecords] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -88,6 +125,7 @@ export default function Payroll() {
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [selectedSalaryEmployee, setSelectedSalaryEmployee] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +136,8 @@ export default function Payroll() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [generateEffectiveDate, setGenerateEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [generateDept, setGenerateDept] = useState('All');
+  const [generateEmployee, setGenerateEmployee] = useState('All');
 
   const [editForm, setEditForm] = useState({
     basicSalary: 0,
@@ -143,18 +183,27 @@ export default function Payroll() {
   // History selected period
   const [historySelectedPeriod, setHistorySelectedPeriod] = useState('All');
 
+  // Attendance Summary for detail modal
+  const [attSummary, setAttSummary] = useState(null);
+  const [attSummaryLoading, setAttSummaryLoading] = useState(false);
+
   // Load Real Data from MongoDB Atlas
   const loadData = async () => {
     setLoading(true);
     setError('');
+
     try {
-      const [payrollRes, usersRes] = await Promise.all([
+      const [payrollRes, usersRes, deptRes] = await Promise.all([
         apiClient.get('/payroll'),
         isHR ? apiClient.get('/users').catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
+        apiClient.get('/admin/departments').catch(() => apiClient.get('/departments')).catch(() => ({ data: { data: [] } })),
       ]);
 
       const payData = payrollRes.data?.data || [];
       setPayrollRecords(payData);
+
+      const deptData = deptRes.data?.data || [];
+      setDepartments(deptData);
 
       if (isHR) {
         const allUsers = (usersRes.data?.data || []).filter(
@@ -175,6 +224,23 @@ export default function Payroll() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Fetch attendance summary whenever the detail modal opens
+  useEffect(() => {
+    if (!showDetailModal || !selectedRecord) {
+      setAttSummary(null);
+      return;
+    }
+    const userId    = selectedRecord.user?._id || selectedRecord.user;
+    const payPeriod = selectedRecord.payPeriod || selectedRecord.month;
+    if (!userId || !payPeriod) return;
+    setAttSummaryLoading(true);
+    apiClient
+      .get('/payroll/attendance-summary', { params: { userId, payPeriod } })
+      .then((r) => setAttSummary(r.data?.data || null))
+      .catch(() => setAttSummary(null))
+      .finally(() => setAttSummaryLoading(false));
+  }, [showDetailModal, selectedRecord]);
 
   // 1. Dynamic KPI Calculations directly from real database records
   const kpiStats = useMemo(() => {
@@ -207,6 +273,38 @@ export default function Payroll() {
   }, [payrollRecords]);
 
   // 2. Filtered Records
+  // Canonical list of all real database departments from MongoDB
+  const canonicalDepartments = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    // 1. All departments from database API
+    departments.forEach((dept) => {
+      // Respect status if status field exists (only active departments)
+      if (dept && dept.status && dept.status !== 'Active') return;
+      const name = dept?.name ? String(dept.name).trim() : '';
+      if (!name) return;
+      const key = normalizeDeptKey(name);
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({ id: dept._id || key, name });
+      }
+    });
+
+    // 2. Any active employee whose assigned department might not be in the departments collection
+    employees.forEach((emp) => {
+      const name = resolveDepartmentName(emp, departments);
+      if (!name || name === '—' || name.toLowerCase() === 'all') return;
+      const key = normalizeDeptKey(name);
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({ id: key, name });
+      }
+    });
+
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [departments, employees]);
+
   const filteredRecords = useMemo(() => {
     return payrollRecords.filter((r) => {
       const name = getEmployeeName(r.user).toLowerCase();
@@ -215,8 +313,8 @@ export default function Payroll() {
       const q = search.toLowerCase();
       const matchesSearch = !q || name.includes(q) || email.includes(q) || empId.includes(q);
 
-      const dept = getEmployeeDepartment(r.user);
-      const matchesDept = selectedDept === 'All' || dept === selectedDept;
+      const dept = resolveDepartmentName(r.user, departments);
+      const matchesDept = selectedDept === 'All' || dept.toLowerCase() === selectedDept.toLowerCase();
 
       const period = r.payPeriod || r.month;
       const matchesPeriod = selectedPeriod === 'All' || period === selectedPeriod;
@@ -225,44 +323,126 @@ export default function Payroll() {
 
       return matchesSearch && matchesDept && matchesPeriod && matchesStatus;
     });
-  }, [payrollRecords, search, selectedDept, selectedPeriod, selectedStatus]);
+  }, [payrollRecords, search, selectedDept, selectedPeriod, selectedStatus, departments]);
 
-  // 3. Department Breakdown Calculations
+  // 3. Department Breakdown Calculations (Filtered strictly by selectedPeriod)
   const departmentSummaries = useMemo(() => {
-    const map = {};
-    OFFICIAL_DEPARTMENTS.forEach((dept) => {
-      map[dept] = {
-        name: dept,
+    // Filter payroll records strictly by the currently selected payroll period
+    const periodRecords = selectedPeriod && selectedPeriod !== 'All'
+      ? payrollRecords.filter((r) => (r.payPeriod || r.month) === selectedPeriod)
+      : payrollRecords;
+
+    // Map each canonical department to its real metrics
+    const map = new Map();
+    canonicalDepartments.forEach((dept) => {
+      const key = normalizeDeptKey(dept.name);
+      map.set(key, {
+        name: dept.name,
         totalEmployees: 0,
         payrollCount: 0,
         totalNet: 0,
         pendingCount: 0,
         processedCount: 0,
         paidCount: 0,
-      };
+      });
     });
 
+    // 1. Real Active Employee count per department
     employees.forEach((emp) => {
-      const d = getEmployeeDepartment(emp);
-      if (map[d]) {
-        map[d].totalEmployees += 1;
+      const deptName = resolveDepartmentName(emp, departments);
+      const key = normalizeDeptKey(deptName);
+      if (map.has(key)) {
+        map.get(key).totalEmployees += 1;
       }
     });
 
-    payrollRecords.forEach((r) => {
-      const d = getEmployeeDepartment(r.user);
-      if (!map[d]) return;
+    // 2. Real Payroll Metrics for the selected period
+    periodRecords.forEach((r) => {
+      const deptName = resolveDepartmentName(r.user, departments);
+      const key = normalizeDeptKey(deptName);
+      if (!map.has(key)) return;
 
-      map[d].payrollCount += 1;
-      map[d].totalNet += Number(r.net) || 0;
+      const entry = map.get(key);
+      entry.payrollCount += 1;
+      entry.totalNet += Number(r.net) || 0;
 
-      if (r.status === 'Pending') map[d].pendingCount += 1;
-      else if (r.status === 'Processed' || r.status === 'Processing') map[d].processedCount += 1;
-      else if (r.status === 'Paid') map[d].paidCount += 1;
+      const status = r.status || '';
+      if (status === 'Pending') {
+        entry.pendingCount += 1;
+      } else if (status === 'Processed' || status === 'Processing') {
+        entry.processedCount += 1;
+      } else if (status === 'Paid') {
+        entry.paidCount += 1;
+      }
     });
 
-    return Object.values(map);
-  }, [employees, payrollRecords]);
+    return Array.from(map.values());
+  }, [canonicalDepartments, employees, payrollRecords, selectedPeriod, departments]);
+
+  // Total Net Payroll for displayed departments in the selected period (used for % of spend)
+  const periodTotalNet = useMemo(() => {
+    return departmentSummaries.reduce((sum, d) => sum + (Number(d.totalNet) || 0), 0);
+  }, [departmentSummaries]);
+
+  // Eligible employees for Generate Payroll based on selected Department
+  const generateEligibleEmployees = useMemo(() => {
+    if (generateDept === 'All') return employees;
+    return employees.filter((emp) => {
+      const deptName = resolveDepartmentName(emp, departments);
+      return normalizeDeptKey(deptName) === normalizeDeptKey(generateDept);
+    });
+  }, [employees, generateDept, departments]);
+
+  // Target employees list in scope based on department & employee selection
+  const targetEmployeesInScope = useMemo(() => {
+    if (generateEmployee !== 'All') {
+      const found = generateEligibleEmployees.find((e) => String(e._id) === String(generateEmployee));
+      return found ? [found] : [];
+    }
+    return generateEligibleEmployees;
+  }, [generateEligibleEmployees, generateEmployee]);
+
+  // Already generated records count for the selected payPeriod among employees in scope
+  const alreadyGeneratedCount = useMemo(() => {
+    if (!generatePeriod || targetEmployeesInScope.length === 0) return 0;
+    const existingUserIds = new Set(
+      payrollRecords
+        .filter((r) => (r.payPeriod === generatePeriod || r.month === generatePeriod))
+        .map((r) => String(r.user?._id || r.user))
+    );
+    return targetEmployeesInScope.filter((emp) => existingUserIds.has(String(emp._id))).length;
+  }, [payrollRecords, generatePeriod, targetEmployeesInScope]);
+
+  const pendingToGenerateCount = useMemo(() => {
+    return Math.max(0, targetEmployeesInScope.length - alreadyGeneratedCount);
+  }, [targetEmployeesInScope, alreadyGeneratedCount]);
+
+  // Dynamic Status string and styling
+  const generateStatusInfo = useMemo(() => {
+    if (submitting) {
+      return { label: 'Generating in MongoDB Atlas...', color: '#ea580c' };
+    }
+    if (targetEmployeesInScope.length === 0) {
+      return { label: 'No Eligible Employees', color: '#64748b' };
+    }
+    if (pendingToGenerateCount === 0) {
+      return { label: `Already Generated (${alreadyGeneratedCount} of ${targetEmployeesInScope.length} records exist)`, color: '#6b21a8' };
+    }
+    if (alreadyGeneratedCount > 0) {
+      return { label: `Ready to Generate (${pendingToGenerateCount} new, ${alreadyGeneratedCount} already generated)`, color: '#15803d' };
+    }
+    return { label: 'Ready to Generate', color: '#15803d' };
+  }, [submitting, targetEmployeesInScope.length, pendingToGenerateCount, alreadyGeneratedCount]);
+
+  // Handle month picker change and update default effective date to end of month
+  const handlePeriodChange = (val) => {
+    setGeneratePeriod(val);
+    if (/^\d{4}-\d{2}$/.test(val)) {
+      const [year, month] = val.split('-').map(Number);
+      const lastDay = new Date(year, month, 0).getDate();
+      setGenerateEffectiveDate(`${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`);
+    }
+  };
 
   // 4. Modal Triggers
   const handleOpenDetail = (record) => {
@@ -374,10 +554,13 @@ export default function Payroll() {
         payPeriod: generatePeriod,
         month: generatePeriod,
         effectiveDate: generateEffectiveDate,
+        department: generateDept,
+        employeeId: generateEmployee !== 'All' ? generateEmployee : undefined,
       });
 
       const { generatedCount, skippedCount } = res.data?.data || {};
       setSuccess(`Successfully generated ${generatedCount} payroll records for ${formatMonthName(generatePeriod)}! (${skippedCount} skipped/already existing)`);
+      setShowGenerateModal(false);
       await loadData();
       setActiveTab('records');
       setSelectedPeriod(generatePeriod);
@@ -484,6 +667,20 @@ export default function Payroll() {
               <button
                 type="button"
                 className="payroll-secondary-btn"
+                onClick={loadData}
+                disabled={loading}
+                title="Refresh Payroll Data"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 4v6h-6" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+              </button>
+              <button
+                type="button"
+                className="payroll-secondary-btn"
                 onClick={() => {
                   setError('');
                   setSuccess('');
@@ -496,10 +693,12 @@ export default function Payroll() {
                 type="button"
                 className="payroll-primary-btn"
                 onClick={() => {
-                  setActiveTab('generate');
+                  setError('');
+                  setSuccess('');
+                  setShowGenerateModal(true);
                 }}
               >
-                ⚡ Generate Payroll
+                + Generate Payroll
               </button>
             </div>
           )}
@@ -519,7 +718,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Active Employees</span>
               <strong className="payroll-kpi-value">{kpiStats.totalEmployees}</strong>
-              <span className="payroll-kpi-sub">On active payroll</span>
             </div>
           </div>
 
@@ -533,7 +731,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Pending Payroll</span>
               <strong className="payroll-kpi-value">{kpiStats.pendingCount}</strong>
-              <span className="payroll-kpi-sub">{kpiStats.pendingCount > 0 ? 'Requires HR review' : 'All clear'}</span>
             </div>
           </div>
 
@@ -546,7 +743,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Processed Payroll</span>
               <strong className="payroll-kpi-value">{kpiStats.processedCount}</strong>
-              <span className="payroll-kpi-sub">Ready for payment</span>
             </div>
           </div>
 
@@ -559,7 +755,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Paid Payroll</span>
               <strong className="payroll-kpi-value">{kpiStats.paidCount}</strong>
-              <span className="payroll-kpi-sub">Disbursed</span>
             </div>
           </div>
 
@@ -573,7 +768,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Total Net Payroll</span>
               <strong className="payroll-kpi-value">{formatMoney(kpiStats.totalNet)}</strong>
-              <span className="payroll-kpi-sub">Net disbursement</span>
             </div>
           </div>
 
@@ -588,7 +782,6 @@ export default function Payroll() {
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Total Deductions</span>
               <strong className="payroll-kpi-value">{formatMoney(kpiStats.totalDeductions)}</strong>
-              <span className="payroll-kpi-sub">Tax, advance & LOP</span>
             </div>
           </div>
         </div>
@@ -607,13 +800,6 @@ export default function Payroll() {
                 onClick={() => setActiveTab('records')}
               >
                 Payroll Records <span className="payroll-tab-badge">{payrollRecords.length}</span>
-              </button>
-              <button
-                type="button"
-                className={`payroll-tab-btn ${activeTab === 'generate' ? 'active' : ''}`}
-                onClick={() => setActiveTab('generate')}
-              >
-                Generate Payroll
               </button>
               <button
                 type="button"
@@ -662,8 +848,8 @@ export default function Payroll() {
               {isHR && (
                 <select className="payroll-filter-select" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
                   <option value="All">All Departments</option>
-                  {OFFICIAL_DEPARTMENTS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                  {canonicalDepartments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
                   ))}
                 </select>
               )}
@@ -704,16 +890,6 @@ export default function Payroll() {
                       ? 'No payroll records have been generated yet in MongoDB Atlas.'
                       : 'No payroll records match your current search and filter criteria.'}
                   </p>
-                  {isHR && payrollRecords.length === 0 && (
-                    <button
-                      type="button"
-                      className="payroll-primary-btn"
-                      style={{ marginTop: '1rem' }}
-                      onClick={() => setActiveTab('generate')}
-                    >
-                      ⚡ Generate Payroll Now
-                    </button>
-                  )}
                 </div>
               ) : (
                 <div className="payroll-table-wrap">
@@ -822,112 +998,7 @@ export default function Payroll() {
           </div>
         )}
 
-        {/* ─── TAB 2: GENERATE PAYROLL WORKSPACE ─── */}
-        {activeTab === 'generate' && isHR && (
-          <div className="payroll-generate-card">
-            <div className="payroll-generate-header">
-              <h3>⚡ Batch Payroll Generation</h3>
-              <p>Generate monthly payroll records for all active employees based on their configured salary structures.</p>
-            </div>
-
-            <form onSubmit={handleGeneratePayroll}>
-              <div className="payroll-gen-form-row">
-                <div className="hr-form-group">
-                  <label>Select Pay Period / Month *</label>
-                  <input
-                    type="month"
-                    required
-                    value={generatePeriod}
-                    onChange={(e) => setGeneratePeriod(e.target.value)}
-                  />
-                </div>
-                <div className="hr-form-group">
-                  <label>Effective Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={generateEffectiveDate}
-                    onChange={(e) => setGenerateEffectiveDate(e.target.value)}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                  <button type="submit" className="payroll-primary-btn" disabled={submitting} style={{ height: '42px' }}>
-                    {submitting ? 'Generating in MongoDB...' : `Generate Payroll for ${formatMonthName(generatePeriod)}`}
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h4 style={{ margin: 0, color: '#0f172a', fontSize: '0.95rem' }}>
-                  Active Employee Roster Preview ({employees.length} Employees)
-                </h4>
-                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Unreviewed / new generation defaults strictly to <strong>Pending</strong>
-                </span>
-              </div>
-
-              <div className="payroll-table-wrap" style={{ maxHeight: '380px' }}>
-                <table className="payroll-table">
-                  <thead>
-                    <tr>
-                      <th>Employee</th>
-                      <th>Department</th>
-                      <th>Base Salary</th>
-                      <th>Allowances</th>
-                      <th>Standard Deductions</th>
-                      <th>Projected Net</th>
-                      <th>Status for {generatePeriod}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((emp) => {
-                      const name = getEmployeeName(emp);
-                      const dept = getEmployeeDepartment(emp);
-                      const sal = emp.salaryDetails || {};
-                      const basic = sal.basicSalary || 35000;
-                      const allow = sal.allowances || 5000;
-                      const ded = sal.deductions || 0;
-                      const projectedNet = basic + allow - ded;
-
-                      const existingRecord = payrollRecords.find(
-                        (r) => String(r.user?._id || r.user) === String(emp._id) && (r.payPeriod === generatePeriod || r.month === generatePeriod)
-                      );
-
-                      return (
-                        <tr key={emp._id}>
-                          <td>
-                            <strong>{name}</strong>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{emp.email}</div>
-                          </td>
-                          <td><span className="hr-emp-dept-pill">{dept}</span></td>
-                          <td>{formatMoney(basic)}</td>
-                          <td>{formatMoney(allow)}</td>
-                          <td>{formatMoney(ded)}</td>
-                          <td><strong style={{ color: '#15803d' }}>{formatMoney(projectedNet)}</strong></td>
-                          <td>
-                            {existingRecord ? (
-                              <span className={`payroll-status-pill ${existingRecord.status.toLowerCase()}`}>
-                                Generated ({existingRecord.status})
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '0.775rem', color: '#3b82f6', fontWeight: '600' }}>
-                                Ready to Generate
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ─── TAB 3: SALARY STRUCTURE ─── */}
+        {/* ─── TAB 2: SALARY STRUCTURE ─── */}
         {activeTab === 'salaries' && isHR && (
           <div className="payroll-table-card">
             <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1006,55 +1077,104 @@ export default function Payroll() {
           </div>
         )}
 
-        {/* ─── TAB 4: DEPARTMENT-WISE BREAKDOWN ─── */}
+        {/* ─── TAB 3: DEPARTMENT-WISE BREAKDOWN ─── */}
         {activeTab === 'departments' && isHR && (
-          <div className="payroll-dept-grid">
-            {departmentSummaries.map((dept) => {
-              const pct = kpiStats.totalNet > 0 ? ((dept.totalNet / kpiStats.totalNet) * 100).toFixed(1) : 0;
-              return (
-                <div key={dept.name} className="payroll-dept-card">
-                  <div className="payroll-dept-card-header">
-                    <div>
-                      <span className="payroll-dept-name">{dept.name}</span>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                        {dept.totalEmployees} Active Employees
+          <div>
+            {/* Period Filter Toolbar */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#0f172a' }}>Payroll Period:</label>
+                {availablePeriods.length > 0 ? (
+                  <select
+                    className="payroll-filter-select"
+                    style={{ minWidth: '220px' }}
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                  >
+                    <option value="All">All Pay Periods</option>
+                    {availablePeriods.map((p) => (
+                      <option key={p} value={p}>{formatMonthName(p)}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No periods generated yet</span>
+                )}
+                {selectedPeriod !== 'All' && (
+                  <button
+                    type="button"
+                    className="payroll-secondary-btn"
+                    onClick={() => setSelectedPeriod('All')}
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                  >
+                    Show All Periods
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                Showing <strong>{departmentSummaries.length}</strong> department{departmentSummaries.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: '3.5rem', textAlign: 'center', color: '#64748b' }}>
+                Loading department breakdown from MongoDB Atlas...
+              </div>
+            ) : departmentSummaries.length === 0 ? (
+              <div className="payroll-empty-state">
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏢</div>
+                <h3>No Departments Found</h3>
+                <p>No active departments were found in MongoDB.</p>
+              </div>
+            ) : (
+              <div className="payroll-dept-grid">
+                {departmentSummaries.map((dept) => {
+                  const pct = periodTotalNet > 0 ? ((dept.totalNet / periodTotalNet) * 100).toFixed(1) : '0';
+                  return (
+                    <div key={dept.name} className="payroll-dept-card">
+                      <div className="payroll-dept-card-header">
+                        <div>
+                          <span className="payroll-dept-name">{dept.name}</span>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                            {dept.totalEmployees} Active Employee{dept.totalEmployees !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <span className="payroll-dept-spend-pill">{pct}% of spend</span>
+                      </div>
+
+                      <div style={{ margin: '1rem 0' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Payroll Amount</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#ea580c', marginTop: '2px' }}>
+                          {formatMoney(dept.totalNet)}
+                        </div>
+                      </div>
+
+                      <div className="payroll-dept-metrics">
+                        <div className="payroll-dept-metric-col">
+                          <span>Pending</span>
+                          <strong style={{ color: dept.pendingCount > 0 ? '#f59e0b' : '#0f172a' }}>{dept.pendingCount}</strong>
+                        </div>
+                        <div className="payroll-dept-metric-col">
+                          <span>Processed</span>
+                          <strong style={{ color: '#8b5cf6' }}>{dept.processedCount}</strong>
+                        </div>
+                        <div className="payroll-dept-metric-col">
+                          <span>Paid</span>
+                          <strong style={{ color: '#10b981' }}>{dept.paidCount}</strong>
+                        </div>
+                        <div className="payroll-dept-metric-col">
+                          <span>Records</span>
+                          <strong>{dept.payrollCount}</strong>
+                        </div>
                       </div>
                     </div>
-                    <span className="payroll-dept-spend-pill">{pct}% of spend</span>
-                  </div>
-
-                  <div style={{ margin: '1rem 0' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Payroll Amount</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#ea580c', marginTop: '2px' }}>
-                      {formatMoney(dept.totalNet)}
-                    </div>
-                  </div>
-
-                  <div className="payroll-dept-metrics">
-                    <div className="payroll-dept-metric-col">
-                      <span>Pending</span>
-                      <strong style={{ color: dept.pendingCount > 0 ? '#f59e0b' : '#0f172a' }}>{dept.pendingCount}</strong>
-                    </div>
-                    <div className="payroll-dept-metric-col">
-                      <span>Processed</span>
-                      <strong style={{ color: '#8b5cf6' }}>{dept.processedCount}</strong>
-                    </div>
-                    <div className="payroll-dept-metric-col">
-                      <span>Paid</span>
-                      <strong style={{ color: '#10b981' }}>{dept.paidCount}</strong>
-                    </div>
-                    <div className="payroll-dept-metric-col">
-                      <span>Records</span>
-                      <strong>{dept.payrollCount}</strong>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ─── TAB 5: PAYROLL HISTORY ─── */}
+        {/* ─── TAB 4: PAYROLL HISTORY ─── */}
         {activeTab === 'history' && isHR && (
           <div>
             <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
@@ -1149,6 +1269,73 @@ export default function Payroll() {
                     </div>
                   </div>
                 </div>
+
+                {/* Attendance Summary Section */}
+                {(attSummaryLoading || attSummary) && (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <h5 style={{ margin: '0 0 0.6rem 0', color: '#0f172a', fontWeight: '700' }}>Attendance Summary</h5>
+                    {attSummaryLoading ? (
+                      <div style={{ fontSize: '0.825rem', color: '#94a3b8', padding: '0.5rem 0' }}>Loading attendance data…</div>
+                    ) : (
+                      <div className="hr-profile-details-grid">
+                        {attSummary.totalWorkingDays > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Working Days</span>
+                            <strong>{attSummary.totalWorkingDays}</strong>
+                          </div>
+                        )}
+                        {attSummary.presentCount > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Present</span>
+                            <strong style={{ color: '#15803d' }}>{attSummary.presentCount}</strong>
+                          </div>
+                        )}
+                        {attSummary.lateCount > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Late</span>
+                            <strong style={{ color: '#d97706' }}>{attSummary.lateCount}</strong>
+                          </div>
+                        )}
+                        {attSummary.halfDayCount > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Half Day</span>
+                            <strong style={{ color: '#7c3aed' }}>{attSummary.halfDayCount}</strong>
+                          </div>
+                        )}
+                        {attSummary.absentCount > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Absent (Att.)</span>
+                            <strong style={{ color: '#dc2626' }}>{attSummary.absentCount}</strong>
+                          </div>
+                        )}
+                        {attSummary.unpaidApprovedDays > 0 && (
+                          <div className="hr-profile-item">
+                            <span>Unpaid Leave</span>
+                            <strong style={{ color: '#dc2626' }}>{attSummary.unpaidApprovedDays} days</strong>
+                          </div>
+                        )}
+                        {attSummary.lopDays > 0 && (
+                          <div className="hr-profile-item" style={{ background: '#fef2f2', padding: '0.5rem 0.75rem', borderRadius: '6px' }}>
+                            <span style={{ color: '#991b1b' }}>LOP Days (Total)</span>
+                            <strong style={{ color: '#dc2626' }}>{attSummary.lopDays} days</strong>
+                          </div>
+                        )}
+                        {(attSummary.leaveByType?.Casual?.approved > 0 || attSummary.leaveByType?.Sick?.approved > 0 || attSummary.leaveByType?.Annual?.approved > 0) && (
+                          <div className="hr-profile-item full-width" style={{ background: '#f0fdf4', padding: '0.5rem 0.75rem', borderRadius: '6px' }}>
+                            <span style={{ color: '#166534' }}>Paid Leave (Approved)</span>
+                            <strong style={{ color: '#15803d' }}>
+                              {[
+                                attSummary.leaveByType?.Casual?.approved > 0 && `Casual: ${attSummary.leaveByType.Casual.approved}d`,
+                                attSummary.leaveByType?.Sick?.approved > 0 && `Sick: ${attSummary.leaveByType.Sick.approved}d`,
+                                attSummary.leaveByType?.Annual?.approved > 0 && `Annual: ${attSummary.leaveByType.Annual.approved}d`,
+                              ].filter(Boolean).join(' · ')}
+                            </strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Salary Section */}
                 <div>
@@ -1659,6 +1846,142 @@ export default function Payroll() {
                   <button type="button" className="hr-btn-secondary" onClick={() => setShowSalaryModal(false)}>Cancel</button>
                   <button type="submit" className="hr-btn-primary" disabled={submitting}>
                     {submitting ? 'Saving...' : 'Save Salary Structure'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ─── GENERATE PAYROLL MODAL ─── */}
+        {showGenerateModal && (
+          <div className="hr-modal-overlay" onClick={() => !submitting && setShowGenerateModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', margin: 0, color: '#0f172a' }}>Generate Payroll</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                    Generate payroll for the selected period
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="hr-modal-close"
+                  disabled={submitting}
+                  onClick={() => setShowGenerateModal(false)}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleGeneratePayroll}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group">
+                      <label>Pay Period / Month *</label>
+                      <input
+                        type="month"
+                        required
+                        value={generatePeriod}
+                        onChange={(e) => handlePeriodChange(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Effective / Payroll Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={generateEffectiveDate}
+                        onChange={(e) => setGenerateEffectiveDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Department</label>
+                      <select
+                        value={generateDept}
+                        onChange={(e) => {
+                          setGenerateDept(e.target.value);
+                          setGenerateEmployee('All');
+                        }}
+                      >
+                        <option value="All">All Departments</option>
+                        {canonicalDepartments.map((d) => (
+                          <option key={d.id} value={d.name}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Employees</label>
+                      <select
+                        value={generateEmployee}
+                        onChange={(e) => setGenerateEmployee(e.target.value)}
+                      >
+                        <option value="All">All Active Employees ({generateEligibleEmployees.length})</option>
+                        {generateEligibleEmployees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            {getEmployeeName(emp)} ({getEmployeeDepartment(emp)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Read-Only Payroll Calculation Information Section */}
+                  <div className="payroll-calc-info-box">
+                    <div className="payroll-calc-info-title">Payroll Calculation</div>
+                    <ul className="payroll-calc-checklist">
+                      <li><span className="check-icon">✓</span> Employee salary structure</li>
+                      <li><span className="check-icon">✓</span> Attendance — Present / Absent</li>
+                      <li><span className="check-icon">✓</span> Approved Paid Leave</li>
+                      <li><span className="check-icon">✓</span> Approved Unpaid Leave / LOP</li>
+                      <li><span className="check-icon">✓</span> Existing deductions</li>
+                      <li><span className="check-icon">✓</span> Allowances / Bonus / Incentives</li>
+                      <li><span className="check-icon">✓</span> Overtime</li>
+                    </ul>
+                  </div>
+
+                  {/* Dynamic Payroll Preview / Summary Section */}
+                  <div className="payroll-summary-box">
+                    <div className="payroll-summary-title">Payroll Summary</div>
+                    <div className="payroll-summary-grid">
+                      <div className="payroll-summary-row">
+                        <span>Employees to Process</span>
+                        <strong>{targetEmployeesInScope.length}</strong>
+                      </div>
+                      <div className="payroll-summary-row">
+                        <span>Payroll Period</span>
+                        <strong>{formatMonthName(generatePeriod)}</strong>
+                      </div>
+                      <div className="payroll-summary-row">
+                        <span>LOP Calculation</span>
+                        <strong>Attendance + Approved Unpaid Leave</strong>
+                      </div>
+                      <div className="payroll-summary-row">
+                        <span>Status</span>
+                        <strong style={{ color: generateStatusInfo.color }}>{generateStatusInfo.label}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hr-modal-footer">
+                  <button
+                    type="button"
+                    className="hr-btn-secondary"
+                    disabled={submitting}
+                    onClick={() => setShowGenerateModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="payroll-primary-btn"
+                    disabled={submitting || targetEmployeesInScope.length === 0 || pendingToGenerateCount === 0}
+                  >
+                    {submitting ? 'Generating...' : pendingToGenerateCount === 0 && targetEmployeesInScope.length > 0 ? 'Already Generated' : 'Generate Payroll'}
                   </button>
                 </div>
               </form>

@@ -9,6 +9,9 @@ const projectSchema = new mongoose.Schema({
   dueDate: { type: Date, default: null },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
+  department: { type: String, trim: true, default: '' },
+  priority: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
 }, { timestamps: true });
 projectSchema.pre('validate', function (next) {
   if (this.startDate && this.dueDate && this.dueDate < this.startDate) {

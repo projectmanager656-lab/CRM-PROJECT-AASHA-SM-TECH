@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { RecruitmentController } from '../controllers/RecruitmentController.js';
+import { OfferLetterController } from '../controllers/OfferLetterController.js';
 import { authenticateToken, authorizeHrOrAdmin } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -39,4 +40,23 @@ router.patch('/candidates/:candidateId/interviews/:interviewId', authorizeHrOrAd
 router.post('/candidates/:id/offer', authorizeHrOrAdmin, RecruitmentController.createOffer);
 router.post('/candidates/:id/convert-employee', authorizeHrOrAdmin, RecruitmentController.convertEmployee);
 
+// 5. Offer Letter Routes (standalone OfferLetter collection)
+router.get('/offer-letters/summary', OfferLetterController.offerSummary);
+router.route('/offer-letters')
+  .get(OfferLetterController.listOffers)
+  .post(authorizeHrOrAdmin, OfferLetterController.createOffer);
+
+router.route('/offer-letters/:id')
+  .get(OfferLetterController.getOffer)
+  .put(authorizeHrOrAdmin, OfferLetterController.updateOffer)
+  .delete(authorizeHrOrAdmin, OfferLetterController.deleteOffer);
+
+router.post('/offer-letters/:id/send', authorizeHrOrAdmin, OfferLetterController.sendOffer);
+router.post('/offer-letters/:id/resend', authorizeHrOrAdmin, OfferLetterController.resendOffer);
+router.post('/offer-letters/:id/accept', authorizeHrOrAdmin, OfferLetterController.markAccepted);
+router.post('/offer-letters/:id/reject', authorizeHrOrAdmin, OfferLetterController.markRejected);
+router.post('/offer-letters/:id/withdraw', authorizeHrOrAdmin, OfferLetterController.withdrawOffer);
+router.post('/offer-letters/:id/convert-employee', authorizeHrOrAdmin, OfferLetterController.convertToEmployee);
+
 export default router;
+

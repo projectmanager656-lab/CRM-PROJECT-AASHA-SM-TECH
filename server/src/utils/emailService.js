@@ -129,4 +129,119 @@ For your security, never share this code with anyone.
   }
 };
 
-export default { sendOtpEmail };
+/**
+ * Sends a professional Offer Letter email to the candidate.
+ *
+ * @param {string} to               - Candidate email address
+ * @param {object} offerData        - OfferLetter document fields
+ * @param {string} candidateName    - Candidate full name
+ * @param {string} companyName      - Company name from CompanySetting
+ * @param {string} [companyAddress] - Company address
+ */
+export const sendOfferEmail = async (to, offerData, candidateName, companyName = 'Aasha SM Technologies', companyAddress = '') => {
+  const transporter = createTransporter();
+
+  const fmtDate = (d) => {
+    if (!d) return 'To be confirmed';
+    try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }); } catch { return String(d); }
+  };
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offer Letter — ${companyName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.10);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#e75914 0%,#bd420c 100%);padding:36px 40px;text-align:center;">
+              <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">${companyName}</p>
+              <p style="margin:8px 0 0 0;font-size:13px;color:rgba(255,255,255,0.82);">${companyAddress}</p>
+              <p style="margin:16px 0 0 0;font-size:16px;font-weight:600;color:#fff;background:rgba(0,0,0,0.2);display:inline-block;padding:6px 20px;border-radius:20px;">OFFER LETTER</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="margin:0 0 6px 0;font-size:13px;color:#6b7280;">Offer No: <strong>${offerData.offerNumber || ''}</strong> &nbsp;|&nbsp; Date: <strong>${fmtDate(offerData.offerDate)}</strong></p>
+              <p style="margin:0 0 24px 0;font-size:15px;color:#374151;">Dear <strong>${candidateName}</strong>,</p>
+              <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.7;">
+                We are delighted to extend an offer of employment to you at <strong>${companyName}</strong>. After careful consideration, we are pleased to offer you the position of:
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:0;margin-bottom:24px;">
+                <tr><td style="padding:20px 24px;">
+                  <table width="100%" cellpadding="6" cellspacing="0">
+                    <tr><td style="font-size:13px;color:#6b7280;width:50%;">Designation</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.offeredDesignation || ''}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Department</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.department || ''}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Employment Type</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.employmentType || 'Full Time'}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">CTC / Salary</td><td style="font-size:14px;font-weight:700;color:#e75914;">${offerData.salary || 'As discussed'}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Joining Date</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${fmtDate(offerData.joiningDate)}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Work Location</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.workLocation || 'Office / As agreed'}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Probation Period</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.probationPeriod || '6 Months'}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Working Hours</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.workingHours || '9:00 AM – 6:00 PM'}</td></tr>
+                    <tr><td style="font-size:13px;color:#6b7280;">Notice Period</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.noticePeriod || '30 Days'}</td></tr>
+                    ${offerData.reportingManager ? `<tr><td style="font-size:13px;color:#6b7280;">Reporting Manager</td><td style="font-size:14px;font-weight:700;color:#0f172a;">${offerData.reportingManager}</td></tr>` : ''}
+                  </table>
+                </td></tr>
+              </table>
+              ${offerData.termsAndConditions ? `<p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:16px;"><strong>Terms &amp; Conditions:</strong><br/>${offerData.termsAndConditions}</p>` : ''}
+              <p style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:16px;">
+                Please confirm your acceptance of this offer by replying to this email or contacting your HR representative before <strong>${fmtDate(offerData.expiresAt)}</strong>.
+              </p>
+              ${offerData.additionalNotes ? `<p style="font-size:13px;color:#6b7280;line-height:1.6;">${offerData.additionalNotes}</p>` : ''}
+              <p style="font-size:14px;color:#374151;margin-top:24px;">We look forward to welcoming you to our team!</p>
+              <p style="font-size:14px;color:#374151;margin-top:8px;">Warm regards,<br/><strong>Human Resources</strong><br/>${companyName}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">&copy; ${new Date().getFullYear()} ${companyName} &mdash; HR Management System<br/>This is an automated offer letter. Please do not reply directly to this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Dear ${candidateName},
+
+OFFER LETTER — ${companyName}
+Offer No: ${offerData.offerNumber || ''}
+Date: ${fmtDate(offerData.offerDate)}
+
+We are pleased to offer you the position of ${offerData.offeredDesignation} in the ${offerData.department} department.
+
+Salary / CTC: ${offerData.salary || 'As discussed'}
+Joining Date: ${fmtDate(offerData.joiningDate)}
+Employment Type: ${offerData.employmentType || 'Full Time'}
+Work Location: ${offerData.workLocation || 'Office'}
+Probation Period: ${offerData.probationPeriod || '6 Months'}
+
+Please confirm your acceptance before ${fmtDate(offerData.expiresAt)}.
+
+Warm regards,
+Human Resources
+${companyName}`;
+
+  try {
+    await transporter.sendMail({
+      from: config.smtp.from,
+      to,
+      subject: `Offer Letter — ${offerData.offeredDesignation} at ${companyName}`,
+      html,
+      text,
+    });
+    logger.info('Offer letter email dispatched', { to, offerNumber: offerData.offerNumber });
+  } catch (err) {
+    logger.error('Failed to dispatch offer letter email', { to, error: err.message });
+    throw new Error(`Unable to send offer letter email: ${err.message}`);
+  }
+};
+
+export default { sendOtpEmail, sendOfferEmail };

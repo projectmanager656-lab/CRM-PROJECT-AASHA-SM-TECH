@@ -842,9 +842,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Total Workforce</span>
                       <strong className="hr-rep-kpi-value">{overviewData.totalEmployees}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        <strong>{overviewData.activeEmployees}</strong> Active staff ({overviewData.newJoinersCount} new joiners)
-                      </span>
                     </div>
                   </div>
 
@@ -859,9 +856,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Today's Attendance</span>
                       <strong className="hr-rep-kpi-value">{overviewData.todayAttendance?.attendanceRatePercent || 0}%</strong>
-                      <span className="hr-rep-kpi-sub">
-                        {overviewData.todayAttendance?.present || 0} Present • {overviewData.todayAttendance?.late || 0} Late
-                      </span>
                     </div>
                   </div>
 
@@ -878,9 +872,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Pending Leaves</span>
                       <strong className="hr-rep-kpi-value">{overviewData.leaveMetrics?.pending || 0}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        {overviewData.leaveMetrics?.onLeaveToday || 0} staff currently on leave
-                      </span>
                     </div>
                   </div>
 
@@ -895,9 +886,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Gross Payroll</span>
                       <strong className="hr-rep-kpi-value">{formatINR(overviewData.payrollMetrics?.totalGross)}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        Net: {formatINR(overviewData.payrollMetrics?.totalNet)} • {overviewData.payrollMetrics?.paid || 0} Paid
-                      </span>
                     </div>
                   </div>
 
@@ -911,9 +899,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Avg Performance</span>
                       <strong className="hr-rep-kpi-value">{overviewData.performanceMetrics?.averageScore ? `${overviewData.performanceMetrics.averageScore} / 5.0` : '—'}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        {overviewData.performanceMetrics?.totalReviews || 0} Reviews completed
-                      </span>
                     </div>
                   </div>
 
@@ -929,9 +914,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Open Positions</span>
                       <strong className="hr-rep-kpi-value">{overviewData.recruitmentMetrics?.openPositions || 0}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        {overviewData.recruitmentMetrics?.totalCandidates || 0} Candidates in pipeline ({overviewData.recruitmentMetrics?.conversionRatePercent || 0}% conversion)
-                      </span>
                     </div>
                   </div>
 
@@ -947,9 +929,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Asset Valuation</span>
                       <strong className="hr-rep-kpi-value">{formatINR(overviewData.assetMetrics?.totalValuation)}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        {overviewData.assetMetrics?.allocated || 0} Allocated • {overviewData.assetMetrics?.available || 0} Available
-                      </span>
                     </div>
                   </div>
 
@@ -963,9 +942,6 @@ export default function HRReports() {
                     <div className="hr-rep-kpi-body">
                       <span className="hr-rep-kpi-label">Departments</span>
                       <strong className="hr-rep-kpi-value">{Object.keys(overviewData.departmentHeadcounts || {}).length || 6}</strong>
-                      <span className="hr-rep-kpi-sub">
-                        Consolidated organizational structure
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1553,25 +1529,21 @@ export default function HRReports() {
                   <div className="hr-rep-kpi-card purple">
                     <span className="hr-rep-kpi-label">Monthly Gross Payroll</span>
                     <strong className="hr-rep-kpi-value">{formatINR(deptAnalyticsData.totalGrossSalary)}</strong>
-                    <span className="hr-rep-kpi-sub">Net: {formatINR(deptAnalyticsData.totalNetSalary)}</span>
                   </div>
 
                   <div className="hr-rep-kpi-card orange">
                     <span className="hr-rep-kpi-label">Avg Performance Rating</span>
                     <strong className="hr-rep-kpi-value">{deptAnalyticsData.averagePerformanceScore ? `${deptAnalyticsData.averagePerformanceScore} / 5.0` : '—'}</strong>
-                    <span className="hr-rep-kpi-sub">Department average score</span>
                   </div>
 
                   <div className="hr-rep-kpi-card cyan">
                     <span className="hr-rep-kpi-label">Hardware Assets Fleet</span>
                     <strong className="hr-rep-kpi-value">{deptAnalyticsData.totalAssetsCount} Assets</strong>
-                    <span className="hr-rep-kpi-sub">Total Value: {formatINR(deptAnalyticsData.totalAssetValuation)}</span>
                   </div>
 
                   <div className="hr-rep-kpi-card emerald">
                     <span className="hr-rep-kpi-label">Open Requisitions</span>
                     <strong className="hr-rep-kpi-value">{deptAnalyticsData.openPositionsCount} Positions</strong>
-                    <span className="hr-rep-kpi-sub">Active hiring in this unit</span>
                   </div>
                 </div>
 
@@ -1695,21 +1667,18 @@ export default function HRReports() {
                   <div className="hr-rep-kpi-card emerald">
                     <span className="hr-rep-kpi-label">Attendance Rate</span>
                     <strong className="hr-rep-kpi-value">{employee360Data.attendanceSummary?.attendanceRatePercent || 0}%</strong>
-                    <span className="hr-rep-kpi-sub">{employee360Data.attendanceSummary?.presentDays || 0} Present • {employee360Data.attendanceSummary?.lateDays || 0} Late</span>
                   </div>
 
                   {/* Leaves Card */}
                   <div className="hr-rep-kpi-card amber">
                     <span className="hr-rep-kpi-label">Leave Utilization</span>
                     <strong className="hr-rep-kpi-value">{employee360Data.leaveSummary?.approved || 0} Days Approved</strong>
-                    <span className="hr-rep-kpi-sub">{employee360Data.leaveSummary?.pending || 0} Pending approvals</span>
                   </div>
 
                   {/* Compensation Card */}
                   <div className="hr-rep-kpi-card purple">
                     <span className="hr-rep-kpi-label">Base Compensation</span>
                     <strong className="hr-rep-kpi-value">{formatINR(employee360Data.payrollSummary?.baseSalary)}</strong>
-                    <span className="hr-rep-kpi-sub">Latest Net: {formatINR(employee360Data.payrollSummary?.latestRecord?.net)}</span>
                   </div>
 
                   {/* Performance Card */}
@@ -1720,21 +1689,18 @@ export default function HRReports() {
                         ? `${Number(employee360Data.performanceSummary.latestReview.overallScore).toFixed(1)} / 5.0`
                         : '—'}
                     </strong>
-                    <span className="hr-rep-kpi-sub">{employee360Data.performanceSummary?.totalReviews || 0} Completed reviews</span>
                   </div>
 
                   {/* Document Card */}
                   <div className="hr-rep-kpi-card blue">
                     <span className="hr-rep-kpi-label">Documents Vault</span>
                     <strong className="hr-rep-kpi-value">{employee360Data.documentSummary?.verified || 0} Verified</strong>
-                    <span className="hr-rep-kpi-sub">{employee360Data.documentSummary?.totalDocuments || 0} Total files in repository</span>
                   </div>
 
                   {/* Assets Card */}
                   <div className="hr-rep-kpi-card cyan">
                     <span className="hr-rep-kpi-label">Assigned Hardware</span>
                     <strong className="hr-rep-kpi-value">{employee360Data.assetSummary?.assignedCount || 0} Assets</strong>
-                    <span className="hr-rep-kpi-sub">Fleet Value: {formatINR(employee360Data.assetSummary?.totalValuation)}</span>
                   </div>
                 </div>
 

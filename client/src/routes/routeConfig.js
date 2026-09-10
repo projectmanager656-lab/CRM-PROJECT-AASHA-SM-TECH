@@ -70,12 +70,15 @@ import { getDashboardRoute } from '../utils/dashboardUtils';
 import HRDashboard from '../pages/dashboard/UserDashboard/departments/HRDashboard';
 import HREmployees from '../pages/dashboard/UserDashboard/users/Employees/HREmployees';
 import HRDepartments from '../pages/dashboard/UserDashboard/users/Departments/HRDepartments';
+import HRTaskAllocation from '../pages/dashboard/UserDashboard/users/Tasks/HRTaskAllocation';
+import HRProjectAllocation from '../pages/dashboard/UserDashboard/users/Projects/HRProjectAllocation';
 import Performance from '../pages/dashboard/UserDashboard/users/Performance/Performance';
 import Recruitment from '../pages/dashboard/UserDashboard/users/Recruitment/Recruitment';
 import Training from '../pages/dashboard/UserDashboard/users/Training/Training';
 import Assets from '../pages/dashboard/UserDashboard/users/Assets/Assets';
 import HRReports from '../pages/dashboard/UserDashboard/users/Reports/HRReports';
 import ResignationExit from '../pages/dashboard/UserDashboard/users/ResignationExit/ResignationExit';
+import FullAndFinalSettlement from '../pages/dashboard/UserDashboard/users/FullAndFinalSettlement/FullAndFinalSettlement';
 import DigitalMarketingDashboard from '../pages/dashboard/UserDashboard/departments/DigitalMarketingDashboard';
 import VideoEditorDashboard from '../pages/dashboard/UserDashboard/departments/VideoEditorDashboard';
 import BusinessDevelopmentDashboard from '../pages/dashboard/UserDashboard/departments/BusinessDevelopmentDashboard';
@@ -188,10 +191,13 @@ const routeConfig = [
   { path: '/user/notifications/:id', component: withProtected(Notifications, ['employee']), layout: BlankLayout },
   { path: '/user/employees', component: withProtected(HREmployees, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/departments', component: withProtected(HRDepartments, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/task-allocation', component: withProtected(HRTaskAllocation, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/project-allocation', component: withProtected(HRProjectAllocation, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/performance', component: withProtected(Performance, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/recruitment', component: withProtected(Recruitment, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/resignation-exit', component: withProtected(ResignationExit, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/resignation', component: withProtected(ResignationExit, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/full-and-final-settlement', component: withProtected(FullAndFinalSettlement, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/training', component: withProtected(Training, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/assets', component: withProtected(Assets, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/reports', component: withProtected(HRReports, ['employee', 'user', 'admin']), layout: BlankLayout },

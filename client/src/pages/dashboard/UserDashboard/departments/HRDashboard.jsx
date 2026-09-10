@@ -104,7 +104,7 @@ export default function HRDashboard() {
       apiClient.get('/admin/departments').catch(() => apiClient.get('/departments')).catch(() => ({ data: { data: [] } })),
       apiClient.get('/attendance', { params: { date: todayDateStr } }).catch(() => ({ data: { data: [] } })),
       apiClient.get('/leave-requests').catch(() => ({ data: { data: [] } })),
-      apiClient.get('/payroll').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/payroll', { params: { month: new Date().toISOString().slice(0, 7) } }).catch(() => ({ data: { data: [] } })),
       apiClient.get('/notifications').catch(() => ({ data: { data: [] } })),
     ];
 
@@ -233,9 +233,6 @@ export default function HRDashboard() {
             <div className="hr-kpi-body">
               <span className="hr-kpi-title">Total Employees</span>
               <strong className="hr-kpi-value">{totalEmployeesCount}</strong>
-              <span className="hr-kpi-meta success">
-                {newJoiningsCount > 0 ? `+${newJoiningsCount} this month` : `${totalEmployeesCount} active`}
-              </span>
             </div>
           </div>
 
@@ -251,7 +248,6 @@ export default function HRDashboard() {
             <div className="hr-kpi-body">
               <span className="hr-kpi-title">Present Today</span>
               <strong className="hr-kpi-value">{presentCount}</strong>
-              <span className="hr-kpi-meta success">{presentPct}%</span>
             </div>
           </div>
 
@@ -268,7 +264,6 @@ export default function HRDashboard() {
             <div className="hr-kpi-body">
               <span className="hr-kpi-title">On Leave Today</span>
               <strong className="hr-kpi-value">{onLeaveCount}</strong>
-              <span className="hr-kpi-meta amber">{onLeavePct}%</span>
             </div>
           </div>
 
@@ -285,7 +280,6 @@ export default function HRDashboard() {
             <div className="hr-kpi-body">
               <span className="hr-kpi-title">New Joinings</span>
               <strong className="hr-kpi-value">{newJoiningsCount}</strong>
-              <span className="hr-kpi-meta success">{newJoiningsCount > 0 ? `+${newJoiningsCount} this month` : '0 this month'}</span>
             </div>
           </div>
 
@@ -302,7 +296,6 @@ export default function HRDashboard() {
             <div className="hr-kpi-body">
               <span className="hr-kpi-title">Pending Leaves</span>
               <strong className="hr-kpi-value">{pendingLeavesCount}</strong>
-              <span className="hr-kpi-meta red">{pendingLeavesCount > 0 ? 'Requires Approval' : 'All Reviewed'}</span>
             </div>
           </div>
         </div>

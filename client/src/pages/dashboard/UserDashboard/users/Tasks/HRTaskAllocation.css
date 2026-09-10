@@ -1,0 +1,557 @@
+/* HR Task Management & Allocation Styles */
+.hr-task-container {
+  padding: 1.5rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+.hr-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.hr-task-title-area h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.hr-task-title-area p {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* KPI Cards */
+.hr-task-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.hr-task-kpi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.hr-task-kpi-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+.hr-task-kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hr-task-kpi-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.hr-task-kpi-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-task-kpi-label {
+  font-size: 0.775rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.hr-task-kpi-val {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+/* Toolbar & Filters */
+.hr-task-toolbar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.hr-task-search-wrap {
+  flex: 1 1 240px;
+  position: relative;
+}
+
+.hr-task-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.hr-task-search-input {
+  width: 100%;
+  padding: 0.55rem 0.85rem 0.55rem 2.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.hr-task-search-input:focus {
+  border-color: #EA580C;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.hr-task-filter-select {
+  padding: 0.55rem 2rem 0.55rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #334155;
+  background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") no-repeat right 0.65rem center / 1rem;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.hr-task-filter-select:focus {
+  border-color: #EA580C;
+  background-color: #ffffff;
+}
+
+/* Primary Action Button */
+.hr-task-btn-primary {
+  background: linear-gradient(135deg, #EA580C 0%, #C2410C 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(234, 88, 12, 0.2);
+  transition: all 0.2s ease;
+}
+
+.hr-task-btn-primary:hover {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
+}
+
+.hr-task-btn-secondary {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hr-task-btn-secondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Table Card */
+.hr-task-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.hr-task-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.hr-task-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.hr-task-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.775rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.hr-task-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.hr-task-table tr:hover {
+  background: #f8fafc;
+}
+
+/* Task Title cell */
+.hr-task-title-cell {
+  display: flex;
+  flex-direction: column;
+  max-width: 260px;
+}
+
+.hr-task-main-title {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.925rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.hr-task-main-title:hover {
+  color: #EA580C;
+}
+
+.hr-task-sub-desc {
+  font-size: 0.775rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Project Badge */
+.hr-task-project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+/* Priority Badges */
+.hr-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hr-priority-badge.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.hr-priority-badge.medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.hr-priority-badge.low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Status Badges */
+.hr-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.hr-status-pill.completed {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.hr-status-pill.in-progress {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.hr-status-pill.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.hr-status-pill.overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+/* User Assignee Cell */
+.hr-task-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.hr-task-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ea580c;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.hr-task-user-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.85rem;
+  display: block;
+}
+
+.hr-task-user-email {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+}
+
+/* Actions */
+.hr-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hr-task-action-btn {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.775rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.hr-task-action-btn.view {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #e2e8f0;
+}
+.hr-task-action-btn.view:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.hr-task-action-btn.edit {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #ffedd5;
+}
+.hr-task-action-btn.edit:hover {
+  background: #ffedd5;
+}
+
+.hr-task-action-btn.delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fee2e2;
+}
+.hr-task-action-btn.delete:hover {
+  background: #fee2e2;
+}
+
+/* Modal Styles */
+.hr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.hr-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hr-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hr-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.hr-modal-close:hover {
+  color: #0f172a;
+}
+
+.hr-modal-body {
+  padding: 1.5rem;
+}
+
+.hr-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.hr-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hr-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.hr-form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.hr-form-group input,
+.hr-form-group select,
+.hr-form-group textarea {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0f172a;
+  outline: none;
+  background: #ffffff;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.hr-form-group input:focus,
+.hr-form-group select:focus,
+.hr-form-group textarea:focus {
+  border-color: #EA580C;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.hr-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: #f8fafc;
+  border-radius: 0 0 16px 16px;
+}
+
+/* Alert Notification */
+.hr-alert-box {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hr-alert-box.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.hr-alert-box.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}

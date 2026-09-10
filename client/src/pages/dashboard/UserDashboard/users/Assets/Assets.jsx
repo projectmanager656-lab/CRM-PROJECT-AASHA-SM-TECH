@@ -590,7 +590,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Total Assets</span>
               <strong className="ast-kpi-value">{summary.totalAssets}</strong>
-              <span className="ast-kpi-sub">Valuation: {formatINR(summary.totalAssetValue)}</span>
             </div>
           </div>
 
@@ -608,7 +607,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Available / In Stock</span>
               <strong className="ast-kpi-value">{summary.availableAssets}</strong>
-              <span className="ast-kpi-sub">Ready for allocation</span>
             </div>
           </div>
 
@@ -628,7 +626,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Allocated Assets</span>
               <strong className="ast-kpi-value">{summary.allocatedAssets}</strong>
-              <span className="ast-kpi-sub">Assigned to staff</span>
             </div>
           </div>
 
@@ -645,7 +642,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Under Repair</span>
               <strong className="ast-kpi-value">{summary.underRepairAssets}</strong>
-              <span className="ast-kpi-sub">Maintenance active</span>
             </div>
           </div>
 
@@ -664,7 +660,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Lost / Damaged</span>
               <strong className="ast-kpi-value">{summary.lostDamagedAssets}</strong>
-              <span className="ast-kpi-sub">Flagged equipment</span>
             </div>
           </div>
 
@@ -682,7 +677,6 @@ export default function Assets() {
             <div className="ast-kpi-body">
               <span className="ast-kpi-label">Retired / Disposed</span>
               <strong className="ast-kpi-value">{summary.retiredDisposedAssets}</strong>
-              <span className="ast-kpi-sub">Historical archive</span>
             </div>
           </div>
         </div>

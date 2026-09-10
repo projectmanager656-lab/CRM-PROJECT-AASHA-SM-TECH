@@ -6,6 +6,9 @@ import { RbacService } from '../services/RbacService.js';
 
 import User from '../models/User.js';
 
+const normalizeDepartment = (value) => String(value || '').trim().toUpperCase();
+const effectiveDepartment = (user = {}) => normalizeDepartment(user.department || user.jobDetails?.department);
+
 // Middleware to protect routes
 export const authenticateToken = async (req, res, next) => {
   try {
@@ -22,14 +25,15 @@ export const authenticateToken = async (req, res, next) => {
 
     // Attach user data to request
     req.user = decoded;
-    if (decoded.role === 'employee' && !decoded.department) {
+    if (decoded.role === 'employee' && !effectiveDepartment(decoded)) {
       try {
-        const u = await User.findById(decoded.userId).select('department');
-        if (u) req.user.department = u.department || '';
+        const u = await User.findById(decoded.userId).select('department jobDetails.department');
+        if (u) req.user.department = effectiveDepartment(u);
       } catch (e) {
         // Continue if DB lookup fails
       }
     }
+    req.user.department = effectiveDepartment(req.user);
     next();
   } catch (error) {
     logger.warn('Authentication failed', { error: error.message });
@@ -60,7 +64,7 @@ export const authorizeHrOrAdmin = (req, res, next) => {
   if (!req.user) {
     return next(createUnauthorizedError('Authentication required'));
   }
-  if (['admin', 'super_admin'].includes(req.user.role) || req.user.department === 'HR') {
+  if (['admin', 'super_admin'].includes(req.user.role) || effectiveDepartment(req.user) === 'HR') {
     return next();
   }
   return next(createForbiddenError('Access denied. HR or Administrator access required.'));
@@ -69,7 +73,7 @@ export const authorizeHrOrAdmin = (req, res, next) => {
 export const requirePermission = (moduleKey, resourceKey, action) => async (req, _res, next) => {
   try {
     if (!req.user) throw createUnauthorizedError('Authentication required');
-    if (req.user.department === 'HR' && ['administration', 'hrms', 'core', 'finance', 'documents', 'communications'].includes(moduleKey)) {
+    if (effectiveDepartment(req.user) === 'HR' && ['administration', 'hrms', 'core', 'finance', 'documents', 'communications', 'projects', 'crm'].includes(moduleKey)) {
       return next();
     }
     const effective = await RbacService.effectivePermissions(req.user);

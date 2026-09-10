@@ -3,11 +3,12 @@ import Attendance from '../models/Attendance.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import CompanySetting from '../models/CompanySetting.js';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 import { createForbiddenError, createNotFoundError, createValidationError } from '../utils/apiError.js';
 import { createdResponse, successResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-const isHrOrAdmin = (user) => ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR';
+const isHrOrAdmin = (user) => ['admin', 'super_admin'].includes(user?.role) || String(user?.department || '').trim().toUpperCase() === 'HR';
 const employeeScope = (user, field = 'user') => isHrOrAdmin(user) ? {} : { [field]: user.userId };
 const owned = async (Model, id, user) => {
   if (!mongoose.Types.ObjectId.isValid(id)) throw createValidationError('Invalid record id');
@@ -20,18 +21,27 @@ const owned = async (Model, id, user) => {
 };
 const requestIp = (req) => String(req.headers['x-forwarded-for'] || req.ip || req.socket?.remoteAddress || '').split(',')[0].trim().replace('::ffff:', '');
 const distanceMeters = (a, b, c, d) => { const r = 6371000, p = Math.PI / 180, x = (c - a) * p, y = (d - b) * p; const q = Math.sin(x / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin(y / 2) ** 2; return 2 * r * Math.atan2(Math.sqrt(q), Math.sqrt(1 - q)); };
+const attendanceReferenceFields = ['user', 'employee', 'employeeId', 'userId', 'staffId'];
+const referenceValue = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object' && value._id) return String(value._id);
+  return typeof value === 'string' || value instanceof mongoose.Types.ObjectId ? String(value) : '';
+};
 const validatePunch = async (req) => { const config = await CompanySetting.findOne({ key: 'company' }); const ip = requestIp(req); const latitude = Number(req.body.latitude), longitude = Number(req.body.longitude); if (config?.enableIpValidation && !config.allowedIpAddresses.includes(ip)) throw createForbiddenError('Attendance is only available from an allowed company network'); let location = { status: 'Not checked', timestamp: new Date() }; if (config?.enableGpsValidation) { if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw createValidationError('Location permission is required to punch attendance'); if (config.officeLatitude === null || config.officeLongitude === null) throw createValidationError('Office location has not been configured'); const metres = distanceMeters(latitude, longitude, config.officeLatitude, config.officeLongitude); if (metres > config.allowedGpsRadius) throw createForbiddenError(`You are outside the allowed office radius (${Math.round(metres)}m away)`); location = { latitude, longitude, status: 'Within allowed radius', timestamp: new Date() }; } else if (Number.isFinite(latitude) && Number.isFinite(longitude)) location = { latitude, longitude, status: 'Captured', timestamp: new Date() }; return { config, ip, location }; };
 
 export const AttendanceController = {
   mark: asyncHandler(async (req, res) => {
     const canManual = isHrOrAdmin(req.user);
     if (canManual && req.body.manual) {
-      const { user, date, checkIn, checkOut, status, totalWorkingMinutes, notes } = req.body;
-      if (!user || !date || !checkIn || !status) throw createValidationError('Missing fields for manual entry');
-      if (await Attendance.exists({ user, date })) throw createValidationError('Attendance already exists for this employee on this date.');
+      const { user, employeeId, date, checkIn, checkOut, status, totalWorkingMinutes, notes } = req.body;
+      const targetUser = user || employeeId;
+      if (!targetUser || !date || !checkIn || !status) throw createValidationError('Missing fields for manual entry');
+      if (!mongoose.Types.ObjectId.isValid(targetUser) || !await User.exists({ _id: targetUser })) throw createValidationError('Select a valid employee from the employee directory.');
+      if (await Attendance.exists({ $or: [{ user: targetUser }, { employee: targetUser }], date })) throw createValidationError('Attendance already exists for this employee on this date.');
       if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) throw createValidationError('Check-out cannot be earlier than check-in');
-      const record = await Attendance.create({ user, date, checkIn, checkOut, status, totalWorkingMinutes: totalWorkingMinutes || 0, requiredWorkingMinutes: 480, notes: notes || '' });
-      return res.status(201).json(createdResponse(record, 'Manual attendance created'));
+      const record = await Attendance.create({ user: targetUser, date, checkIn, checkOut, status, totalWorkingMinutes: totalWorkingMinutes || 0, requiredWorkingMinutes: 480, notes: notes || '' });
+      const populatedRecord = await Attendance.findById(record._id).populate('user', 'firstName lastName email department personalInfo jobDetails');
+      return res.status(201).json(createdResponse(populatedRecord, 'Manual attendance created'));
     }
     const date = new Date().toISOString().slice(0, 10);
     if (await Attendance.exists({ user: req.user.userId, date })) throw createValidationError('Attendance already marked for today');
@@ -44,8 +54,67 @@ export const AttendanceController = {
     if (req.query.date) filter.date = req.query.date;
     if (req.query.month) filter.date = { $regex: `^${String(req.query.month).replace(/[^0-9-]/g, '')}` };
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.user) filter.user = req.query.user;
-    res.json(successResponse(await Attendance.find(filter).populate('user', 'firstName lastName email department').sort({ date: -1 }), 'Attendance history retrieved'));
+    if (req.query.user) {
+      filter.$or = [{ user: req.query.user }, { employee: req.query.user }, { employeeId: req.query.user }, { userId: req.query.user }, { staffId: req.query.user }];
+    }
+
+    // `user` is the current schema relationship. The other fields are read-only
+    // compatibility paths for attendance documents written before it was standardized.
+    const rawRecords = await Attendance.find(filter).setOptions({ strict: false, strictQuery: false }).lean().sort({ date: -1 });
+    const referenceIds = new Set();
+    const employeeCodes = new Set();
+
+    rawRecords.forEach((record) => {
+      attendanceReferenceFields.forEach((field) => {
+        const value = referenceValue(record[field]);
+        if (!value) return;
+        if (mongoose.Types.ObjectId.isValid(value)) referenceIds.add(value);
+        else employeeCodes.add(value);
+      });
+    });
+
+    const userQuery = [];
+    if (referenceIds.size) userQuery.push({ _id: { $in: Array.from(referenceIds) } });
+    if (employeeCodes.size) userQuery.push({ 'jobDetails.employeeId': { $in: Array.from(employeeCodes) } });
+    const usersList = userQuery.length ? await User.find({ $or: userQuery }).lean() : [];
+    const profilesByReference = new Map();
+    const buildProfile = (user) => {
+      const fullName = user.personalInfo?.fullName || '';
+      const firstName = user.firstName || fullName.split(' ')[0] || '';
+      const lastName = user.lastName || fullName.split(' ').slice(1).join(' ') || '';
+      const name = `${firstName} ${lastName}`.trim() || fullName || user.email?.split('@')[0] || 'Employee';
+      return { _id: user._id, id: user._id, firstName, lastName, name, email: user.email || user.personalInfo?.email || '', department: user.department || user.jobDetails?.department || '', role: user.role || 'employee', profilePhoto: user.personalInfo?.profilePhoto || '' };
+    };
+
+    usersList.forEach((user) => {
+      const profile = buildProfile(user);
+      profilesByReference.set(String(user._id), profile);
+      if (user.jobDetails?.employeeId) profilesByReference.set(String(user.jobDetails.employeeId), profile);
+    });
+
+    const processedRecords = rawRecords.map((record) => {
+      const references = attendanceReferenceFields.map((field) => ({ field, raw: record[field], value: referenceValue(record[field]) })).filter(({ value }) => value);
+      let employee = references.map(({ value }) => profilesByReference.get(value)).find(Boolean) || null;
+
+      // Preserve an embedded historical profile only when no MongoDB User reference resolves.
+      if (!employee) {
+        const embedded = references.map(({ raw }) => raw).find((value) => value && typeof value === 'object' && (value.firstName || value.name || value.email || value.personalInfo?.fullName));
+        if (embedded) employee = buildProfile(embedded);
+      }
+
+      const reference = references[0]?.value || '';
+      if (!employee && reference) console.warn(`[Attendance Warning] Attendance record ${record._id} has no matching User for references: ${references.map(({ value }) => value).join(', ')}`);
+      return {
+        ...record,
+        user: employee,
+        employee,
+        employeeId: employee?._id || reference,
+        employeeName: employee?.name || 'Unknown Employee',
+        isOrphaned: !employee && references.length > 0,
+      };
+    });
+
+    res.json(successResponse(processedRecords, 'Attendance history retrieved'));
   }),
   get: asyncHandler(async (req, res) => res.json(successResponse(await owned(Attendance, req.params.id, req.user), 'Attendance retrieved'))),
   checkout: asyncHandler(async (req, res) => {

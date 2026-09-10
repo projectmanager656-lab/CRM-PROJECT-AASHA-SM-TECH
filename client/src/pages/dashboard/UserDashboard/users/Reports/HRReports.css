@@ -23,7 +23,8 @@
   font-size: 1.6rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 2px 0;
+  line-height: 1.2;
   letter-spacing: -0.02em;
 }
 
@@ -31,6 +32,7 @@
   font-size: 0.875rem;
   color: #64748b;
   margin: 0;
+  line-height: 1.3;
 }
 
 .hr-rep-header-actions {

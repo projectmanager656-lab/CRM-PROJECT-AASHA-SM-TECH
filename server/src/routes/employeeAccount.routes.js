@@ -8,6 +8,7 @@ payrollRouter.use(authenticateToken);
 
 // Summary & Aggregates
 payrollRouter.get('/summary', requirePermission('finance', 'payroll', 'view'), PayrollController.summary);
+payrollRouter.get('/attendance-summary', requirePermission('finance', 'payroll', 'view'), PayrollController.attendanceSummary);
 
 // Batch Generation
 payrollRouter.post('/generate', requirePermission('finance', 'payroll', 'create'), PayrollController.generate);

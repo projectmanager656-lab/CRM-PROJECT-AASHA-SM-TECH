@@ -30,14 +30,14 @@ export class TaskController {
 
   static updateTask = asyncHandler(async (req, res) => {
     const currentUserId = req.user.userId;
-    const updated = await TaskService.updateTask(req.params.id, req.body, currentUserId, req.user.role);
+    const updated = await TaskService.updateTask(req.params.id, req.body, currentUserId, req.user.role, req.user.department);
     res.json(successResponse(updated, 'Task updated successfully'));
   });
 
   static deleteTask = asyncHandler(async (req, res) => {
     const currentUserId = req.user.userId;
     const currentUserRole = req.user.role;
-    const result = await TaskService.deleteTask(req.params.id, currentUserId, currentUserRole);
+    const result = await TaskService.deleteTask(req.params.id, currentUserId, currentUserRole, req.user.department);
     res.json(successResponse(result, 'Task deleted successfully'));
   });
 
@@ -47,7 +47,7 @@ export class TaskController {
     if (!assigneeId) {
       throw createValidationError('assignedTo (one or more user ids) is required');
     }
-    const task = await TaskService.assignTask(req.params.id, assigneeId, currentUserRole);
+    const task = await TaskService.assignTask(req.params.id, assigneeId, currentUserRole, req.user.department);
     res.json(successResponse(task, 'Task assigned successfully'));
   });
 
@@ -56,7 +56,7 @@ export class TaskController {
     const currentUserRole = req.user.role;
     const { status } = req.body;
     if (!status) throw createValidationError('status is required');
-    const task = await TaskService.updateStatus(req.params.id, status, currentUserId, currentUserRole);
+    const task = await TaskService.updateStatus(req.params.id, status, currentUserId, currentUserRole, req.user.department);
     res.json(successResponse(task, 'Task status updated successfully'));
   });
 }

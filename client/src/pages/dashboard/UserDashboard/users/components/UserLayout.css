@@ -74,9 +74,27 @@
   margin-top: 0;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: visible;
-  /* STRICT REQUIREMENT: No scrollbar, all 15 fit */
-  padding-right: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  padding-right: 2px;
+}
+
+.user-sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.user-sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.user-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
 }
 
 .user-nav-item {
@@ -218,7 +236,7 @@
 .user-layout-welcome {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
   flex: 1;
   min-width: 0;
 }
@@ -227,7 +245,7 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: #0f172a;
-  line-height: 1.25;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -236,7 +254,8 @@
 .user-layout-welcome-sub {
   font-size: 0.78rem;
   color: #64748b;
-  line-height: 1.3;
+  line-height: 1.15;
+  margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

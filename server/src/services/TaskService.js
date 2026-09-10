@@ -31,6 +31,7 @@ export class TaskService {
       search,
       status,
       priority,
+      department,
       assignedTo,
       createdBy,
       projectId,
@@ -42,7 +43,8 @@ export class TaskService {
 
     const filter = {};
 
-    if (currentUser?.role === 'employee') {
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUser?.role) || currentUser?.department === 'HR';
+    if (currentUser?.role === 'employee' && !isPrivileged) {
       filter.$or = [{ createdBy: currentUser.userId }, { assignedTo: currentUser.userId }];
     }
 
@@ -57,6 +59,7 @@ export class TaskService {
 
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
+    if (department) filter.department = department;
     if (assignedTo) filter.assignedTo = new mongoose.Types.ObjectId(assignedTo);
     if (createdBy) filter.createdBy = new mongoose.Types.ObjectId(createdBy);
     if (projectId) filter.projectId = new mongoose.Types.ObjectId(projectId);
@@ -68,7 +71,8 @@ export class TaskService {
       .limit(Number(limit))
       .skip(Number(skip))
       .populate('createdBy', 'firstName lastName email role')
-      .populate('assignedTo', 'firstName lastName email role');
+      .populate('assignedTo', 'firstName lastName email role department designation phone personalInfo')
+      .populate('projectId', 'name category status');
 
     return tasks.map((t) => t.toJSON());
   }
@@ -80,13 +84,15 @@ export class TaskService {
 
     const task = await Task.findById(id)
       .populate('createdBy', 'firstName lastName email role')
-      .populate('assignedTo', 'firstName lastName email role');
+      .populate('assignedTo', 'firstName lastName email role department designation phone personalInfo')
+      .populate('projectId', 'name category status');
 
     if (!task) {
       throw createNotFoundError('Task not found');
     }
 
-    if (currentUser?.role === 'employee' &&
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUser?.role) || currentUser?.department === 'HR';
+    if (!isPrivileged && currentUser?.role === 'employee' &&
         String(task.createdBy?._id || task.createdBy) !== String(currentUser.userId) &&
         !task.assignedTo?.some((assignee) => String(assignee?._id || assignee) === String(currentUser.userId))) {
       throw createForbiddenError('You are not authorized to view this task');
@@ -95,19 +101,20 @@ export class TaskService {
     return task.toJSON();
   }
 
-  static async updateTask(id, updateData, currentUserId, currentUserRole) {
+  static async updateTask(id, updateData, currentUserId, currentUserRole, currentUserDepartment = '') {
     const task = await Task.findById(id);
     if (!task) throw createNotFoundError('Task not found');
 
-    if (String(task.createdBy) !== String(currentUserId) &&
-        !task.assignedTo?.some((assignee) => String(assignee) === String(currentUserId)) &&
-        !['admin', 'super_admin'].includes(currentUserRole)) {
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUserRole) || currentUserDepartment === 'HR';
+    if (!isPrivileged &&
+        String(task.createdBy) !== String(currentUserId) &&
+        !task.assignedTo?.some((assignee) => String(assignee) === String(currentUserId))) {
       throw createForbiddenError('You are not authorized to update this task');
     }
 
     // Only allow certain fields to be updated
     const allowed = ['title', 'description', 'priority', 'dueDate', 'status', 'notes'];
-    if (['admin', 'super_admin'].includes(currentUserRole)) allowed.push('projectId', 'assignedTo', 'startDate', 'department');
+    if (isPrivileged) allowed.push('projectId', 'assignedTo', 'startDate', 'department');
     for (const key of allowed) {
       if (updateData[key] !== undefined) {
         task[key] = key === 'assignedTo' ? (Array.isArray(updateData[key]) ? updateData[key] : [updateData[key]]).filter(Boolean) : updateData[key];
@@ -118,15 +125,12 @@ export class TaskService {
     return task.toJSON();
   }
 
-  static async deleteTask(id, currentUserId, currentUserRole) {
+  static async deleteTask(id, currentUserId, currentUserRole, currentUserDepartment = '') {
     const task = await Task.findById(id);
     if (!task) throw createNotFoundError('Task not found');
 
-    // Only creator, admin, or super_admin can delete
-    if (
-      String(task.createdBy) !== String(currentUserId) &&
-      !['admin', 'super_admin'].includes(currentUserRole)
-    ) {
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUserRole) || currentUserDepartment === 'HR';
+    if (!isPrivileged && String(task.createdBy) !== String(currentUserId)) {
       throw createForbiddenError('You are not authorized to delete this task');
     }
 
@@ -134,13 +138,13 @@ export class TaskService {
     return { id }; // return deleted id
   }
 
-  static async assignTask(id, assigneeId, currentUserRole) {
+  static async assignTask(id, assigneeId, currentUserRole, currentUserDepartment = '') {
     const task = await Task.findById(id);
     if (!task) throw createNotFoundError('Task not found');
 
-    // Only admin or super_admin can assign
-    if (!['admin', 'super_admin'].includes(currentUserRole)) {
-      throw createForbiddenError('Only admin or super admin can assign tasks');
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUserRole) || currentUserDepartment === 'HR';
+    if (!isPrivileged) {
+      throw createForbiddenError('Only admin, super admin, or HR can assign tasks');
     }
 
     task.assignedTo = (Array.isArray(assigneeId) ? assigneeId : [assigneeId]).map((id) => new mongoose.Types.ObjectId(id));
@@ -148,7 +152,7 @@ export class TaskService {
     return task.toJSON();
   }
 
-  static async updateStatus(id, status, currentUserId, currentUserRole) {
+  static async updateStatus(id, status, currentUserId, currentUserRole, currentUserDepartment = '') {
     const allowedStatuses = ['Pending', 'In Progress', 'Completed', 'Overdue'];
     if (!allowedStatuses.includes(status)) {
       throw createValidationError('Invalid status');
@@ -157,12 +161,10 @@ export class TaskService {
     const task = await Task.findById(id);
     if (!task) throw createNotFoundError('Task not found');
 
-    // Allow status update by creator, assignee, admin, super_admin
-    if (
-      String(task.createdBy) !== String(currentUserId) &&
-      !task.assignedTo?.some((assignee) => String(assignee) === String(currentUserId)) &&
-      !['admin', 'super_admin'].includes(currentUserRole)
-    ) {
+    const isPrivileged = ['admin', 'super_admin'].includes(currentUserRole) || currentUserDepartment === 'HR';
+    if (!isPrivileged &&
+        String(task.createdBy) !== String(currentUserId) &&
+        !task.assignedTo?.some((assignee) => String(assignee) === String(currentUserId))) {
       throw createForbiddenError('You are not authorized to update status');
     }
 

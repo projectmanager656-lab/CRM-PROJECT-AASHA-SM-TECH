@@ -112,6 +112,12 @@ export default function LeaveRequests() {
 
   // Selected Employee for Balance Tab
   const [selectedBalanceEmpId, setSelectedBalanceEmpId] = useState('');
+  const [balancePeriod, setBalancePeriod] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [leaveAttSummary, setLeaveAttSummary] = useState(null);
+  const [leaveAttLoading, setLeaveAttLoading] = useState(false);
 
   // Today Date string for comparisons (YYYY-MM-DD)
   const todayStr = useMemo(() => {
@@ -152,6 +158,20 @@ export default function LeaveRequests() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Fetch attendance summary for the selected employee in the Balances tab
+  useEffect(() => {
+    if (!selectedBalanceEmpId || !balancePeriod) {
+      setLeaveAttSummary(null);
+      return;
+    }
+    setLeaveAttLoading(true);
+    apiClient
+      .get('/payroll/attendance-summary', { params: { userId: selectedBalanceEmpId, payPeriod: balancePeriod } })
+      .then((r) => setLeaveAttSummary(r.data?.data || null))
+      .catch(() => setLeaveAttSummary(null))
+      .finally(() => setLeaveAttLoading(false));
+  }, [selectedBalanceEmpId, balancePeriod]);
 
   // 1. Dynamic KPI Counts directly from real database records
   const kpiStats = useMemo(() => {
@@ -535,7 +555,6 @@ export default function LeaveRequests() {
             <div className="leave-kpi-body">
               <span className="leave-kpi-label">Pending Requests</span>
               <strong className="leave-kpi-value">{kpiStats.pendingCount}</strong>
-              <span className="leave-kpi-sub">{kpiStats.pendingCount > 0 ? 'Requires review' : 'All clear'}</span>
             </div>
           </div>
 
@@ -548,7 +567,6 @@ export default function LeaveRequests() {
             <div className="leave-kpi-body">
               <span className="leave-kpi-label">Approved Leaves</span>
               <strong className="leave-kpi-value">{kpiStats.approvedCount}</strong>
-              <span className="leave-kpi-sub">Total approved</span>
             </div>
           </div>
 
@@ -563,7 +581,6 @@ export default function LeaveRequests() {
             <div className="leave-kpi-body">
               <span className="leave-kpi-label">Rejected Leaves</span>
               <strong className="leave-kpi-value">{kpiStats.rejectedCount}</strong>
-              <span className="leave-kpi-sub">Total rejected</span>
             </div>
           </div>
 
@@ -579,7 +596,6 @@ export default function LeaveRequests() {
             <div className="leave-kpi-body">
               <span className="leave-kpi-label">Total Applications</span>
               <strong className="leave-kpi-value">{kpiStats.totalCount}</strong>
-              <span className="leave-kpi-sub">All submissions</span>
             </div>
           </div>
         </div>
@@ -1017,6 +1033,45 @@ export default function LeaveRequests() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ─── Attendance Overview Panel ─── */}
+            {selectedBalanceEmpId && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a', fontWeight: '700' }}>Attendance Overview</h4>
+                  <input
+                    type="month"
+                    value={balancePeriod}
+                    onChange={(e) => setBalancePeriod(e.target.value)}
+                    style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.3rem 0.6rem', fontSize: '0.825rem', color: '#0f172a', background: '#fff' }}
+                  />
+                </div>
+                {leaveAttLoading ? (
+                  <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Loading attendance data…</div>
+                ) : leaveAttSummary ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' }}>
+                    {[
+                      { label: 'Working Days', value: leaveAttSummary.totalWorkingDays, color: '#0f172a' },
+                      { label: 'Present', value: leaveAttSummary.presentCount, color: '#15803d' },
+                      { label: 'Late', value: leaveAttSummary.lateCount, color: '#d97706', hideZero: true },
+                      { label: 'Half Day', value: leaveAttSummary.halfDayCount, color: '#7c3aed', hideZero: true },
+                      { label: 'Absent', value: leaveAttSummary.absentCount, color: '#dc2626', hideZero: true },
+                      { label: 'Unpaid Leave', value: leaveAttSummary.unpaidApprovedDays, color: '#dc2626', hideZero: true },
+                      { label: 'LOP Days', value: leaveAttSummary.lopDays, color: '#b91c1c', hideZero: true },
+                    ]
+                      .filter((item) => !item.hideZero || item.value > 0)
+                      .map((item) => (
+                        <div key={item.label} className="leave-balance-card" style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>{item.label}</div>
+                          <div style={{ fontSize: '1.5rem', fontWeight: '800', color: item.color }}>{item.value}</div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>No attendance records found for this period.</div>
+                )}
               </div>
             )}
           </div>
