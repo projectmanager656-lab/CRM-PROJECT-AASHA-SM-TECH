@@ -1,238 +1,916 @@
-/*
- * Application-wide readability layer.
- * This deliberately adjusts real element dimensions rather than applying CSS
- * zoom or transforms, so desktop and responsive layouts retain their normal
- * coordinate system and interactions.
- */
+/* ==========================================================================
+   GLOBAL ENTERPRISE CRM DESIGN SYSTEM & COMPACT UI SCALE
+   Unified across all modules: Recruitment, HR Dashboard, Attendance,
+   Leave, Payroll, Performance, Employees, Departments, Training, Tasks, Projects.
+   ========================================================================== */
+
+/* ── 1. App Shell & Viewport Density ── */
 html,
 body,
 #root {
   min-width: 0;
   height: 100%;
   overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
-#root :is(button, input, textarea) {
-  font-size: 0.9375rem;
-}
-
-/* Authentication screens */
-#root .login-container,
-#root .register-container {
-  padding: clamp(1.25rem, 3vw, 2.5rem);
-}
-
-#root .login-card {
-  max-width: 30rem;
-  padding: clamp(2rem, 4vw, 3.5rem);
-}
-
-#root .register-card {
-  max-width: 34rem;
-  padding: clamp(2rem, 4vw, 3.5rem);
-}
-
-#root :is(.login-header h1, .register-header h1) {
-  font-size: 1.75rem;
-}
-
-#root :is(.login-header p, .register-header p, .login-footer p, .register-footer p, .form-group label) {
-  font-size: 0.9375rem;
-}
-
-#root :is(.form-group input, .login-button, .register-button) {
-  min-height: 3rem;
-  font-size: 1rem;
-}
-
-/* Shared role-shell proportions */
-#root :is(.admin-layout-sidebar, .user-layout-sidebar) {
-  width: clamp(14rem, 15vw, 16.5rem);
-  padding: 0.85rem 0.75rem 0.75rem;
-}
-
-#root .superadmin-sidebar {
-  width: clamp(14rem, 15vw, 16.5rem);
-  padding: 0.85rem 0.75rem 0.75rem;
-}
-
-#root :is(.admin-layout-content, .superadmin-main-panel) {
-  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2.25vw, 2.25rem) 2.5rem;
-}
-
-#root :is(.admin-layout-topbar, .user-layout-topbar, .superadmin-header) {
-  min-height: 5rem;
-  padding: 1.1rem 1.3rem;
+/* ── 2. Topbar & Shell Proportions (Compact, Professional) ── */
+#root :is(.admin-layout-topbar, .user-layout-topbar, .superadmin-header, .user-dashboard-shell .user-topbar) {
+  min-height: 3.85rem !important;
+  height: 3.85rem !important;
+  padding: 0.5rem 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
 }
 
 #root :is(.admin-layout-title h1, .user-layout-title h1, .superadmin-header h1) {
-  font-size: clamp(1.6rem, 2vw, 2.15rem);
-}
-
-#root :is(.admin-sidebar-header h2, .user-sidebar-header h2, .superadmin-brand-wrap h2) {
-  font-size: 1.15rem;
-}
-
-#root :is(.admin-sidebar-header span, .user-sidebar-header span, .superadmin-brand-wrap span, .page-kicker, .eyebrow, .nav-label) {
-  font-size: 0.75rem;
-}
-
-#root :is(.admin-sidebar-profile h3, .user-sidebar-profile h3, .superadmin-user-tag strong) {
-  font-size: 1rem;
-}
-
-#root :is(.admin-sidebar-profile p, .user-sidebar-profile p, .superadmin-user-tag em, .user-status-dot, .admin-status-dot, .health-row) {
-  font-size: 0.8125rem;
-}
-
-#root :is(.admin-nav-item, .user-nav-item, .sidebar-link) {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.98rem;
-}
-
-#root :is(.admin-support-box, .user-support-box, .superadmin-sidebar-health) {
-  padding: 1rem 0.9rem;
-}
-
-#root :is(.admin-sidebar-logout, .user-sidebar-logout, .sidebar-logout, .admin-support-box button, .user-support-box button) {
-  font-size: 0.9375rem;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
 }
 
 #root :is(.admin-search-box, .user-search-box, .superadmin-search) {
-  min-height: 2.9rem;
-  font-size: 0.9375rem;
+  min-height: 2.25rem !important;
+  height: 2.25rem !important;
+  max-width: 420px !important;
+  padding: 0.35rem 0.85rem !important;
+  border-radius: 8px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 0.84rem !important;
+  color: #0f172a !important;
+  transition: all 0.18s ease !important;
+}
+
+#root :is(.admin-search-box:focus-within, .user-search-box:focus-within, .superadmin-search:focus-within) {
+  border-color: #ea580c !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.12) !important;
 }
 
 #root :is(.admin-top-icon, .user-top-icon, .header-icon-button) {
-  width: 2.9rem;
-  height: 2.9rem;
-  font-size: 1.2rem;
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  border-radius: 8px !important;
+  font-size: 0.95rem !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.18s ease !important;
 }
 
-/* User dashboard has its own shell instead of UserLayout. */
-#root .user-dashboard-shell .user-sidebar {
-  width: clamp(14rem, 15vw, 16.5rem);
-  padding: 0.85rem 0.75rem 0.75rem;
+#root :is(.admin-top-icon:hover, .user-top-icon:hover, .header-icon-button:hover) {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  transform: translateY(-1px) !important;
 }
 
-#root .user-dashboard-shell .user-main-panel {
-  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2.25vw, 2.25rem) 2.5rem;
-}
+/* ── 3. Page Container & Smooth Entrance Animation ── */
+@keyframes crmPageFadeIn {
+  from {
+    opacity: 0;
+  }
 
-#root .user-dashboard-shell :is(.sidebar-nav .nav-item, .sidebar-support button, .sidebar-logout) {
-  font-size: 0.98rem;
-}
-
-#root .user-dashboard-shell :is(.user-topbar, .welcome-banner) {
-  padding: 1.2rem 1.35rem;
-}
-
-#root .user-dashboard-shell :is(.panel, .stat-card) {
-  padding: clamp(1rem, 1.5vw, 1.35rem);
-}
-
-/* Shared forms, resource pages, and tables. */
-#root :is(.resource-module, .admin-resource, .calendar-scheduler) {
-  gap: 1.25rem;
-}
-
-#root :is(.resource-toolbar h2, .admin-resource h2, .calendar-toolbar h2, .page-header-row h2) {
-  font-size: clamp(1.3rem, 1.6vw, 1.65rem);
-}
-
-#root :is(.resource-form, .admin-modal) {
-  padding: clamp(1.25rem, 2vw, 1.75rem);
-}
-
-#root :is(.resource-form label, .admin-modal-grid label, .field label) {
-  font-size: 0.9375rem;
-}
-
-#root :is(.resource-form input, .resource-form select, .resource-form textarea, .resource-search, .admin-resource-toolbar input, .admin-resource-toolbar select, .admin-modal input, .admin-modal select, .admin-modal textarea, .calendar-controls select) {
-  min-height: 2.8rem;
-  padding: 0.7rem 0.8rem;
-  font-size: 0.9375rem;
-}
-
-#root :is(.primary-btn, .secondary-btn, .ghost-btn, .danger-btn, .action-btn, .table-action, .page-header-button) {
-  min-height: 2.6rem;
-  padding: 0.6rem 0.9rem;
-  font-size: 0.9rem;
-}
-
-#root :is(.resource-table, .admin-resource-table table, .data-table) {
-  font-size: 0.9375rem;
-}
-
-#root :is(.resource-table th, .resource-table td, .admin-resource-table th, .admin-resource-table td, .data-table th, .data-table td) {
-  padding: 0.85rem 1rem;
-  font-size: 0.875rem;
-}
-
-#root :is(.resource-table th, .admin-resource-table th, .data-table th) {
-  font-size: 0.75rem;
-}
-
-#root :is(.resource-message, .admin-resource-message, .resource-empty, .admin-resource-empty) {
-  font-size: 0.9375rem;
-}
-
-/* Dashboard-specific compact rules. */
-#root .reference-dashboard .card-heading h3,
-#root .superadmin-layout-shell :is(.chart-header h3, .table-header h3, .info-card h3) {
-  font-size: 1.08rem;
-}
-
-#root .reference-dashboard .legend-list,
-#root .reference-dashboard .task-list>div,
-#root .reference-dashboard .announcement-list>div,
-#root .reference-dashboard .mini-table>div,
-#root .reference-dashboard .leave-list>div {
-  font-size: 0.8125rem;
-}
-
-#root .reference-dashboard :is(.task-list small, .announcement-list small, .task-list em, .announcement-list em, .revenue-point small) {
-  font-size: 0.75rem;
-}
-
-#root .reference-dashboard :is(.priority, .card-heading button, .create-announcement, .quick-actions button) {
-  font-size: 0.8125rem;
-}
-
-#root .superadmin-layout-shell :is(.section-kicker, .user-pill, .status-pill, .module-pill, .activity-copy small, .system-stat small, .module-meta, .field label) {
-  font-size: 0.75rem;
-}
-
-#root .superadmin-layout-shell :is(.data-table th, .data-table td, .legend-row, .module-card p, .rbac-resource strong, .rbac-resource label) {
-  font-size: 0.875rem;
-}
-
-@media (max-width: 980px) {
-  #root :is(.admin-layout-sidebar, .user-layout-sidebar, .superadmin-sidebar, .user-dashboard-shell .user-sidebar) {
-    width: min(20rem, 86vw);
+  to {
+    opacity: 1;
   }
 }
 
-@media (max-width: 720px) {
-  body {
-    font-size: 15px;
+#root :is(.user-page-body,
+  .admin-layout-content,
+  .superadmin-main-panel,
+  .user-dashboard-shell .user-main-panel,
+  .rec-container,
+  .hr-dash-container,
+  .leave-container,
+  .payroll-container,
+  .perf-container,
+  .hr-emp-container,
+  .hr-dept-container,
+  .hr-task-container,
+  .hrtm-container,
+  .resource-module,
+  .admin-resource) {
+  animation: crmPageFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.rec-container,
+  .hr-dash-container,
+  .leave-container,
+  .payroll-container,
+  .perf-container,
+  .hr-emp-container,
+  .hr-dept-container,
+  .hr-task-container,
+  .hr-proj-container,
+  .hrtm-container,
+  .assets-container,
+  .docs-container,
+  .ff-container,
+  .reports-container,
+  .users-container) {
+  padding: 0.5rem 0.75rem 2rem !important;
+  max-width: 1560px !important;
+  margin: 0 auto !important;
+  width: 100% !important;
+}
+
+/* ── 4. Unified Page Headers & Typography (Semantic H2) ── */
+#root :is(.rec-header,
+  .hr-dash-header,
+  .leave-header,
+  .payroll-header-area,
+  .perf-header,
+  .hr-emp-header,
+  .hr-dept-header,
+  .hr-task-header,
+  .hr-proj-header,
+  .hrtm-header,
+  .att-page-header,
+  .resource-toolbar) {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 1.1rem !important;
+  gap: 0.85rem !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+}
+
+#root :is(.rec-title-area h2,
+  .hr-dash-title-area h2,
+  .leave-title-area h2,
+  .payroll-title-meta h2,
+  .perf-title-area h2,
+  .hr-emp-title-area h2,
+  .hr-dept-title-area h2,
+  .hr-task-title-area h2,
+  .hr-proj-title-area h2,
+  .hrtm-header h2,
+  .att-page-title,
+  .resource-toolbar h2,
+  .admin-resource h2,
+  .calendar-toolbar h2,
+  .page-header-row h2,
+  .rec-offer-header-info h3) {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.015em !important;
+  margin: 0 0 0.2rem 0 !important;
+}
+
+#root :is(.rec-title-area p,
+  .hr-dash-title-area p,
+  .leave-title-area p,
+  .payroll-title-meta p,
+  .perf-title-area p,
+  .hr-emp-title-area p,
+  .hr-dept-title-area p,
+  .hr-task-title-area p,
+  .hr-proj-title-area p,
+  .hrtm-header p,
+  .rec-offer-header-info p) {
+  font-size: 0.82rem !important;
+  color: #64748b !important;
+  line-height: 1.35 !important;
+  margin: 0 !important;
+}
+
+/* Subsection headings (H3) */
+#root :is(.admin-overview-panel h3,
+  .rec-analytics-card h4,
+  .chart-header h3,
+  .table-header h3,
+  .info-card h3) {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 0 0.85rem 0 !important;
+}
+
+/* ── 5. GLOBAL CARD STANDARD (Compact, Recruitment Reference) ── */
+#root :is(.rec-offer-kpi-grid,
+  .rec-kpi-grid,
+  .hr-kpi-grid,
+  .stats-grid,
+  .leave-kpi-grid,
+  .perf-stats-grid,
+  .hr-emp-stats-grid,
+  .hr-task-kpi-grid,
+  .hr-proj-kpi-grid,
+  .hrtm-kpi-grid,
+  .admin-overview-grid,
+  .attendance-summary,
+  .summary-grid) {
+  gap: 0.75rem 0.85rem !important;
+  margin-bottom: 1.15rem !important;
+  width: 100% !important;
+}
+
+#root :is(.rec-offer-kpi-card,
+  .rec-kpi-card,
+  .hr-kpi-card,
+  .stat-card,
+  .leave-kpi-card,
+  .perf-stat-card,
+  .hr-emp-stat-card,
+  .hr-task-kpi-card,
+  .hr-proj-kpi-card,
+  .hrtm-kpi-card,
+  .admin-overview-card,
+  .summary-grid > div,
+  .attendance-summary > div) {
+  min-height: 96px !important;
+  max-height: 116px !important;
+  padding: 0.8rem 1rem !important;
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  cursor: pointer !important;
+}
+
+#root :is(.rec-offer-kpi-card,
+  .rec-kpi-card,
+  .hr-kpi-card,
+  .stat-card,
+  .leave-kpi-card,
+  .perf-stat-card,
+  .hr-emp-stat-card,
+  .hr-task-kpi-card,
+  .hr-proj-kpi-card,
+  .hrtm-kpi-card,
+  .admin-overview-card,
+  .summary-grid > div,
+  .attendance-summary > div):hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Card Icon Box */
+#root :is(.rec-kpi-card-icon,
+  .hr-kpi-icon-wrap,
+  .stat-icon-wrapper,
+  .leave-kpi-icon-wrap,
+  .hr-emp-stat-icon,
+  .hr-task-kpi-icon,
+  .hr-proj-kpi-icon,
+  .perf-stat-icon,
+  .hr-dept-icon-box,
+  .hrtm-kpi-icon) {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  font-size: 0.95rem !important;
+}
+
+#root :is(.rec-kpi-card-icon svg,
+  .hr-kpi-icon-wrap svg,
+  .stat-icon-wrapper svg,
+  .leave-kpi-icon-wrap svg,
+  .hr-emp-stat-icon svg,
+  .hr-task-kpi-icon svg,
+  .hr-proj-kpi-icon svg,
+  .perf-stat-icon svg,
+  .hr-dept-icon-box svg,
+  .hrtm-kpi-icon svg) {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+/* Card Title / Label */
+#root :is(.rec-kpi-card-label,
+  .hr-kpi-title,
+  .stat-body span,
+  .leave-kpi-card span,
+  .hr-emp-stat-body span,
+  .hr-task-kpi-body span,
+  .hr-proj-kpi-body span,
+  .perf-stat-body span,
+  .hrtm-kpi-info span,
+  .attendance-summary span,
+  .summary-grid span) {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: #64748b !important;
+  line-height: 1.2 !important;
+  margin-bottom: 0.15rem !important;
+}
+
+/* Card Value */
+#root :is(.rec-kpi-card-val,
+  .hr-kpi-value,
+  .stat-body strong,
+  .leave-kpi-card strong,
+  .perf-stat-card strong,
+  .perf-stat-body strong,
+  .hr-emp-stat-body strong,
+  .hr-task-kpi-body strong,
+  .hr-proj-kpi-body strong,
+  .hrtm-kpi-info h4,
+  .attendance-summary strong,
+  .summary-grid strong) {
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.02em !important;
+  margin: 0.1rem 0 !important;
+}
+
+/* Card Helper / Meta */
+#root :is(.rec-kpi-card-helper,
+  .hr-kpi-meta,
+  .leave-kpi-card small) {
+  font-size: 0.72rem !important;
+  color: #94a3b8 !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* ── 6. BUTTON DESIGN SYSTEM ── */
+#root :is(.primary-btn,
+  .rec-primary-btn,
+  .leave-primary-btn,
+  .payroll-primary-btn,
+  .perf-primary-btn,
+  .hr-btn-primary,
+  .hr-task-btn-primary,
+  .hr-proj-btn-primary) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  background: #ea580c !important;
+  color: #ffffff !important;
+  border: 1px solid #ea580c !important;
+  min-height: 2.25rem !important;
+  height: 2.25rem !important;
+  padding: 0 0.95rem !important;
+  border-radius: 7px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2) !important;
+  transition: all 0.18s ease !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+
+#root :is(.primary-btn,
+  .rec-primary-btn,
+  .leave-primary-btn,
+  .payroll-primary-btn,
+  .perf-primary-btn,
+  .hr-btn-primary,
+  .hr-task-btn-primary,
+  .hr-proj-btn-primary):hover:not(:disabled) {
+  background: #c2410c !important;
+  border-color: #c2410c !important;
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.28) !important;
+  transform: translateY(-1px) !important;
+}
+
+#root :is(.secondary-btn,
+  .rec-secondary-btn,
+  .leave-secondary-btn,
+  .payroll-secondary-btn,
+  .perf-secondary-btn,
+  .hr-btn-secondary,
+  .hr-task-btn-secondary,
+  .hr-proj-btn-outline) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  min-height: 2.25rem !important;
+  height: 2.25rem !important;
+  padding: 0 0.85rem !important;
+  border-radius: 7px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+
+#root :is(.secondary-btn,
+  .rec-secondary-btn,
+  .leave-secondary-btn,
+  .payroll-secondary-btn,
+  .perf-secondary-btn,
+  .hr-btn-secondary,
+  .hr-task-btn-secondary,
+  .hr-proj-btn-outline):hover:not(:disabled) {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+#root :is(.danger-btn, .rec-btn-danger, .btn-danger) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: 1px solid #dc2626 !important;
+  min-height: 2.25rem !important;
+  height: 2.25rem !important;
+  padding: 0 0.85rem !important;
+  border-radius: 7px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  white-space: nowrap !important;
+}
+
+#root :is(.danger-btn, .rec-btn-danger, .btn-danger):hover:not(:disabled) {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+
+/* Small / Table Action Buttons */
+#root :is(.rec-btn-sm, .action-btn-sm, .table-action) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.28rem 0.62rem !important;
+  border-radius: 5px !important;
+  font-size: 0.74rem !important;
+  line-height: 1.2 !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  border: 1px solid transparent !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── 7. INPUTS, SEARCH & DROPDOWNS ── */
+#root :is(.rec-filter-select,
+  .rec-search-input,
+  .leave-filter-select,
+  .payroll-filter-select,
+  .perf-filter-select,
+  .resource-search,
+  .resource-form input,
+  .resource-form select,
+  .hr-form-group input,
+  .hr-form-group select,
+  .admin-modal input,
+  .admin-modal select,
+  .calendar-controls select,
+  .att-status-select) {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  padding: 0.35rem 0.75rem !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 7px !important;
+  font-size: 0.825rem !important;
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.rec-filter-select,
+  .leave-filter-select,
+  .payroll-filter-select,
+  .perf-filter-select,
+  .resource-form select,
+  .hr-form-group select,
+  .admin-modal select,
+  .calendar-controls select,
+  .att-status-select) {
+  padding-right: 1.75rem !important;
+  cursor: pointer !important;
+  line-height: 1.4 !important;
+}
+
+#root :is(.rec-filter-select:focus,
+  .rec-search-input:focus,
+  .leave-filter-select:focus,
+  .payroll-filter-select:focus,
+  .perf-filter-select:focus,
+  .resource-search:focus,
+  .resource-form input:focus,
+  .resource-form select:focus,
+  .hr-form-group input:focus,
+  .hr-form-group select:focus,
+  .admin-modal input:focus,
+  .admin-modal select:focus,
+  .calendar-controls select:focus) {
+  outline: none !important;
+  border-color: #ea580c !important;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.14) !important;
+}
+
+/* ── 8. TABLE DESIGN & DENSITY ── */
+#root :is(.rec-table-wrap, .resource-table-wrap, .attendance-table, .admin-resource-table) {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.rec-table, .resource-table, .attendance-table table, .admin-resource-table table, .data-table, .hr-table) {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  text-align: left !important;
+  font-size: 0.825rem !important;
+}
+
+#root :is(.rec-table th, .resource-table th, .attendance-table th, .admin-resource-table th, .data-table th, .hr-table th) {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 0.65rem 0.85rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+
+#root :is(.rec-table td, .resource-table td, .attendance-table td, .admin-resource-table td, .data-table td, .hr-table td) {
+  padding: 0.65rem 0.85rem !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #334155 !important;
+  vertical-align: middle !important;
+  font-size: 0.825rem !important;
+}
+
+#root :is(.rec-table tr:hover td, .resource-table tr:hover td, .attendance-table tr:hover td, .admin-resource-table tr:hover td, .data-table tr:hover td, .hr-table tr:hover td) {
+  background: #fafafa !important;
+}
+
+/* Action button cells: strictly single horizontal row */
+#root :is(.rec-actions-wrap, .table-actions, .resource-actions-cell, .att-actions) {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 0.35rem !important;
+  white-space: nowrap !important;
+}
+
+/* ── 9. MODALS & DIALOGS (GLOBAL VIEWPORT POSITIONING & INTERNAL SCROLL) ── */
+#root :is(.hr-modal-overlay,
+  .admin-modal-overlay,
+  .hrtm-modal-overlay,
+  .hr-proj-modal-overlay,
+  .doc-modal-overlay,
+  .ast-modal-overlay,
+  .att-modal-overlay,
+  .hr-cal-modal-overlay,
+  .modal-overlay,
+  .modal-backdrop,
+  .modal-wrapper,
+  [class*="-modal-overlay"],
+  [class*="modal-overlay"]),
+body> :is(.hr-modal-overlay,
+  .admin-modal-overlay,
+  .hrtm-modal-overlay,
+  .hr-proj-modal-overlay,
+  .doc-modal-overlay,
+  .ast-modal-overlay,
+  .att-modal-overlay,
+  .hr-cal-modal-overlay,
+  .modal-overlay,
+  .modal-backdrop,
+  .modal-wrapper,
+  [class*="-modal-overlay"],
+  [class*="modal-overlay"]) {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  z-index: 99999 !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.hr-modal-card,
+  .admin-modal-card,
+  .hrtm-modal,
+  .hr-proj-modal,
+  .doc-modal-card,
+  .ast-modal-card,
+  .att-modal,
+  .hr-cal-modal-box,
+  .modal-card,
+  .modal-container,
+  .modal-dialog,
+  .modal-content,
+  .modal-box,
+  [class*="-modal-card"],
+  [class*="modal-card"],
+  [class*="-modal-box"]),
+body> :is([class*="modal-overlay"]) :is(.hr-modal-card,
+  .admin-modal-card,
+  .hrtm-modal,
+  .hr-proj-modal,
+  .doc-modal-card,
+  .ast-modal-card,
+  .att-modal,
+  .hr-cal-modal-box,
+  .modal-card,
+  .modal-container,
+  .modal-dialog,
+  .modal-content,
+  .modal-box,
+  [class*="-modal-card"],
+  [class*="modal-card"],
+  [class*="-modal-box"]) {
+  background: #ffffff !important;
+  border-radius: 14px !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08) !important;
+  border: 1px solid #e2e8f0 !important;
+  width: min(94vw, 840px) !important;
+  max-height: min(90vh, 800px) !important;
+  max-height: min(90dvh, 800px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  margin: auto !important;
+  box-sizing: border-box !important;
+  animation: crmModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+/* Ensure forms inside modals flex properly */
+#root :is(.hr-modal-card,
+  .admin-modal-card,
+  .hrtm-modal,
+  .hr-proj-modal,
+  .doc-modal-card,
+  .ast-modal-card,
+  .att-modal,
+  .hr-cal-modal-box,
+  .modal-card,
+  .modal-container,
+  .modal-dialog,
+  .modal-content,
+  .modal-box,
+  [class*="-modal-card"],
+  [class*="modal-card"])>form,
+body> :is([class*="modal-overlay"]) :is([class*="modal-card"], [class*="modal-box"], .hrtm-modal, .att-modal, .hr-proj-modal)>form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+
+@keyframes crmModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(6px);
   }
 
-  #root :is(.login-card, .register-card) {
-    padding: 1.75rem 1.25rem;
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+#root :is(.hr-modal-header,
+  .admin-modal-header,
+  .hrtm-modal-header,
+  .hr-proj-modal-header,
+  .doc-modal-header,
+  .ast-modal-header,
+  .att-modal-header,
+  .hr-cal-modal-header,
+  .modal-header,
+  [class*="-modal-header"],
+  [class*="modal-header"]) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1rem 1.4rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+#root :is(.hr-modal-header h3,
+  .admin-modal-header h3,
+  .hrtm-modal-header h3,
+  .doc-modal-header h3,
+  .ast-modal-header h3,
+  .att-modal h3,
+  .hr-cal-modal-header h3,
+  .modal-header h3,
+  [class*="-modal-header"] h3) {
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+}
+
+#root :is(.hr-modal-close,
+  .admin-modal-close,
+  .hrtm-modal-close,
+  .doc-modal-close,
+  .ast-modal-close,
+  .hr-cal-modal-close,
+  .modal-close,
+  [class*="-modal-close"]) {
+  background: transparent !important;
+  border: none !important;
+  font-size: 1.35rem !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  padding: 0.25rem !important;
+  transition: color 0.15s ease, transform 0.18s ease !important;
+}
+
+#root :is(.hr-modal-close:hover,
+  .admin-modal-close:hover,
+  .hrtm-modal-close:hover,
+  .doc-modal-close:hover,
+  .ast-modal-close:hover,
+  .hr-cal-modal-close:hover,
+  .modal-close:hover) {
+  color: #0f172a !important;
+  transform: rotate(90deg) !important;
+}
+
+#root :is(.hr-modal-body,
+  .admin-modal-body,
+  .hrtm-modal-body,
+  .hr-proj-modal-body,
+  .doc-modal-body,
+  .doc-modal-form,
+  .doc-details-body,
+  .ast-modal-body,
+  .ast-modal-form,
+  .att-modal-body,
+  .hr-cal-modal-body,
+  .modal-body,
+  [class*="-modal-body"],
+  [class*="modal-body"]) {
+  padding: 1.35rem 1.4rem !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overscroll-behavior: contain !important;
+  box-sizing: border-box !important;
+}
+
+#root :is(.hr-modal-footer,
+  .admin-modal-footer,
+  .hrtm-modal-footer,
+  .hr-proj-modal-footer,
+  .doc-modal-footer,
+  .ast-modal-footer,
+  .att-modal-actions,
+  .hr-cal-modal-footer,
+  .modal-footer,
+  .modal-actions,
+  [class*="-modal-footer"],
+  [class*="modal-footer"]) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.65rem !important;
+  padding: 0.9rem 1.4rem !important;
+  border-top: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 10 !important;
+  margin-top: auto !important;
+}
+
+/* Lock background scroll while any modal overlay is active */
+body:has(:is(.hr-modal-overlay,
+    .admin-modal-overlay,
+    .hrtm-modal-overlay,
+    .hr-proj-modal-overlay,
+    .doc-modal-overlay,
+    .ast-modal-overlay,
+    .att-modal-overlay,
+    .hr-cal-modal-overlay,
+    .modal-overlay,
+    .modal-backdrop,
+    .modal-wrapper,
+    [class*="-modal-overlay"],
+    [class*="modal-overlay"])),
+.user-layout-content:has(:is(.hr-modal-overlay,
+    .admin-modal-overlay,
+    .hrtm-modal-overlay,
+    .hr-proj-modal-overlay,
+    .doc-modal-overlay,
+    .ast-modal-overlay,
+    .att-modal-overlay,
+    .hr-cal-modal-overlay,
+    .modal-overlay,
+    .modal-backdrop,
+    .modal-wrapper,
+    [class*="-modal-overlay"],
+    [class*="modal-overlay"])),
+.user-page-body:has(:is(.hr-modal-overlay,
+    .admin-modal-overlay,
+    .hrtm-modal-overlay,
+    .hr-proj-modal-overlay,
+    .doc-modal-overlay,
+    .ast-modal-overlay,
+    .att-modal-overlay,
+    .hr-cal-modal-overlay,
+    .modal-overlay,
+    .modal-backdrop,
+    .modal-wrapper,
+    [class*="-modal-overlay"],
+    [class*="modal-overlay"])) {
+  overflow: hidden !important;
+}
+
+/* ── 10. RESPONSIVE BREAKPOINTS ── */
+@media (max-width: 1280px) {
+  #root :is(.rec-offer-kpi-grid, .stats-grid, .hr-kpi-grid, .perf-stats-grid) {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+@media (max-width: 840px) {
+  #root :is(.rec-offer-kpi-grid, .stats-grid, .hr-kpi-grid, .perf-stats-grid, .leave-kpi-grid) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 520px) {
+  #root :is(.rec-offer-kpi-grid, .stats-grid, .hr-kpi-grid, .perf-stats-grid, .leave-kpi-grid) {
+    grid-template-columns: 1fr !important;
   }
 
-  #root :is(.admin-layout-content, .superadmin-main-panel, .user-dashboard-shell .user-main-panel) {
-    padding: 1rem;
-  }
-
-  #root :is(.admin-layout-topbar, .user-layout-topbar, .superadmin-header, .user-dashboard-shell .user-topbar) {
-    min-height: auto;
-    padding: 1rem;
+  #root :is(.rec-header, .hr-dash-header, .leave-header, .payroll-header-area) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
   }
 }

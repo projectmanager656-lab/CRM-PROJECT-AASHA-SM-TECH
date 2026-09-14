@@ -27,6 +27,8 @@ import assetRoutes from './asset.routes.js';
 import hrReportRoutes from './hrReport.routes.js';
 import trainingRoutes from './training.routes.js';
 import fullAndFinalSettlementRoutes from './fullAndFinalSettlement.routes.js';
+import accessManagementRoutes from './accessManagement.routes.js';
+import expenseRoutes from './expense.routes.js';
 
 const router = Router();
 
@@ -54,6 +56,7 @@ router.use('/assets', assetRoutes);
 router.use('/reports/hr', hrReportRoutes);
 router.use('/training', trainingRoutes);
 router.use('/full-and-final-settlements', fullAndFinalSettlementRoutes);
+router.use('/access-management', accessManagementRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/projects', ownedResourceRouters.projects);
 router.use('/leads', ownedResourceRouters.leads);
@@ -64,6 +67,7 @@ router.use('/documents', documentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/messages', messageRoutes);
 router.use('/payroll', payrollRouter);
+router.use('/expenses', expenseRoutes);
 router.use('/invoices', invoiceRouter);
 router.use('/settings', settingsRouter);
 router.route('/company-settings').get(authenticateToken, CompanySettingController.get).put(authenticateToken, CompanySettingController.update).patch(authenticateToken, CompanySettingController.update);

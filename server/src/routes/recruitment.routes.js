@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { RecruitmentController } from '../controllers/RecruitmentController.js';
 import { OfferLetterController } from '../controllers/OfferLetterController.js';
+import { ExperienceLetterController } from '../controllers/ExperienceLetterController.js';
 import { authenticateToken, authorizeHrOrAdmin } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -33,6 +34,10 @@ router.route('/candidates/:id')
 router.patch('/candidates/:id/stage', authorizeHrOrAdmin, RecruitmentController.updateStage);
 router.patch('/candidates/:id/shortlist', authorizeHrOrAdmin, RecruitmentController.shortlistCandidate);
 router.patch('/candidates/:id/reject', authorizeHrOrAdmin, RecruitmentController.rejectCandidate);
+router.patch('/candidates/:id/withdraw', authorizeHrOrAdmin, RecruitmentController.recordWithdrawal);
+router.post('/candidates/:id/screening', authorizeHrOrAdmin, RecruitmentController.recordScreening);
+router.post('/candidates/:id/assessment', authorizeHrOrAdmin, RecruitmentController.recordAssessment);
+router.get('/candidates/:id/timeline', RecruitmentController.getTimeline);
 
 // 4. Interviews & Offers & Conversion
 router.post('/candidates/:id/interviews', authorizeHrOrAdmin, RecruitmentController.scheduleInterview);
@@ -57,6 +62,18 @@ router.post('/offer-letters/:id/accept', authorizeHrOrAdmin, OfferLetterControll
 router.post('/offer-letters/:id/reject', authorizeHrOrAdmin, OfferLetterController.markRejected);
 router.post('/offer-letters/:id/withdraw', authorizeHrOrAdmin, OfferLetterController.withdrawOffer);
 router.post('/offer-letters/:id/convert-employee', authorizeHrOrAdmin, OfferLetterController.convertToEmployee);
+
+// 6. Experience Letter Routes (standalone ExperienceLetter collection)
+router.get('/experience-letters/summary', ExperienceLetterController.summary);
+router.get('/experience-letters/employees', ExperienceLetterController.getEmployees);
+router.route('/experience-letters')
+  .get(ExperienceLetterController.listLetters)
+  .post(authorizeHrOrAdmin, ExperienceLetterController.createLetter);
+
+router.route('/experience-letters/:id')
+  .get(ExperienceLetterController.getLetter)
+  .put(authorizeHrOrAdmin, ExperienceLetterController.updateLetter)
+  .delete(authorizeHrOrAdmin, ExperienceLetterController.deleteLetter);
 
 export default router;
 

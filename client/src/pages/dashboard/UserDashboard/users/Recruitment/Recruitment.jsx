@@ -11,6 +11,27 @@ const formatDate = (val) => {
   catch (e) { return String(val); }
 };
 
+const computeDurationText = (startDate, endDate) => {
+  if (!startDate || !endDate) return '';
+  const s = new Date(startDate);
+  const e = new Date(endDate);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+  let months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  if (e.getDate() < s.getDate()) months -= 1;
+  if (months < 0) months = 0;
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+  if (remMonths > 0 || years === 0) parts.push(`${remMonths} ${remMonths === 1 ? 'Month' : 'Months'}`);
+  return parts.join(', ');
+};
+
+const expBadgeCls = (s) => {
+  const m = { Issued: 'rec-badge-accepted', Draft: 'rec-badge-draft', Revoked: 'rec-badge-rejected' };
+  return 'rec-badge ' + (m[s] || '');
+};
+
 const getBase64ImageFromUrl = (url) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -33,7 +54,27 @@ const getBase64ImageFromUrl = (url) => {
 };
 
 const OFFICIAL_DEPARTMENTS = ['HR', 'Finance', 'Business Development', 'Digital Marketing', 'Video Editor', 'Tech'];
-const PIPELINE_STAGES = ['Applied','Screening','Shortlisted','Interview','Technical Round','HR Round','Selected','Hired','Rejected'];
+const PIPELINE_MAIN_STAGES = ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Final / HR Round', 'Selected', 'Offer', 'Hired'];
+const PIPELINE_TERMINAL_STAGES = ['Rejected', 'Withdrawn', 'On Hold'];
+const ALL_PIPELINE_STAGES = [...PIPELINE_MAIN_STAGES, ...PIPELINE_TERMINAL_STAGES];
+const PIPELINE_STAGES = ALL_PIPELINE_STAGES;
+
+const VALID_TRANSITIONS = {
+  'Applied': ['Screening', 'Shortlisted', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Screening': ['Applied', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Shortlisted': ['Screening', 'Assessment', 'Interview', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Assessment': ['Shortlisted', 'Interview', 'Technical Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Interview': ['Shortlisted', 'Assessment', 'Technical Round', 'HR Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Technical Round': ['Assessment', 'Interview', 'HR Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'HR Round': ['Technical Round', 'Interview', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Final / HR Round': ['Technical Round', 'Interview', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Selected': ['Offer', 'Interview', 'Final / HR Round', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Offer': ['Hired', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+  'Hired': ['Offer', 'Selected', 'Withdrawn'],
+  'On Hold': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Final / HR Round', 'Selected', 'Offer', 'Rejected', 'Withdrawn'],
+  'Rejected': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Selected'],
+  'Withdrawn': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Selected'],
+};
 
 const extractCandidateArray = (res) => {
   if (!res) return [];
@@ -112,11 +153,107 @@ export default function Recruitment() {
   const [offerNewCandidateError, setOfferNewCandidateError] = useState('');
   const [companyInfo, setCompanyInfo] = useState({ companyName: 'Aasha SM Technologies', officeAddress: '' });
 
+  // ── Experience Letter system state (INDEPENDENT) ─────────────────────
+  const [experienceLetters, setExperienceLetters] = useState([]);
+  const [experienceLoading, setExperienceLoading] = useState(false);
+  const [experienceSummary, setExperienceSummary] = useState({ total: 0, issued: 0, draft: 0, revoked: 0 });
+  const [experienceSearch, setExperienceSearch] = useState('');
+  const [experienceStatusFilter, setExperienceStatusFilter] = useState('All');
+  const [experienceDeptFilter, setExperienceDeptFilter] = useState('All');
+  const [experienceSortDir, setExperienceSortDir] = useState('newest');
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showExperiencePreviewModal, setShowExperiencePreviewModal] = useState(false);
+  const [showExperienceDeleteModal, setShowExperienceDeleteModal] = useState(false);
+  const [editingExperienceLetter, setEditingExperienceLetter] = useState(null);
+  const [viewingExperienceLetter, setViewingExperienceLetter] = useState(null);
+  const [experienceSubmitting, setExperienceSubmitting] = useState(false);
+  const [experienceError, setExperienceError] = useState('');
+  const [experienceSuccess, setExperienceSuccess] = useState('');
+  const [hrEmployees, setHrEmployees] = useState([]);
+  const [hrEmployeesLoading, setHrEmployeesLoading] = useState(false);
+  const [experienceForm, setExperienceForm] = useState({
+    employeeId: '',
+    employeeName: '',
+    empCode: '',
+    designation: '',
+    department: 'Tech',
+    joiningDate: '',
+    relievingDate: new Date().toISOString().slice(0, 10),
+    employmentDuration: '',
+    letterDate: new Date().toISOString().slice(0, 10),
+    workLocation: 'Mumbai / Head Office',
+    conduct: 'Exemplary',
+    reasonForLeaving: 'Resignation / Personal Aspirations',
+    authorizedSignatory: 'Human Resources Manager',
+    authorizedSignatoryTitle: 'Head of Human Resources',
+    notes: '',
+    status: 'Issued',
+  });
+
   // ── Existing form states ─────────────────────────────────────────────
   const [jobForm, setJobForm] = useState({ title:'', department:'Tech', designation:'', openings:1, employmentType:'Full Time', location:'In-Office / Hybrid', experience:'1-3 Years', salaryRange:'Competitive', priority:'Medium', openingDate: new Date().toISOString().slice(0,10), closingDate:'', description:'', requirements:'', status:'Open' });
   const [candidateForm, setCandidateForm] = useState({ name:'', email:'', phone:'', location:'', appliedJob:'', appliedPosition:'', department:'Tech', experience:'1-2 Years', skills:'', education:'Graduate', currentCompany:'', noticePeriod:'30 Days', source:'Direct Application', notes:'' });
   const [interviewForm, setInterviewForm] = useState({ round:'Technical Round 1', interviewer:'Tech Lead / HR', date: new Date().toISOString().slice(0,10), time:'11:00 AM', type:'Online Video', meetingLink:'', notes:'' });
   const [feedbackForm, setFeedbackForm] = useState({ technicalSkills:4, communication:4, problemSolving:4, teamwork:4, overallRating:4, strengths:'', weaknesses:'', comments:'', recommendation:'Hire' });
+
+  // ── Pipeline Board States (DYNAMIC & ATLAS BACKED) ───────────────────
+  const [pipelineJobFilter, setPipelineJobFilter] = useState('All');
+  const [pipelineDeptFilter, setPipelineDeptFilter] = useState('All');
+  const [pipelineSearch, setPipelineSearch] = useState('');
+  const [showTerminalStages, setShowTerminalStages] = useState(false);
+  const [draggedCandidate, setDraggedCandidate] = useState(null);
+  const [dragOverStage, setDragOverStage] = useState(null);
+
+  // ── Candidate Profile Drawer/Modal Tabs & Timeline ───────────────────
+  const [candidateDetailTab, setCandidateDetailTab] = useState('overview');
+  const [candidateTimeline, setCandidateTimeline] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  // ── Screening Modal Form ─────────────────────────────────────────────
+  const [showScreeningModal, setShowScreeningModal] = useState(false);
+  const [screeningForm, setScreeningForm] = useState({
+    skillsMatch: 4,
+    experienceMatch: 4,
+    communication: 4,
+    assessmentScore: 4,
+    recruiter: 'HR Talent Acquisition',
+    notes: '',
+    decision: 'Pass',
+  });
+
+  // ── Assessment Modal Form ────────────────────────────────────────────
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [assessmentForm, setAssessmentForm] = useState({
+    name: 'Technical Assessment',
+    score: 85,
+    maxScore: 100,
+    result: 'Passed',
+    evaluator: 'Technical Lead',
+    dueDate: '',
+    feedback: '',
+  });
+
+  // ── Rejection Modal Form ─────────────────────────────────────────────
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [rejectionForm, setRejectionForm] = useState({
+    reason: 'Skills mismatch',
+    notes: '',
+  });
+
+  // ── Withdrawal Modal Form ────────────────────────────────────────────
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    reason: 'Accepted another offer',
+    notes: '',
+  });
+
+  // ── Move Stage Modal Form ────────────────────────────────────────────
+  const [showMoveStageModal, setShowMoveStageModal] = useState(false);
+  const [moveStageForm, setMoveStageForm] = useState({
+    toStage: 'Screening',
+    reason: '',
+    notes: '',
+  });
 
   // ── Data loaders ─────────────────────────────────────────────────────
   const fetchCandidates = async () => {
@@ -136,13 +273,17 @@ export default function Recruitment() {
     }
   };
 
-  const loadRecruitmentData = async () => {
+  const loadRecruitmentData = async (jobFilter = pipelineJobFilter) => {
     setLoading(true); setError('');
     try {
+      const summaryParams = {};
+      if (jobFilter && jobFilter !== 'All') {
+        summaryParams.appliedJob = jobFilter;
+      }
       const [jr, cr, sr] = await Promise.all([
         apiClient.get('/recruitment/jobs'),
         apiClient.get('/recruitment/candidates'),
-        apiClient.get('/recruitment/summary').catch(() => ({ data: { data: null } })),
+        apiClient.get('/recruitment/summary', { params: summaryParams }).catch(() => ({ data: { data: null } })),
       ]);
       setJobs(jr.data?.data || []);
       setCandidates(extractCandidateArray(cr));
@@ -170,6 +311,55 @@ export default function Recruitment() {
     finally { setOffersLoading(false); }
   };
 
+  const loadExperienceLetters = async () => {
+    setExperienceLoading(true);
+    setExperienceError('');
+    try {
+      const params = {};
+      if (experienceStatusFilter !== 'All') params.status = experienceStatusFilter;
+      if (experienceDeptFilter !== 'All') params.department = experienceDeptFilter;
+      if (experienceSearch) params.search = experienceSearch;
+      params.sort = experienceSortDir;
+      const [lr, sr] = await Promise.all([
+        apiClient.get('/recruitment/experience-letters', { params }),
+        apiClient.get('/recruitment/experience-letters/summary').catch(() => ({ data: { data: {} } })),
+      ]);
+      setExperienceLetters(lr.data?.data || []);
+      if (sr.data?.data) setExperienceSummary(sr.data.data);
+    } catch (err) {
+      setExperienceError(err.response?.data?.message || 'Unable to load experience letters.');
+    } finally {
+      setExperienceLoading(false);
+    }
+  };
+
+  const loadHrEmployees = async () => {
+    setHrEmployeesLoading(true);
+    try {
+      const res = await apiClient.get('/recruitment/experience-letters/employees');
+      setHrEmployees(res.data?.data || []);
+    } catch (_e) {
+      try {
+        const uRes = await apiClient.get('/users');
+        const list = (uRes.data?.data || [])
+          .filter((u) => u.role === 'employee')
+          .map((u) => ({
+            _id: u._id,
+            name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+            email: u.email,
+            employeeId: u.jobDetails?.employeeId || '',
+            department: u.department || u.jobDetails?.department || 'Tech',
+            designation: u.designation || u.jobDetails?.designation || 'Associate',
+            joiningDate: u.jobDetails?.joiningDate || '',
+            relievingDate: u.exitDate ? new Date(u.exitDate).toISOString().slice(0, 10) : '',
+          }));
+        setHrEmployees(list);
+      } catch (_e2) {}
+    } finally {
+      setHrEmployeesLoading(false);
+    }
+  };
+
   const loadCompanyInfo = async () => {
     try {
       const res = await apiClient.get('/company-settings').catch(() => null);
@@ -177,8 +367,22 @@ export default function Recruitment() {
     } catch (_e) {}
   };
 
-  useEffect(() => { loadRecruitmentData(); loadCompanyInfo(); }, []);
+  useEffect(() => {
+    loadRecruitmentData();
+    loadCompanyInfo();
+    apiClient.get('/recruitment/experience-letters/summary')
+      .then((r) => { if (r.data?.data) setExperienceSummary(r.data.data); })
+      .catch(() => {});
+    loadHrEmployees();
+  }, []);
+  useEffect(() => { if (activeTab === 'pipeline') loadRecruitmentData(pipelineJobFilter); }, [activeTab, pipelineJobFilter]);
   useEffect(() => { if (activeTab === 'offers') loadOfferLetters(); }, [activeTab, offerStatusFilter, offerDeptFilter, offerEmpTypeFilter, offerSortDir]);
+  useEffect(() => {
+    if (activeTab === 'experience') {
+      loadExperienceLetters();
+      if (hrEmployees.length === 0) loadHrEmployees();
+    }
+  }, [activeTab, experienceStatusFilter, experienceDeptFilter, experienceSortDir]);
 
   // ── Computed ─────────────────────────────────────────────────────────
   const filteredJobs = useMemo(() => jobs.filter((j) => {
@@ -190,6 +394,38 @@ export default function Recruitment() {
     const s = c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()) || c.candidateId.toLowerCase().includes(search.toLowerCase()) || c.appliedPosition.toLowerCase().includes(search.toLowerCase());
     return s && (selectedDept === 'All' || c.department === selectedDept) && (selectedStage === 'All' || c.stage === selectedStage) && (selectedStatus === 'All' || c.status === selectedStatus);
   }), [candidates, search, selectedDept, selectedStage, selectedStatus]);
+
+  // Pipeline-specific candidates filtered by job requisition, dept, and search
+  const pipelineCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      if (pipelineJobFilter !== 'All') {
+        const cJobId = c.appliedJob?._id || c.appliedJob;
+        if (String(cJobId) !== String(pipelineJobFilter)) return false;
+      }
+      if (pipelineDeptFilter !== 'All' && c.department !== pipelineDeptFilter) {
+        return false;
+      }
+      if (pipelineSearch.trim()) {
+        const q = pipelineSearch.toLowerCase();
+        const matches =
+          (c.name || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.candidateId || '').toLowerCase().includes(q) ||
+          (c.appliedPosition || '').toLowerCase().includes(q) ||
+          (c.department || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [candidates, pipelineJobFilter, pipelineDeptFilter, pipelineSearch]);
+
+  const pipelineDepartments = useMemo(() => {
+    const set = new Set();
+    jobs.forEach((j) => { if (j.department) set.add(j.department); });
+    candidates.forEach((c) => { if (c.department) set.add(c.department); });
+    if (set.size === 0) OFFICIAL_DEPARTMENTS.forEach((d) => set.add(d));
+    return Array.from(set);
+  }, [jobs, candidates]);
 
   const allInterviews = useMemo(() => {
     const list = [];
@@ -207,7 +443,28 @@ export default function Recruitment() {
     return list.filter((o) => (o.offerNumber || '').toLowerCase().includes(q) || (o.offeredDesignation || '').toLowerCase().includes(q) || (o.candidate?.name || '').toLowerCase().includes(q) || (o.candidate?.email || '').toLowerCase().includes(q));
   }, [offers, offerSearch, offerStatusFilter]);
 
-  // ── Existing handlers (UNCHANGED) ────────────────────────────────────
+  const filteredExperienceLetters = useMemo(() => {
+    let list = experienceLetters;
+    if (experienceStatusFilter !== 'All') {
+      list = list.filter((l) => l.status === experienceStatusFilter);
+    }
+    if (experienceDeptFilter !== 'All') {
+      list = list.filter((l) => l.department === experienceDeptFilter);
+    }
+    if (experienceSearch && experienceSearch.trim()) {
+      const q = experienceSearch.toLowerCase().trim();
+      list = list.filter((l) =>
+        (l.letterNumber || '').toLowerCase().includes(q) ||
+        (l.employeeName || '').toLowerCase().includes(q) ||
+        (l.employeeId || '').toLowerCase().includes(q) ||
+        (l.designation || '').toLowerCase().includes(q) ||
+        (l.department || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [experienceLetters, experienceStatusFilter, experienceDeptFilter, experienceSearch]);
+
+  // ── Existing handlers ────────────────────────────────────────────────
   const handleOpenCreateJob = (job = null) => {
     setSelectedJob(job);
     if (job) setJobForm({ title:job.title||'', department:job.department||'Tech', designation:job.designation||'', openings:job.openings||1, employmentType:job.employmentType||'Full Time', location:job.location||'In-Office / Hybrid', experience:job.experience||'1-3 Years', salaryRange:job.salaryRange||'Competitive', priority:job.priority||'Medium', openingDate:job.openingDate?job.openingDate.slice(0,10):new Date().toISOString().slice(0,10), closingDate:job.closingDate?job.closingDate.slice(0,10):'', description:job.description||'', requirements:job.requirements||'', status:job.status||'Open' });
@@ -240,7 +497,276 @@ export default function Recruitment() {
     finally { setSubmitting(false); }
   };
 
-  const handleOpenProfile = (c) => { setSelectedCandidate(c); setShowProfileModal(true); };
+  const loadTimeline = async (candId) => {
+    setTimelineLoading(true);
+    try {
+      const res = await apiClient.get(`/recruitment/candidates/${candId}/timeline`);
+      const list = Array.isArray(res.data?.data) ? res.data.data : (res.data?.data?.history || []);
+      setCandidateTimeline(list);
+    } catch (_e) {
+      setCandidateTimeline([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
+  const handleOpenProfile = async (c) => {
+    setSelectedCandidate(c);
+    setCandidateDetailTab('overview');
+    setShowProfileModal(true);
+    await loadTimeline(c._id);
+  };
+
+  const performStageUpdate = async (candidateId, newStage, notes = '', reason = '') => {
+    setError('');
+    try {
+      await apiClient.patch(`/recruitment/candidates/${candidateId}/stage`, {
+        stage: newStage,
+        notes: notes || `Stage updated to ${newStage}`,
+        reason: reason || undefined,
+      });
+      setSuccess(`Candidate stage updated to ${newStage}`);
+      await loadRecruitmentData(pipelineJobFilter);
+      if (selectedCandidate?._id === candidateId) {
+        const u = await apiClient.get(`/recruitment/candidates/${candidateId}`);
+        setSelectedCandidate(u.data?.data);
+        await loadTimeline(candidateId);
+      }
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.message || `Failed to update candidate stage to ${newStage}. Rollback applied.`);
+      return false;
+    }
+  };
+
+  const handleDragStart = (e, cand) => {
+    setDraggedCandidate(cand);
+    e.dataTransfer.setData('text/plain', cand._id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedCandidate(null);
+    setDragOverStage(null);
+  };
+
+  const handleDragOver = (e, stage) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverStage !== stage) setDragOverStage(stage);
+  };
+
+  const handleDragLeave = (e, stage) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    if (dragOverStage === stage) setDragOverStage(null);
+  };
+
+  const handleDrop = async (e, targetStage) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const cand = draggedCandidate;
+    setDraggedCandidate(null);
+    if (!cand) return;
+
+    const currentNorm = cand.stage === 'HR Round' ? 'Final / HR Round' : cand.stage;
+    if (currentNorm === targetStage) return;
+
+    const allowed = VALID_TRANSITIONS[currentNorm] || [];
+    if (!allowed.includes(targetStage)) {
+      setError(`Invalid stage transition: Cannot move candidate directly from "${currentNorm}" to "${targetStage}". Valid progression required.`);
+      return;
+    }
+
+    if (targetStage === 'Screening') {
+      handleOpenScreening(cand);
+      return;
+    }
+    if (targetStage === 'Assessment') {
+      handleOpenAssessment(cand);
+      return;
+    }
+    if (targetStage === 'Rejected') {
+      handleOpenRejection(cand);
+      return;
+    }
+    if (targetStage === 'Withdrawn') {
+      handleOpenWithdrawal(cand);
+      return;
+    }
+
+    await performStageUpdate(cand._id, targetStage, `Moved via drag and drop to ${targetStage}`, 'Drag and drop progression');
+  };
+
+  const handleOpenScreening = (cand) => {
+    setSelectedCandidate(cand);
+    const s = cand.screening || {};
+    setScreeningForm({
+      skillsMatch: s.skillsMatch || 4,
+      experienceMatch: s.experienceMatch || 4,
+      communication: s.communication || 4,
+      assessmentScore: s.assessmentScore || 4,
+      recruiter: s.recruiter || 'HR Talent Acquisition',
+      notes: s.notes || '',
+      decision: s.decision || 'Pass',
+    });
+    setShowScreeningModal(true);
+  };
+
+  const handleSaveScreening = async (e) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    setSubmitting(true); setError('');
+    try {
+      await apiClient.post(`/recruitment/candidates/${selectedCandidate._id}/screening`, screeningForm);
+      setShowScreeningModal(false);
+      setSuccess(`Screening recorded! Decision: ${screeningForm.decision}`);
+      await loadRecruitmentData(pipelineJobFilter);
+      const u = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
+      setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record screening assessment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenAssessment = (cand) => {
+    setSelectedCandidate(cand);
+    const a = cand.assessment || {};
+    setAssessmentForm({
+      name: a.name || 'Technical Assessment',
+      score: a.score !== undefined ? a.score : 80,
+      maxScore: a.maxScore || 100,
+      result: a.result || 'Passed',
+      evaluator: a.evaluator || 'Technical Lead',
+      dueDate: a.dueDate ? a.dueDate.slice(0, 10) : '',
+      feedback: a.feedback || '',
+    });
+    setShowAssessmentModal(true);
+  };
+
+  const handleSaveAssessment = async (e) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    setSubmitting(true); setError('');
+    try {
+      await apiClient.post(`/recruitment/candidates/${selectedCandidate._id}/assessment`, assessmentForm);
+      setShowAssessmentModal(false);
+      setSuccess(`Assessment recorded for ${selectedCandidate.name}! Result: ${assessmentForm.result}`);
+      await loadRecruitmentData(pipelineJobFilter);
+      const u = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
+      setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record technical assessment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenRejection = (cand) => {
+    setSelectedCandidate(cand);
+    setRejectionForm({ reason: 'Skills mismatch', notes: '' });
+    setShowRejectionModal(true);
+  };
+
+  const handleSaveRejection = async (e) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    setSubmitting(true); setError('');
+    try {
+      await apiClient.patch(`/recruitment/candidates/${selectedCandidate._id}/reject`, rejectionForm);
+      setShowRejectionModal(false);
+      setSuccess('Candidate moved to Rejected stage.');
+      await loadRecruitmentData(pipelineJobFilter);
+      const u = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
+      setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reject candidate.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenWithdrawal = (cand) => {
+    setSelectedCandidate(cand);
+    setWithdrawalForm({ reason: 'Accepted another offer', notes: '' });
+    setShowWithdrawalModal(true);
+  };
+
+  const handleSaveWithdrawal = async (e) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    setSubmitting(true); setError('');
+    try {
+      await apiClient.patch(`/recruitment/candidates/${selectedCandidate._id}/withdraw`, withdrawalForm);
+      setShowWithdrawalModal(false);
+      setSuccess('Candidate moved to Withdrawn stage.');
+      await loadRecruitmentData(pipelineJobFilter);
+      const u = await apiClient.get(`/recruitment/candidates/${selectedCandidate._id}`);
+      setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record candidate withdrawal.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenMoveStage = (cand) => {
+    setSelectedCandidate(cand);
+    const currentNorm = cand.stage === 'HR Round' ? 'Final / HR Round' : (cand.stage || 'Applied');
+    const allowed = VALID_TRANSITIONS[currentNorm] || ALL_PIPELINE_STAGES;
+    setMoveStageForm({
+      toStage: allowed[0] || currentNorm,
+      reason: '',
+      notes: '',
+    });
+    setShowMoveStageModal(true);
+  };
+
+  const handleSaveMoveStage = async (e) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    const { toStage, notes, reason } = moveStageForm;
+    const currentNorm = selectedCandidate.stage === 'HR Round' ? 'Final / HR Round' : selectedCandidate.stage;
+    if (toStage === currentNorm) {
+      setShowMoveStageModal(false);
+      return;
+    }
+    const allowed = VALID_TRANSITIONS[currentNorm] || ALL_PIPELINE_STAGES;
+    if (!allowed.includes(toStage)) {
+      setError(`Invalid stage transition: Cannot move candidate directly from "${currentNorm}" to "${toStage}". Valid progression required.`);
+      setShowMoveStageModal(false);
+      return;
+    }
+    if (toStage === 'Screening') {
+      setShowMoveStageModal(false);
+      handleOpenScreening(selectedCandidate);
+      return;
+    }
+    if (toStage === 'Assessment') {
+      setShowMoveStageModal(false);
+      handleOpenAssessment(selectedCandidate);
+      return;
+    }
+    if (toStage === 'Rejected') {
+      setShowMoveStageModal(false);
+      handleOpenRejection(selectedCandidate);
+      return;
+    }
+    if (toStage === 'Withdrawn') {
+      setShowMoveStageModal(false);
+      handleOpenWithdrawal(selectedCandidate);
+      return;
+    }
+    setSubmitting(true);
+    setShowMoveStageModal(false);
+    await performStageUpdate(selectedCandidate._id, toStage, notes, reason);
+    setSubmitting(false);
+  };
 
   const handleShortlist = async (id) => {
     try { await apiClient.patch('/recruitment/candidates/'+id+'/shortlist'); setSuccess('Candidate shortlisted!'); await loadRecruitmentData(); if (selectedCandidate?._id===id) { const u=await apiClient.get('/recruitment/candidates/'+id); setSelectedCandidate(u.data?.data); } }
@@ -264,6 +790,7 @@ export default function Recruitment() {
       await apiClient.post('/recruitment/candidates/'+selectedCandidate._id+'/interviews', interviewForm);
       setShowInterviewModal(false); setSuccess('Interview scheduled!'); await loadRecruitmentData();
       const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
     } catch (err) { setError(err.response?.data?.message || 'Failed to schedule interview.'); }
     finally { setSubmitting(false); }
   };
@@ -280,6 +807,7 @@ export default function Recruitment() {
       await apiClient.patch('/recruitment/candidates/'+selectedCandidate._id+'/interviews/'+selectedInterview._id, { feedback:feedbackForm, status:'Completed' });
       setShowFeedbackModal(false); setSuccess('Feedback submitted!'); await loadRecruitmentData();
       const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
     } catch (err) { setError(err.response?.data?.message||'Failed to submit feedback.'); }
     finally { setSubmitting(false); }
   };
@@ -290,12 +818,14 @@ export default function Recruitment() {
       await apiClient.post('/recruitment/candidates/'+selectedCandidate._id+'/convert-employee');
       setShowConvertModal(false); if (showProfileModal) setShowProfileModal(false);
       setSuccess('Candidate onboarded as Employee!'); await loadRecruitmentData();
+      const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+      await loadTimeline(selectedCandidate._id);
     } catch (err) { setError(err.response?.data?.message||'Conversion failed.'); }
     finally { setSubmitting(false); }
   };
 
   // ── Offer Letter handlers ────────────────────────────────────────────
-  const handleOpenCreateOffer = (existing = null) => {
+  const handleOpenCreateOffer = (existing = null, presetCandidate = null) => {
     setOfferError(''); setOfferSuccess('');
     // Refresh real candidates from MongoDB on modal open so dropdown is always populated
     fetchCandidates();
@@ -320,6 +850,18 @@ export default function Recruitment() {
         noticePeriod: existing.noticePeriod || '30 Days',
         termsAndConditions: existing.termsAndConditions || '',
         additionalNotes: existing.additionalNotes || '',
+      });
+    } else if (presetCandidate) {
+      setSelectedCandidateId(presetCandidate._id);
+      setEditingOffer(null);
+      setOfferForm({
+        ...DEFAULT_OFFER_FORM,
+        candidateId: presetCandidate._id,
+        offeredDesignation: presetCandidate.appliedPosition || '',
+        department: presetCandidate.department || 'Tech',
+        salary: presetCandidate.expectedSalary || '',
+        workLocation: presetCandidate.location || 'In-Office / Hybrid',
+        noticePeriod: presetCandidate.noticePeriod || '30 Days',
       });
     } else {
       setSelectedCandidateId('');
@@ -646,6 +1188,297 @@ export default function Recruitment() {
     doc.save(`Offer_Letter_${safeName}_${safeOfr}.pdf`);
   };
 
+  // ── Experience Letter Handlers ─────────────────────────────────────────
+  const handleOpenCreateExperience = (letter = null) => {
+    if (hrEmployees.length === 0) loadHrEmployees();
+    setExperienceError('');
+    if (letter) {
+      setEditingExperienceLetter(letter);
+      setExperienceForm({
+        employeeId: letter.employee?._id || letter.employee || '',
+        employeeName: letter.employeeName || '',
+        empCode: letter.employeeId || '',
+        designation: letter.designation || '',
+        department: letter.department || 'Tech',
+        joiningDate: letter.joiningDate ? new Date(letter.joiningDate).toISOString().slice(0, 10) : '',
+        relievingDate: letter.relievingDate ? new Date(letter.relievingDate).toISOString().slice(0, 10) : '',
+        employmentDuration: letter.employmentDuration || '',
+        letterDate: letter.letterDate ? new Date(letter.letterDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        workLocation: letter.workLocation || 'Mumbai / Head Office',
+        conduct: letter.conduct || 'Exemplary',
+        reasonForLeaving: letter.reasonForLeaving || 'Resignation / Personal Aspirations',
+        authorizedSignatory: letter.authorizedSignatory || 'Human Resources Manager',
+        authorizedSignatoryTitle: letter.authorizedSignatoryTitle || 'Head of Human Resources',
+        notes: letter.notes || '',
+        status: letter.status || 'Issued',
+      });
+    } else {
+      setEditingExperienceLetter(null);
+      setExperienceForm({
+        employeeId: '',
+        employeeName: '',
+        empCode: '',
+        designation: '',
+        department: 'Tech',
+        joiningDate: '',
+        relievingDate: new Date().toISOString().slice(0, 10),
+        employmentDuration: '',
+        letterDate: new Date().toISOString().slice(0, 10),
+        workLocation: 'Mumbai / Head Office',
+        conduct: 'Exemplary',
+        reasonForLeaving: 'Resignation / Personal Aspirations',
+        authorizedSignatory: 'Human Resources Manager',
+        authorizedSignatoryTitle: 'Head of Human Resources',
+        notes: '',
+        status: 'Issued',
+      });
+    }
+    setShowExperienceModal(true);
+  };
+
+  const handleSelectEmployeeForExp = (selectedEmpId) => {
+    const emp = hrEmployees.find((e) => String(e._id) === String(selectedEmpId));
+    if (!emp) {
+      setExperienceForm((prev) => ({ ...prev, employeeId: selectedEmpId }));
+      return;
+    }
+    const jDate = emp.joiningDate ? new Date(emp.joiningDate).toISOString().slice(0, 10) : '';
+    const rDate = emp.relievingDate || experienceForm.relievingDate || new Date().toISOString().slice(0, 10);
+    const duration = computeDurationText(jDate, rDate);
+
+    setExperienceForm((prev) => ({
+      ...prev,
+      employeeId: emp._id,
+      employeeName: emp.name,
+      empCode: emp.employeeId || '',
+      designation: emp.designation || 'Software Engineer',
+      department: emp.department || 'Tech',
+      joiningDate: jDate,
+      relievingDate: rDate,
+      employmentDuration: duration,
+      workLocation: emp.location || prev.workLocation || 'Mumbai / Head Office',
+    }));
+  };
+
+  const handleDateChangeForExp = (field, val) => {
+    setExperienceForm((prev) => {
+      const updated = { ...prev, [field]: val };
+      const j = field === 'joiningDate' ? val : prev.joiningDate;
+      const r = field === 'relievingDate' ? val : prev.relievingDate;
+      if (j && r) {
+        updated.employmentDuration = computeDurationText(j, r);
+      }
+      return updated;
+    });
+  };
+
+  const handleSaveExperience = async (e) => {
+    e.preventDefault();
+    setExperienceSubmitting(true);
+    setExperienceError('');
+    try {
+      if (!experienceForm.employeeId) throw new Error('Please select an employee');
+      if (!experienceForm.joiningDate) throw new Error('Joining date is required');
+      if (!experienceForm.relievingDate) throw new Error('Relieving date is required');
+
+      let res;
+      if (editingExperienceLetter) {
+        res = await apiClient.put(`/recruitment/experience-letters/${editingExperienceLetter._id}`, experienceForm);
+        setExperienceSuccess(`Experience Letter ${res.data?.data?.letterNumber || ''} updated successfully!`);
+      } else {
+        res = await apiClient.post('/recruitment/experience-letters', experienceForm);
+        setExperienceSuccess(`Experience Letter ${res.data?.data?.letterNumber || ''} generated successfully!`);
+      }
+      setShowExperienceModal(false);
+      loadExperienceLetters();
+      setTimeout(() => setExperienceSuccess(''), 5000);
+    } catch (err) {
+      setExperienceError(err.response?.data?.message || err.message || 'Failed to save experience letter.');
+    } finally {
+      setExperienceSubmitting(false);
+    }
+  };
+
+  const handleDeleteExperience = async () => {
+    if (!viewingExperienceLetter) return;
+    setExperienceSubmitting(true);
+    try {
+      await apiClient.delete(`/recruitment/experience-letters/${viewingExperienceLetter._id}`);
+      setShowExperienceDeleteModal(false);
+      setViewingExperienceLetter(null);
+      setExperienceSuccess('Experience letter deleted successfully.');
+      loadExperienceLetters();
+      setTimeout(() => setExperienceSuccess(''), 5000);
+    } catch (err) {
+      setExperienceError(err.response?.data?.message || 'Failed to delete experience letter.');
+    } finally {
+      setExperienceSubmitting(false);
+    }
+  };
+
+  const handleDownloadExperiencePDF = async (letter) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const companyName = 'AASHA SM TECHNOLOGIES PRIVATE LIMITED';
+    const fd = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    const pageW = 210;
+    const m = 20;
+    let y = 16;
+
+    // 1. Corporate Header with Logo
+    try {
+      const logoData = await getBase64ImageFromUrl('/aasha-logo-new.jpg');
+      if (logoData) {
+        doc.addImage(logoData, 'JPEG', m, y - 2, 42, 13);
+      }
+    } catch (_e) {}
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(companyName, pageW - m, y + 2, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Corporate Human Resources & Operations', pageW - m, y + 7, { align: 'right' });
+    doc.text('Aasha SM Technologies · IT Services & Solutions', pageW - m, y + 11, { align: 'right' });
+
+    y += 17;
+    // Orange brand accent divider
+    doc.setDrawColor(234, 88, 12);
+    doc.setLineWidth(0.8);
+    doc.line(m, y, pageW - m, y);
+    y += 9;
+
+    // Reference number and Date
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Ref No:', m, y);
+    doc.setTextColor(15, 23, 42);
+    doc.text(letter.letterNumber || 'EXP-00000', m + 15, y);
+
+    doc.setTextColor(100, 116, 139);
+    doc.text('Date:', pageW - m - 45, y);
+    doc.setTextColor(15, 23, 42);
+    doc.text(fd(letter.letterDate), pageW - m, y, { align: 'right' });
+
+    y += 13;
+
+    // Centered Title
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(234, 88, 12);
+    doc.text('TO WHOMSOEVER IT MAY CONCERN', pageW / 2, y, { align: 'center' });
+
+    const titleW = doc.getTextWidth('TO WHOMSOEVER IT MAY CONCERN');
+    doc.setDrawColor(234, 88, 12);
+    doc.setLineWidth(0.5);
+    doc.line(pageW / 2 - titleW / 2, y + 1.5, pageW / 2 + titleW / 2, y + 1.5);
+
+    y += 13;
+
+    // Body Paragraph 1: Certification of Employment
+    const empName = letter.employeeName || letter.employee?.firstName || 'Employee';
+    const empId = letter.employeeId || letter.employee?.jobDetails?.employeeId || '';
+    const desig = letter.designation || 'Software Engineer';
+    const dept = letter.department || 'Tech';
+    const jDate = fd(letter.joiningDate);
+    const rDate = fd(letter.relievingDate);
+    const tenure = letter.employmentDuration || computeDurationText(letter.joiningDate, letter.relievingDate) || 'the tenure';
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+
+    const empIdText = empId ? ` (Employee ID: ${empId})` : '';
+    const para1 = `This is to certify that ${empName}${empIdText} was in formal employment with ${companyName} from ${jDate} to ${rDate}, serving a cumulative tenure of ${tenure}.`;
+    const para1Lines = doc.splitTextToSize(para1, pageW - 2 * m);
+    doc.text(para1Lines, m, y);
+    y += para1Lines.length * 5.2 + 3;
+
+    const para2 = `During the tenure of employment, they rendered dedicated service in the role of ${desig} within the ${dept} department at our ${letter.workLocation || 'Mumbai'} office.`;
+    const para2Lines = doc.splitTextToSize(para2, pageW - 2 * m);
+    doc.text(para2Lines, m, y);
+    y += para2Lines.length * 5.2 + 4;
+
+    // Key Employment Verification Card Box
+    const infoRows = [
+      ['Employee Name:', empName],
+      ['Employee ID:', empId || '—'],
+      ['Designation:', desig],
+      ['Department:', dept],
+      ['Date of Joining:', jDate],
+      ['Date of Relieving:', rDate],
+      ['Employment Duration:', tenure],
+      ['Work Location:', letter.workLocation || 'Head Office, Mumbai'],
+    ];
+
+    const boxH = infoRows.length * 5.4 + 6;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(m, y, pageW - 2 * m, boxH, 2, 2, 'FD');
+    y += 5;
+
+    infoRows.forEach(([lbl, val]) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(lbl, m + 4, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(val), m + 52, y);
+      y += 5.4;
+    });
+    y += 7;
+
+    // Body Paragraph 3: Professional Conduct & Performance
+    const conduct = letter.conduct || 'Exemplary';
+    const para3 = `During their tenure with AASHA SM TECHNOLOGIES PRIVATE LIMITED, we found them to be sincere, hard-working, and result-oriented. Their character, professional demeanor, and conduct were observed to be ${conduct.toLowerCase()}.`;
+    const para3Lines = doc.splitTextToSize(para3, pageW - 2 * m);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    doc.text(para3Lines, m, y);
+    y += para3Lines.length * 5.2 + 3.5;
+
+    // Body Paragraph 4: Separation & Good Wishes
+    const reason = letter.reasonForLeaving || 'resignation';
+    const para4 = `They have been formally relieved from all duties on ${rDate} upon ${reason.toLowerCase()}. All company assets, clearances, and financial accounts have been satisfactorily settled. We extend our sincere appreciation for their contributions and wish them success in all their future endeavors.`;
+    const para4Lines = doc.splitTextToSize(para4, pageW - 2 * m);
+    doc.text(para4Lines, m, y);
+    y += para4Lines.length * 5.2 + 9;
+
+    // Signatory Block
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`For ${companyName}`, m, y);
+    y += 18; // Space for signature & stamp
+
+    doc.text(letter.authorizedSignatory || 'Authorized Signatory', m, y);
+    y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(letter.authorizedSignatoryTitle || 'Head of Human Resources', m, y);
+    y += 4;
+    doc.text('Corporate Human Resources & People Operations', m, y);
+
+    // Footer banner (A4 bottom)
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 282, pageW, 15, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, 282, pageW, 282);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`${companyName} · Official Experience Certification · Document Ref: ${letter.letterNumber || 'EXP'}`, pageW / 2, 290, { align: 'center' });
+
+    const safeName = (empName || 'Employee').trim().replace(/[^a-zA-Z0-9]/g, '_');
+    const safeNum = (letter.letterNumber || 'EXP').trim().replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Experience_Letter_${safeName}_${safeNum}.pdf`);
+  };
+
   const sbCls = (s) => { const m={Draft:'rec-badge-draft',Sent:'rec-badge-sent',Accepted:'rec-badge-accepted',Rejected:'rec-badge-rejected',Expired:'rec-badge-expired',Withdrawn:'rec-badge-withdrawn',Hired:'hired'}; return 'rec-badge '+(m[s]||''); };
 
   return (
@@ -682,7 +1515,7 @@ export default function Recruitment() {
 
         {/* Tabs */}
         <div className="rec-nav-tabs-wrap"><div className="rec-nav-tabs">
-          {[['jobs','Job Requisitions ('+jobs.length+')'],['pipeline','Recruitment Pipeline Board'],['candidates','Candidate Directory ('+candidates.length+')'],['interviews','Interviews ('+allInterviews.length+')'],['offers','Offer Letters ('+(offerSummary.total||0)+')'],['reports','Hiring Analytics']].map(([t,l])=>(
+          {[['jobs','Job Requisitions ('+jobs.length+')'],['pipeline','Recruitment Pipeline Board'],['candidates','Candidate Directory ('+candidates.length+')'],['interviews','Interviews ('+allInterviews.length+')'],['offers','Offer Letters ('+(offerSummary.total||0)+')'],['experience','Experience Letters ('+(experienceSummary.total||0)+')'],['reports','Hiring Analytics']].map(([t,l])=>(
             <button key={t} type="button" className={'rec-tab-btn '+(activeTab===t?'active':'')} onClick={()=>setActiveTab(t)}>{l}</button>
           ))}
         </div></div>
@@ -706,11 +1539,263 @@ export default function Recruitment() {
 
         {/* TAB 2: PIPELINE BOARD */}
         {activeTab==='pipeline' && (
-          <div className="rec-pipeline-board">
-            {PIPELINE_STAGES.map(stage=>{
-              const sc=candidates.filter(c=>c.stage===stage);
-              return <div key={stage} className="rec-pipeline-column"><div className="rec-col-header"><h4>{stage}</h4><span className="rec-col-count">{sc.length}</span></div><div className="rec-col-cards">{sc.length===0?<div style={{fontSize:'0.78rem',color:'#94a3b8',textAlign:'center',padding:'1.5rem 0'}}>No candidates</div>:sc.map(c=><div key={c._id} className="rec-cand-card" onClick={()=>handleOpenProfile(c)}><h5 className="rec-cand-card-name">{c.name}</h5><p className="rec-cand-card-pos">{c.appliedPosition} &middot; {c.department}</p><div className="rec-cand-card-footer"><span>{c.experience}</span><span>{c.candidateId}</span></div></div>)}</div></div>;
-            })}
+          <div>
+            <div className="rec-pipeline-toolbar">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', flex: 1 }}>
+                <select
+                  className="rec-filter-select rec-job-select"
+                  value={pipelineJobFilter}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPipelineJobFilter(val);
+                    loadRecruitmentData(val);
+                  }}
+                  title="Filter candidates and KPIs by Job Requisition"
+                >
+                  <option value="All">All Job Requisitions ({jobs.length})</option>
+                  {jobs.map((j) => (
+                    <option key={j._id} value={j._id}>
+                      {j.jobId} &middot; {j.title} ({j.department})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="rec-filter-select"
+                  value={pipelineDeptFilter}
+                  onChange={(e) => setPipelineDeptFilter(e.target.value)}
+                >
+                  <option value="All">All Departments</option>
+                  {pipelineDepartments.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+
+                <div className="rec-search-wrap" style={{ flex: 1, minWidth: '220px', maxWidth: '360px' }}>
+                  <svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search candidate name, ID, position..."
+                    className="rec-search-input"
+                    value={pipelineSearch}
+                    onChange={(e) => setPipelineSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  className={`rec-terminal-toggle ${showTerminalStages ? 'active' : ''}`}
+                  onClick={() => setShowTerminalStages(!showTerminalStages)}
+                >
+                  {showTerminalStages ? 'Hide Rejected/Withdrawn/On Hold' : 'Show Rejected/Withdrawn/On Hold'}
+                </button>
+                <button
+                  type="button"
+                  className="rec-btn-sm view"
+                  onClick={() => loadRecruitmentData(pipelineJobFilter)}
+                  title="Reload from MongoDB Atlas"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : '↻ Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {/* Loading / Error / Empty States */}
+            {loading ? (
+              <div className="rec-table-card" style={{ padding: '3.5rem 1rem', textAlign: 'center', color: '#64748b' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '700', fontSize: '1rem', color: '#0f172a' }}>Loading Candidate Pipeline from MongoDB Atlas...</p>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>Fetching live candidate records and stage counts.</p>
+              </div>
+            ) : error ? (
+              <div className="rec-table-card" style={{ padding: '2.5rem 1rem', textAlign: 'center', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '700', color: '#b91c1c' }}>Unable to load recruitment data</p>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: '#991b1b' }}>{error}</p>
+                <button type="button" className="rec-btn-sm view" onClick={() => loadRecruitmentData(pipelineJobFilter)}>Retry</button>
+              </div>
+            ) : candidates.length === 0 ? (
+              <div className="rec-table-card" style={{ padding: '3.5rem 1rem', textAlign: 'center', color: '#64748b' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '700', fontSize: '1.05rem', color: '#334155' }}>No candidates found</p>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem' }}>Candidates will appear here once they apply or are registered in the recruitment system.</p>
+                <button type="button" className="rec-btn-sm shortlist" onClick={handleOpenAddCandidate}>+ Register First Candidate</button>
+              </div>
+            ) : (
+              <div className="rec-pipeline-board">
+                {(showTerminalStages ? ALL_PIPELINE_STAGES : PIPELINE_MAIN_STAGES).map((stage) => {
+                  const stageCands = pipelineCandidates.filter((c) => {
+                    if (stage === 'Final / HR Round') {
+                      return c.stage === 'Final / HR Round' || c.stage === 'HR Round';
+                    }
+                    return c.stage === stage;
+                  });
+                  const isOver = dragOverStage === stage;
+                  const isTerminal = PIPELINE_TERMINAL_STAGES.includes(stage);
+
+                  return (
+                    <div
+                      key={stage}
+                      className={`rec-pipeline-column ${isOver ? 'drag-over' : ''} ${isTerminal ? 'terminal' : ''}`}
+                      onDragOver={(e) => handleDragOver(e, stage)}
+                      onDragLeave={(e) => handleDragLeave(e, stage)}
+                      onDrop={(e) => handleDrop(e, stage)}
+                    >
+                      <div className="rec-col-header">
+                        <h4>{stage}</h4>
+                        <span className="rec-col-count">{stageCands.length}</span>
+                      </div>
+                      <div className="rec-col-cards">
+                        {stageCands.length === 0 ? (
+                          <div style={{ fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', padding: '2rem 0' }}>
+                            No candidates
+                          </div>
+                        ) : (
+                          stageCands.map((c) => {
+                            const isDragging = draggedCandidate?._id === c._id;
+                            const initials = (c.name || 'NA').slice(0, 2).toUpperCase();
+                            const lastInv = (c.interviews || []).slice(-1)[0];
+                            return (
+                              <div
+                                key={c._id}
+                                className={`rec-cand-card ${isDragging ? 'dragging' : ''}`}
+                                draggable={true}
+                                onDragStart={(e) => handleDragStart(e, c)}
+                                onDragEnd={handleDragEnd}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem', marginBottom: '0.45rem' }}>
+                                  <div className="rec-cand-card-avatar">{initials}</div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <h5 className="rec-cand-card-name" title={c.name}>{c.name || 'Unnamed Candidate'}</h5>
+                                    <p className="rec-cand-card-pos" title={`${c.appliedPosition || 'Position'} · ${c.department || 'Department'}`}>
+                                      {c.appliedPosition || 'Not specified'} &middot; {c.department || 'Not specified'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="rec-cand-card-tags">
+                                  <span className="rec-cand-tag-exp">{c.candidateId || 'No ID'}</span>
+                                  <span className="rec-cand-tag-exp">{c.experience || 'Not provided'}</span>
+                                  {c.atsScore ? (
+                                    <span
+                                      className="rec-cand-tag-exp"
+                                      style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: '700' }}
+                                      title={`ATS Match Score: ${c.atsScore}%`}
+                                    >
+                                      ATS: {c.atsScore}%
+                                    </span>
+                                  ) : null}
+                                  {c.assessment?.result && (
+                                    <span
+                                      className="rec-cand-tag-inv"
+                                      style={{
+                                        background: c.assessment.result === 'Passed' ? '#ecfdf5' : c.assessment.result === 'Failed' ? '#fef2f2' : '#f0f9ff',
+                                        color: c.assessment.result === 'Passed' ? '#059669' : c.assessment.result === 'Failed' ? '#dc2626' : '#0284c7',
+                                      }}
+                                      title={`Assessment: ${c.assessment.name} (${c.assessment.score}/${c.assessment.maxScore})`}
+                                    >
+                                      📝 {c.assessment.result}
+                                    </span>
+                                  )}
+                                  {lastInv && (
+                                    <span className="rec-cand-tag-inv" title={`Latest: ${lastInv.round} (${lastInv.status})`}>
+                                      {lastInv.status === 'Completed' ? '✓ ' + lastInv.round : '📅 ' + lastInv.round}
+                                    </span>
+                                  )}
+                                  {c.screening?.decision && (
+                                    <span
+                                      className="rec-cand-tag-exp"
+                                      style={{
+                                        background: c.screening.decision === 'Pass' ? '#ecfdf5' : c.screening.decision === 'Hold' ? '#fef3c7' : '#fef2f2',
+                                        color: c.screening.decision === 'Pass' ? '#059669' : c.screening.decision === 'Hold' ? '#b45309' : '#dc2626',
+                                      }}
+                                    >
+                                      Screening: {c.screening.decision}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="rec-cand-card-actions">
+                                  <button
+                                    type="button"
+                                    className="rec-btn-xs view"
+                                    onClick={() => handleOpenProfile(c)}
+                                    title="View Candidate Profile & Timeline"
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rec-btn-xs move"
+                                    onClick={() => handleOpenMoveStage(c)}
+                                    title="Change stage manually"
+                                  >
+                                    Move
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rec-btn-xs interview"
+                                    onClick={() => handleOpenSchedule(c)}
+                                    title="Schedule Interview Round"
+                                  >
+                                    Schedule
+                                  </button>
+                                  {c.stage === 'Applied' && (
+                                    <button
+                                      type="button"
+                                      className="rec-btn-xs screen"
+                                      onClick={() => handleOpenScreening(c)}
+                                      title="Evaluate Screening"
+                                    >
+                                      Screen
+                                    </button>
+                                  )}
+                                  {(c.stage === 'Shortlisted' || c.stage === 'Assessment') && (
+                                    <button
+                                      type="button"
+                                      className="rec-btn-xs shortlist"
+                                      onClick={() => handleOpenAssessment(c)}
+                                      title="Record Technical Assessment"
+                                    >
+                                      Assess
+                                    </button>
+                                  )}
+                                  {c.stage === 'Selected' && (
+                                    <button
+                                      type="button"
+                                      className="rec-btn-xs offer"
+                                      onClick={() => handleOpenCreateOffer(null, c)}
+                                      title="Create Offer Letter in MongoDB"
+                                    >
+                                      Offer
+                                    </button>
+                                  )}
+                                  {(c.stage === 'Offer' || c.stage === 'Selected') && !c.convertedEmployeeId && (
+                                    <button
+                                      type="button"
+                                      className="rec-btn-xs convert"
+                                      onClick={() => {
+                                        setSelectedCandidate(c);
+                                        setShowConvertModal(true);
+                                      }}
+                                      title="Convert Candidate to Active Employee"
+                                    >
+                                      Hire
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            )}
           </div>
         )}
 
@@ -876,7 +1961,7 @@ export default function Recruitment() {
                         <th>Joining Date</th>
                         <th>Status</th>
                         <th>Offer Date</th>
-                        <th>Actions</th>
+                        <th className="rec-offer-actions-col">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -902,55 +1987,51 @@ export default function Recruitment() {
                           <td>{formatDate(o.joiningDate)}</td>
                           <td><span className={sbCls(o.status)}>{o.status}</span></td>
                           <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{formatDate(o.offerDate)}</td>
-                          <td>
-                            <div className="rec-actions-wrap">
-                              <button type="button" className="rec-btn-sm view" onClick={() => { setViewingOffer(o); setShowOfferPreviewModal(true); }}>
+                          <td className="rec-offer-actions-col">
+                            <div className="rec-actions-wrap rec-offer-actions-wrap">
+                              <button
+                                type="button"
+                                className="rec-btn-sm view"
+                                onClick={() => {
+                                  setViewingOffer(o);
+                                  setShowOfferPreviewModal(true);
+                                }}
+                              >
                                 Preview
                               </button>
-                              <button type="button" className="rec-btn-sm interview" onClick={() => handleDownloadPDF(o)}>
-                                PDF
+                              <button
+                                type="button"
+                                className="rec-btn-sm shortlist"
+                                onClick={() => handleOpenCreateOffer(o)}
+                              >
+                                Edit
                               </button>
-                              {['Draft', 'Rejected'].includes(o.status) && (
-                                <button type="button" className="rec-btn-sm shortlist" onClick={() => handleOpenCreateOffer(o)}>
-                                  Edit
-                                </button>
-                              )}
-                              {o.status === 'Draft' && (
-                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferSendModal(true); }}>
-                                  {offerSubmitting ? 'Sending...' : 'Send'}
-                                </button>
-                              )}
-                              {o.status === 'Sent' && (
-                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'resend')}>
-                                  {offerSubmitting ? 'Resending...' : 'Resend'}
-                                </button>
-                              )}
-                              {['Draft', 'Sent'].includes(o.status) && (
-                                <>
-                                  <button type="button" className="rec-btn-sm" style={{ background: '#15803d', color: '#fff', border: 'none' }} disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'accept', { note: 'Accepted by HR' })}>
-                                    Accept
-                                  </button>
-                                  <button type="button" className="rec-btn-sm reject" disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'reject', { reason: 'Declined' })}>
-                                    Reject
-                                  </button>
-                                  <button type="button" className="rec-btn-sm" style={{ background: '#78716c', color: '#fff', border: 'none' }} disabled={offerSubmitting} onClick={() => handleStatusAction(o._id, 'withdraw')}>
-                                    Withdraw
-                                  </button>
-                                </>
-                              )}
-                              {o.status === 'Accepted' && !o.convertedEmployee && (
-                                <button type="button" className="rec-btn-sm convert" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferConvertModal(true); }}>
-                                  {offerSubmitting ? 'Converting...' : 'Convert to Employee'}
-                                </button>
-                              )}
-                              {o.convertedEmployee && (
-                                <span className="rec-badge hired" style={{ fontSize: '0.72rem' }}>✓ Hired</span>
-                              )}
-                              {['Draft', 'Rejected', 'Withdrawn', 'Expired'].includes(o.status) && (
-                                <button type="button" className="rec-btn-sm reject" disabled={offerSubmitting} onClick={() => { setViewingOffer(o); setShowOfferDeleteModal(true); }}>
-                                  Delete
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                className="rec-btn-sm convert"
+                                disabled={offerSubmitting}
+                                onClick={() => {
+                                  if (o.status === 'Sent') {
+                                    handleStatusAction(o._id, 'resend');
+                                  } else {
+                                    setViewingOffer(o);
+                                    setShowOfferSendModal(true);
+                                  }
+                                }}
+                              >
+                                {offerSubmitting ? 'Sending...' : o.status === 'Sent' ? 'Resend' : 'Send'}
+                              </button>
+                              <button
+                                type="button"
+                                className="rec-btn-sm reject"
+                                disabled={offerSubmitting}
+                                onClick={() => {
+                                  setViewingOffer(o);
+                                  setShowOfferDeleteModal(true);
+                                }}
+                              >
+                                Delete
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -963,7 +2044,202 @@ export default function Recruitment() {
           </div>
         )}
 
-        {/* TAB 6: HIRING ANALYTICS */}
+        {/* TAB 6: EXPERIENCE LETTERS */}
+        {activeTab==='experience' && (
+          <div>
+            {/* Experience Letter Header */}
+            <div className="rec-offer-header">
+              <div className="rec-offer-header-info">
+                <h3>Experience Letters</h3>
+                <p>Generate, issue, and manage verified corporate experience certification letters for employees.</p>
+              </div>
+              <button type="button" className="rec-primary-btn" onClick={() => handleOpenCreateExperience()}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                + Generate Experience Letter
+              </button>
+            </div>
+
+            {experienceError && <div className="rec-form-error"><span>⚠️</span><span>{experienceError}</span></div>}
+            {experienceSuccess && <div className="rec-form-success"><span>✓</span><span>{experienceSuccess}</span></div>}
+
+            {/* Experience KPI Grid */}
+            <div className="rec-offer-kpi-grid">
+              {[
+                { key: 'total', label: 'Total Letters', value: experienceSummary.total, filter: 'All', helper: 'All generated letters', icon: '📄', color: '#0f172a', bg: '#f8fafc' },
+                { key: 'issued', label: 'Issued', value: experienceSummary.issued, filter: 'Issued', helper: 'Formally issued certificates', icon: '✓', color: '#15803d', bg: '#ecfdf5' },
+                { key: 'draft', label: 'Draft', value: experienceSummary.draft, filter: 'Draft', helper: 'Pending drafts', icon: '📝', color: '#64748b', bg: '#f1f5f9' },
+                { key: 'revoked', label: 'Revoked', value: experienceSummary.revoked, filter: 'Revoked', helper: 'Revoked / cancelled', icon: '✕', color: '#dc2626', bg: '#fef2f2' },
+              ].map((k) => {
+                const isActive = experienceStatusFilter === k.filter;
+                return (
+                  <div
+                    key={k.key}
+                    className={`rec-offer-kpi-card ${isActive ? 'active' : ''}`}
+                    onClick={() => setExperienceStatusFilter(k.filter)}
+                  >
+                    <div className="rec-kpi-card-top">
+                      <span className="rec-kpi-card-label">{k.label}</span>
+                      <div className="rec-kpi-card-icon" style={{ background: k.bg, color: k.color }}>{k.icon}</div>
+                    </div>
+                    <div className="rec-kpi-card-val" style={{ color: k.color }}>
+                      {experienceLoading ? '...' : (k.value ?? 0)}
+                    </div>
+                    <p className="rec-kpi-card-helper">{k.helper}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Experience Toolbar */}
+            <div className="rec-toolbar" style={{ marginTop: '1rem' }}>
+              <div className="rec-search-wrap">
+                <svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search letter number, employee, designation..."
+                  className="rec-search-input"
+                  value={experienceSearch}
+                  onChange={(e) => setExperienceSearch(e.target.value)}
+                />
+              </div>
+              <select className="rec-filter-select" value={experienceStatusFilter} onChange={(e) => setExperienceStatusFilter(e.target.value)}>
+                <option value="All">All Statuses</option>
+                <option value="Issued">Issued</option>
+                <option value="Draft">Draft</option>
+                <option value="Revoked">Revoked</option>
+              </select>
+              <select className="rec-filter-select" value={experienceDeptFilter} onChange={(e) => setExperienceDeptFilter(e.target.value)}>
+                <option value="All">All Departments</option>
+                {OFFICIAL_DEPARTMENTS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              <select className="rec-filter-select" value={experienceSortDir} onChange={(e) => setExperienceSortDir(e.target.value)}>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+              {(experienceSearch || experienceStatusFilter !== 'All' || experienceDeptFilter !== 'All') && (
+                <button
+                  type="button"
+                  className="rec-btn-sm view"
+                  onClick={() => {
+                    setExperienceSearch('');
+                    setExperienceStatusFilter('All');
+                    setExperienceDeptFilter('All');
+                  }}
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+
+            {/* Experience Letters Table */}
+            <div className="rec-table-card" style={{ marginTop: '1rem' }}>
+              {experienceLoading ? (
+                <div style={{ padding: '3.5rem', textAlign: 'center', color: '#64748b' }}>Loading experience letters from database...</div>
+              ) : filteredExperienceLetters.length === 0 ? (
+                <div style={{ padding: '3.5rem', textAlign: 'center', color: '#64748b' }}>
+                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#334155' }}>No experience letters generated yet.</p>
+                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem' }}>Click &quot;+ Generate Experience Letter&quot; to issue an official experience certificate.</p>
+                  <button type="button" className="rec-primary-btn" onClick={() => handleOpenCreateExperience()} style={{ margin: '0 auto' }}>
+                    + Generate Experience Letter
+                  </button>
+                </div>
+              ) : (
+                <div className="rec-table-wrap">
+                  <table className="rec-table">
+                    <thead>
+                      <tr>
+                        <th>Letter No.</th>
+                        <th>Employee</th>
+                        <th>Designation</th>
+                        <th>Department</th>
+                        <th>Tenure Period</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Letter Date</th>
+                        <th className="rec-offer-actions-col">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExperienceLetters.map((l) => (
+                        <tr key={l._id}>
+                          <td>
+                            <strong style={{ color: '#ea580c', fontFamily: 'monospace', fontSize: '0.85rem' }}>{l.letterNumber}</strong>
+                          </td>
+                          <td>
+                            <div className="rec-cand-cell">
+                              <div className="rec-cand-avatar">
+                                {(l.employeeName || 'E').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="rec-cand-info">
+                                <span className="rec-cand-name">{l.employeeName || 'Employee'}</span>
+                                <span className="rec-cand-email">{l.employeeId ? `ID: ${l.employeeId}` : (l.employee?.email || '')}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{l.designation}</td>
+                          <td><span className="hr-emp-dept-pill">{l.department}</span></td>
+                          <td style={{ fontSize: '0.82rem' }}>{formatDate(l.joiningDate)} &mdash; {formatDate(l.relievingDate)}</td>
+                          <td><strong>{l.employmentDuration || computeDurationText(l.joiningDate, l.relievingDate) || '—'}</strong></td>
+                          <td><span className={expBadgeCls(l.status)}>{l.status}</span></td>
+                          <td style={{ fontSize: '0.8rem', color: '#64748b' }}>{formatDate(l.letterDate)}</td>
+                          <td className="rec-offer-actions-col">
+                            <div className="rec-actions-wrap rec-offer-actions-wrap">
+                              <button
+                                type="button"
+                                className="rec-btn-sm view"
+                                onClick={() => {
+                                  setViewingExperienceLetter(l);
+                                  setShowExperiencePreviewModal(true);
+                                }}
+                              >
+                                Preview
+                              </button>
+                              <button
+                                type="button"
+                                className="rec-btn-sm shortlist"
+                                onClick={() => handleOpenCreateExperience(l)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="rec-btn-sm convert"
+                                onClick={() => handleDownloadExperiencePDF(l)}
+                              >
+                                Download
+                              </button>
+                              <button
+                                type="button"
+                                className="rec-btn-sm reject"
+                                disabled={experienceSubmitting}
+                                onClick={() => {
+                                  setViewingExperienceLetter(l);
+                                  setShowExperienceDeleteModal(true);
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: HIRING ANALYTICS */}
         {activeTab==='reports' && (
           <div className="rec-analytics-grid">
             <div className="rec-analytics-card"><h4>Open Positions &amp; Applicants by Department</h4>
@@ -1023,32 +2299,773 @@ export default function Recruitment() {
           </div>
         )}
 
-        {/* Candidate Profile Modal */}
-        {showProfileModal&&selectedCandidate&&(
-          <div className="hr-modal-overlay" onClick={()=>setShowProfileModal(false)}>
-            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'720px'}}>
-              <div className="hr-modal-header"><h3>Candidate Profile: {selectedCandidate.name}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowProfileModal(false)}>&times;</button></div>
-              <div className="hr-modal-body">
-                <div className="hr-profile-header-banner"><div className="hr-profile-avatar-lg">{selectedCandidate.name.slice(0,2).toUpperCase()}</div><div className="hr-profile-main-info"><h4>{selectedCandidate.name}</h4><span>{selectedCandidate.appliedPosition} &middot; {selectedCandidate.department}</span></div><div><span className={'rec-badge '+selectedCandidate.stage.toLowerCase().replace(' ','_')}>{selectedCandidate.stage}</span></div></div>
-                <div className="hr-profile-details-grid" style={{marginBottom:'1.25rem'}}>
-                  <div className="hr-profile-item"><span>Email</span><strong>{selectedCandidate.email}</strong></div>
-                  <div className="hr-profile-item"><span>Phone</span><strong>{selectedCandidate.phone}</strong></div>
-                  <div className="hr-profile-item"><span>Experience</span><strong>{selectedCandidate.experience}</strong></div>
-                  <div className="hr-profile-item"><span>Current Company</span><strong>{selectedCandidate.currentCompany||'Not specified'}</strong></div>
-                  <div className="hr-profile-item"><span>Notice Period</span><strong>{selectedCandidate.noticePeriod}</strong></div>
-                  <div className="hr-profile-item"><span>Candidate ID</span><strong>{selectedCandidate.candidateId}</strong></div>
-                </div>
-                {selectedCandidate.skills?.length>0&&<div style={{marginBottom:'1.25rem'}}><span style={{fontSize:'0.8rem',color:'#64748b',fontWeight:'600'}}>Skills:</span><div style={{display:'flex',flexWrap:'wrap',gap:'0.4rem',marginTop:'0.35rem'}}>{selectedCandidate.skills.map((s,i)=><span key={i} style={{background:'#f1f5f9',color:'#334155',padding:'0.2rem 0.6rem',borderRadius:'4px',fontSize:'0.78rem',fontWeight:'600'}}>{s}</span>)}</div></div>}
-                <div style={{background:'#f8fafc',padding:'1rem',borderRadius:'8px',border:'1px solid #e2e8f0',marginBottom:'1.25rem'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem'}}><h5 style={{margin:0,fontWeight:'700',color:'#0f172a'}}>Interview History</h5><button type="button" className="rec-btn-sm interview" onClick={()=>handleOpenSchedule(selectedCandidate)}>+ Schedule Round</button></div>
-                  {selectedCandidate.interviews?.length===0?<p style={{margin:0,fontSize:'0.825rem',color:'#64748b'}}>No interview rounds yet.</p>:selectedCandidate.interviews?.map(inv=><div key={inv._id} style={{padding:'0.65rem',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><strong>{inv.round}</strong> ({formatDate(inv.date)} at {inv.time})<div style={{fontSize:'0.75rem',color:'#64748b'}}>Interviewer: {inv.interviewer} &middot; {inv.type}</div></div><div><span className={'rec-badge '+inv.status.toLowerCase()}>{inv.status}</span></div></div>)}
-                </div>
-                {selectedCandidate.offer&&<div style={{background:'#ECFDF5',padding:'1rem',borderRadius:'8px',border:'1px solid #A7F3D0',marginBottom:'1rem'}}><h5 style={{margin:'0 0 0.35rem 0',fontWeight:'700',color:'#065F46'}}>Job Offer Details</h5><div style={{fontSize:'0.85rem',color:'#047857'}}>Designation: <strong>{selectedCandidate.offer.offeredDesignation}</strong> &middot; Salary: <strong>{selectedCandidate.offer.salary}</strong> &middot; Joining: <strong>{formatDate(selectedCandidate.offer.joiningDate)}</strong></div></div>}
+        {/* Candidate Profile Modal with Multi-tab Details & History */}
+        {showProfileModal && selectedCandidate && (
+          <div className="hr-modal-overlay" onClick={() => setShowProfileModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px' }}>
+              <div className="hr-modal-header">
+                <h3>Candidate Profile: {selectedCandidate.name}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowProfileModal(false)}>&times;</button>
               </div>
-              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowProfileModal(false)}>Close</button>{selectedCandidate.stage!=='Shortlisted'&&selectedCandidate.stage!=='Hired'&&<button type="button" className="rec-btn-sm shortlist" onClick={()=>handleShortlist(selectedCandidate._id)}>Shortlist</button>}{!selectedCandidate.convertedEmployeeId&&selectedCandidate.status!=='Hired'&&<button type="button" className="rec-btn-sm convert" onClick={()=>setShowConvertModal(true)}>Convert to Employee</button>}{selectedCandidate.stage!=='Rejected'&&<button type="button" className="rec-btn-sm reject" onClick={()=>handleReject(selectedCandidate._id)}>Reject</button>}</div>
+              <div className="hr-modal-body">
+                {/* Profile Header Banner */}
+                <div className="hr-profile-header-banner">
+                  <div className="hr-profile-avatar-lg">
+                    {(selectedCandidate.name || 'C').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="hr-profile-main-info">
+                    <h4>{selectedCandidate.name}</h4>
+                    <span>{selectedCandidate.appliedPosition} &middot; {selectedCandidate.department}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <span className={'rec-badge ' + selectedCandidate.stage.toLowerCase().replace(/[^a-z0-9]/g, '_')}>
+                      {selectedCandidate.stage}
+                    </span>
+                    <button
+                      type="button"
+                      className="rec-btn-xs move"
+                      onClick={() => handleOpenMoveStage(selectedCandidate)}
+                    >
+                      Move Stage
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-Tabs */}
+                <div className="rec-details-tabs">
+                  {[
+                    ['overview', 'Overview'],
+                    ['timeline', `Timeline (${(candidateTimeline.length || selectedCandidate.history?.length || 0)})`],
+                    ['screening', 'Screening'],
+                    ['assessment', 'Assessment'],
+                    ['interviews', `Interviews (${(selectedCandidate.interviews?.length || 0)})`],
+                    ['offer', 'Offer & Conversion'],
+                  ].map(([tabKey, tabLabel]) => (
+                    <button
+                      key={tabKey}
+                      type="button"
+                      className={`rec-details-tab-btn ${candidateDetailTab === tabKey ? 'active' : ''}`}
+                      onClick={() => setCandidateDetailTab(tabKey)}
+                    >
+                      {tabLabel}
+                    </button>
+                  ))}
+                </div>
+
+                {/* TAB 1: OVERVIEW */}
+                {candidateDetailTab === 'overview' && (
+                  <div>
+                    <div className="hr-profile-details-grid" style={{ marginBottom: '1.25rem' }}>
+                      <div className="hr-profile-item"><span>Email</span><strong>{selectedCandidate.email}</strong></div>
+                      <div className="hr-profile-item"><span>Phone</span><strong>{selectedCandidate.phone}</strong></div>
+                      <div className="hr-profile-item"><span>Candidate ID</span><strong>{selectedCandidate.candidateId}</strong></div>
+                      <div className="hr-profile-item"><span>Experience</span><strong>{selectedCandidate.experience || 'Not provided'}</strong></div>
+                      <div className="hr-profile-item"><span>Current Company</span><strong>{selectedCandidate.currentCompany || 'Not specified'}</strong></div>
+                      <div className="hr-profile-item"><span>Current CTC</span><strong>{selectedCandidate.currentCTC || 'Not specified'}</strong></div>
+                      <div className="hr-profile-item"><span>Expected CTC</span><strong>{selectedCandidate.expectedCTC || 'Not specified'}</strong></div>
+                      <div className="hr-profile-item"><span>Notice Period</span><strong>{selectedCandidate.noticePeriod}</strong></div>
+                      <div className="hr-profile-item"><span>Location</span><strong>{selectedCandidate.location || 'In-Office / Hybrid'}</strong></div>
+                      <div className="hr-profile-item"><span>Education</span><strong>{selectedCandidate.education || 'Graduate'}</strong></div>
+                      <div className="hr-profile-item"><span>ATS Match Score</span><strong>{selectedCandidate.atsScore ? `${selectedCandidate.atsScore}%` : 'Not evaluated'}</strong></div>
+                      <div className="hr-profile-item"><span>Source</span><strong>{selectedCandidate.source || 'Direct Application'}</strong></div>
+                      <div className="hr-profile-item"><span>Applied Date</span><strong>{formatDate(selectedCandidate.createdAt)}</strong></div>
+                      <div className="hr-profile-item"><span>Applied Requisition</span><strong>{selectedCandidate.appliedJob?.title || selectedCandidate.appliedPosition}</strong></div>
+                      <div className="hr-profile-item">
+                        <span>Resume / CV</span>
+                        {selectedCandidate.resumeUrl ? (
+                          <a href={selectedCandidate.resumeUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: '600' }}>
+                            📄 View Resume
+                          </a>
+                        ) : (
+                          <strong>Not uploaded</strong>
+                        )}
+                      </div>
+                    </div>
+                    {selectedCandidate.skills?.length > 0 && (
+                      <div style={{ marginBottom: '1.25rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>Key Skills:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.35rem' }}>
+                          {selectedCandidate.skills.map((s, i) => (
+                            <span key={i} style={{ background: '#f1f5f9', color: '#334155', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.78rem', fontWeight: '600' }}>
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 2: TIMELINE (STAGE HISTORY) */}
+                {candidateDetailTab === 'timeline' && (
+                  <div>
+                    {timelineLoading ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading timeline...</div>
+                    ) : (candidateTimeline.length > 0 ? candidateTimeline : (selectedCandidate.history || [])).length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                        No stage transitions recorded yet.
+                      </div>
+                    ) : (
+                      <div className="rec-timeline-list">
+                        {(candidateTimeline.length > 0 ? candidateTimeline : (selectedCandidate.history || [])).map((item, idx) => (
+                          <div key={idx} className="rec-timeline-item">
+                            <div className="rec-timeline-header">
+                              <span className="rec-timeline-stages">
+                                {item.fromStage ? `${item.fromStage} → ${item.toStage || item.stage}` : (item.toStage || item.stage)}
+                              </span>
+                              <span className="rec-timeline-time">{formatDate(item.changedAt || item.updatedAt)}</span>
+                            </div>
+                            <div className="rec-timeline-actor">
+                              Recorded by: <strong>{item.changedByName || item.changedBy?.name || 'Recruiter'}</strong>
+                              {item.reason && <span> &middot; Reason: <em>{item.reason}</em></span>}
+                            </div>
+                            {item.notes && <div className="rec-timeline-notes">{item.notes}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: SCREENING */}
+                {candidateDetailTab === 'screening' && (
+                  <div>
+                    {selectedCandidate.screening?.decision ? (
+                      <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a' }}>Screening Assessment</h4>
+                          <span
+                            className="rec-badge"
+                            style={{
+                              background: selectedCandidate.screening.decision === 'Pass' ? '#dcfce7' : selectedCandidate.screening.decision === 'Hold' ? '#fef3c7' : '#fee2e2',
+                              color: selectedCandidate.screening.decision === 'Pass' ? '#15803d' : selectedCandidate.screening.decision === 'Hold' ? '#b45309' : '#b91c1c',
+                            }}
+                          >
+                            Decision: {selectedCandidate.screening.decision}
+                          </span>
+                        </div>
+                        <div className="hr-profile-details-grid" style={{ marginBottom: '1rem' }}>
+                          <div className="hr-profile-item"><span>Recruiter</span><strong>{selectedCandidate.screening.recruiter || 'HR'}</strong></div>
+                          <div className="hr-profile-item"><span>Screening Date</span><strong>{formatDate(selectedCandidate.screening.screenedAt)}</strong></div>
+                          <div className="hr-profile-item"><span>Skills Match</span><strong>{selectedCandidate.screening.skillsMatch || '—'}/5 &#9733;</strong></div>
+                          <div className="hr-profile-item"><span>Experience Match</span><strong>{selectedCandidate.screening.experienceMatch || '—'}/5 &#9733;</strong></div>
+                          <div className="hr-profile-item"><span>Communication</span><strong>{selectedCandidate.screening.communication || '—'}/5 &#9733;</strong></div>
+                          <div className="hr-profile-item"><span>Overall Assessment</span><strong>{selectedCandidate.screening.assessmentScore || '—'}/5 &#9733;</strong></div>
+                        </div>
+                        {selectedCandidate.screening.notes && (
+                          <div style={{ background: '#ffffff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
+                            <strong>Screening Notes:</strong> {selectedCandidate.screening.notes}
+                          </div>
+                        )}
+                        <div style={{ marginTop: '1rem' }}>
+                          <button
+                            type="button"
+                            className="rec-btn-sm shortlist"
+                            onClick={() => handleOpenScreening(selectedCandidate)}
+                          >
+                            Re-evaluate Screening
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                        <p style={{ margin: '0 0 0.75rem 0', color: '#64748b', fontSize: '0.875rem' }}>
+                          No screening assessment recorded for {selectedCandidate.name} yet.
+                        </p>
+                        <button
+                          type="button"
+                          className="rec-btn-sm convert"
+                          onClick={() => handleOpenScreening(selectedCandidate)}
+                        >
+                          + Record Screening Assessment
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: TECHNICAL ASSESSMENT */}
+                {candidateDetailTab === 'assessment' && (
+                  <div>
+                    {selectedCandidate.assessment?.result ? (
+                      <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a' }}>{selectedCandidate.assessment.name || 'Technical Assessment'}</h4>
+                          <span
+                            className="rec-badge"
+                            style={{
+                              background: selectedCandidate.assessment.result === 'Passed' ? '#dcfce7' : selectedCandidate.assessment.result === 'Failed' ? '#fee2e2' : '#fef3c7',
+                              color: selectedCandidate.assessment.result === 'Passed' ? '#15803d' : selectedCandidate.assessment.result === 'Failed' ? '#b91c1c' : '#b45309',
+                            }}
+                          >
+                            Result: {selectedCandidate.assessment.result}
+                          </span>
+                        </div>
+                        <div className="hr-profile-details-grid" style={{ marginBottom: '1rem' }}>
+                          <div className="hr-profile-item"><span>Score</span><strong>{selectedCandidate.assessment.score} / {selectedCandidate.assessment.maxScore || 100}</strong></div>
+                          <div className="hr-profile-item"><span>Percentage</span><strong>{Math.round(((selectedCandidate.assessment.score || 0) / (selectedCandidate.assessment.maxScore || 100)) * 100)}%</strong></div>
+                          <div className="hr-profile-item"><span>Evaluator</span><strong>{selectedCandidate.assessment.evaluator || 'Tech Lead'}</strong></div>
+                          <div className="hr-profile-item"><span>Submitted Date</span><strong>{formatDate(selectedCandidate.assessment.submittedAt)}</strong></div>
+                        </div>
+                        {selectedCandidate.assessment.feedback && (
+                          <div style={{ background: '#ffffff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                            <strong>Evaluator Feedback:</strong> {selectedCandidate.assessment.feedback}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="rec-btn-sm shortlist"
+                          onClick={() => handleOpenAssessment(selectedCandidate)}
+                        >
+                          Re-evaluate / Update Assessment
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                        <p style={{ margin: '0 0 0.75rem 0', color: '#64748b', fontSize: '0.875rem' }}>
+                          No technical assessment recorded for {selectedCandidate.name} yet.
+                        </p>
+                        <button
+                          type="button"
+                          className="rec-btn-sm convert"
+                          onClick={() => handleOpenAssessment(selectedCandidate)}
+                        >
+                          + Record Technical Assessment
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: INTERVIEWS */}
+                {candidateDetailTab === 'interviews' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <h5 style={{ margin: 0, fontWeight: '700', color: '#0f172a' }}>Interview Rounds</h5>
+                      <button
+                        type="button"
+                        className="rec-btn-sm interview"
+                        onClick={() => handleOpenSchedule(selectedCandidate)}
+                      >
+                        + Schedule Round
+                      </button>
+                    </div>
+                    {selectedCandidate.interviews?.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '0.825rem', color: '#64748b', textAlign: 'center', padding: '2rem 0' }}>
+                        No interview rounds scheduled yet.
+                      </p>
+                    ) : (
+                      selectedCandidate.interviews?.map((inv) => (
+                        <div
+                          key={inv._id}
+                          style={{
+                            padding: '0.75rem',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            marginBottom: '0.65rem',
+                            background: '#ffffff',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <strong style={{ fontSize: '0.875rem', color: '#0f172a' }}>{inv.round}</strong>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                                {formatDate(inv.date)} at {inv.time} &middot; {inv.type} &middot; Interviewer: <strong>{inv.interviewer}</strong>
+                              </div>
+                              {inv.meetingLink && (
+                                <a
+                                  href={inv.meetingLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ fontSize: '0.75rem', color: '#2563eb', display: 'inline-block', marginTop: '0.25rem' }}
+                                >
+                                  🔗 Join Meeting
+                                </a>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span className={'rec-badge ' + inv.status.toLowerCase()}>{inv.status}</span>
+                              {inv.status !== 'Completed' && (
+                                <button
+                                  type="button"
+                                  className="rec-btn-sm shortlist"
+                                  onClick={() => handleOpenFeedback(selectedCandidate, inv)}
+                                >
+                                  Feedback
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {inv.feedback && (
+                            <div style={{ marginTop: '0.5rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '6px', fontSize: '0.78rem', borderLeft: '3px solid #10b981' }}>
+                              <strong>Score: {inv.feedback.overallRating}/5 &#9733;</strong> &middot; Recommendation: <strong>{inv.feedback.recommendation}</strong>
+                              {inv.feedback.comments && <div>{inv.feedback.comments}</div>}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 5: OFFER & CONVERSION */}
+                {candidateDetailTab === 'offer' && (
+                  <div>
+                    {selectedCandidate.offer ? (
+                      <div style={{ background: '#ECFDF5', padding: '1.25rem', borderRadius: '8px', border: '1px solid #A7F3D0', marginBottom: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <h4 style={{ margin: 0, color: '#065F46', fontSize: '0.95rem' }}>Job Offer Details</h4>
+                          <span className="rec-badge rec-badge-accepted">Active Offer</span>
+                        </div>
+                        <div className="hr-profile-details-grid">
+                          <div className="hr-profile-item"><span>Designation</span><strong>{selectedCandidate.offer.offeredDesignation}</strong></div>
+                          <div className="hr-profile-item"><span>Annual CTC / Salary</span><strong>{selectedCandidate.offer.salary}</strong></div>
+                          <div className="hr-profile-item"><span>Joining Date</span><strong>{formatDate(selectedCandidate.offer.joiningDate)}</strong></div>
+                          <div className="hr-profile-item"><span>Offer Date</span><strong>{formatDate(selectedCandidate.offer.offerDate)}</strong></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '1.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', marginBottom: '1rem' }}>
+                        <p style={{ margin: '0 0 0.65rem 0', color: '#64748b', fontSize: '0.85rem' }}>
+                          No formal offer letter created yet.
+                        </p>
+                        <button
+                          type="button"
+                          className="rec-btn-sm shortlist"
+                          onClick={() => handleOpenCreateOffer(null, selectedCandidate)}
+                        >
+                          + Create Offer Letter
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedCandidate.convertedEmployeeId ? (
+                      <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                        <h5 style={{ margin: '0 0 0.35rem 0', color: '#1e40af' }}>✓ Onboarded to Workforce</h5>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#1d4ed8' }}>
+                          Employee ID: <strong>{selectedCandidate.convertedEmployeeId}</strong> &middot; Status: <strong>Hired</strong>
+                        </p>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        {['Selected', 'Offer', 'Final / HR Round'].includes(selectedCandidate.stage) && (
+                          <button
+                            type="button"
+                            className="rec-btn-sm convert"
+                            style={{ padding: '0.5rem 1rem' }}
+                            onClick={() => setShowConvertModal(true)}
+                          >
+                            Convert to Active Employee
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="hr-modal-footer">
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowProfileModal(false)}>Close</button>
+                <button type="button" className="rec-btn-sm move" onClick={() => handleOpenMoveStage(selectedCandidate)}>Move Stage</button>
+                {selectedCandidate.stage !== 'Shortlisted' && selectedCandidate.stage !== 'Hired' && (
+                  <button type="button" className="rec-btn-sm shortlist" onClick={() => handleShortlist(selectedCandidate._id)}>Shortlist</button>
+                )}
+                {!selectedCandidate.convertedEmployeeId && selectedCandidate.status !== 'Hired' && (
+                  <button type="button" className="rec-btn-sm convert" onClick={() => setShowConvertModal(true)}>Hire / Onboard</button>
+                )}
+                {selectedCandidate.stage !== 'Rejected' && (
+                  <button type="button" className="rec-btn-sm reject" onClick={() => handleOpenRejection(selectedCandidate)}>Reject</button>
+                )}
+                {selectedCandidate.stage !== 'Withdrawn' && (
+                  <button type="button" className="rec-btn-sm reject" style={{ background: '#f8fafc', color: '#64748b' }} onClick={() => handleOpenWithdrawal(selectedCandidate)}>Withdraw</button>
+                )}
+              </div>
             </div>
           </div>
         )}
+
+        {/* Screening Assessment Modal */}
+        {showScreeningModal && selectedCandidate && (
+          <div className="hr-modal-overlay" onClick={() => setShowScreeningModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <h3>Candidate Screening: {selectedCandidate.name}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowScreeningModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveScreening}>
+                <div className="hr-modal-body">
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div className="rec-rating-row">
+                      <label>Skills Match</label>
+                      <div className="rec-rating-group">
+                        {[1, 2, 3, 4, 5].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`rec-rating-btn ${screeningForm.skillsMatch === num ? 'active' : ''}`}
+                            onClick={() => setScreeningForm({ ...screeningForm, skillsMatch: num })}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rec-rating-row">
+                      <label>Experience Match</label>
+                      <div className="rec-rating-group">
+                        {[1, 2, 3, 4, 5].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`rec-rating-btn ${screeningForm.experienceMatch === num ? 'active' : ''}`}
+                            onClick={() => setScreeningForm({ ...screeningForm, experienceMatch: num })}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rec-rating-row">
+                      <label>Communication Assessment</label>
+                      <div className="rec-rating-group">
+                        {[1, 2, 3, 4, 5].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`rec-rating-btn ${screeningForm.communication === num ? 'active' : ''}`}
+                            onClick={() => setScreeningForm({ ...screeningForm, communication: num })}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rec-rating-row">
+                      <label>Overall Candidate Fit</label>
+                      <div className="rec-rating-group">
+                        {[1, 2, 3, 4, 5].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`rec-rating-btn ${screeningForm.assessmentScore === num ? 'active' : ''}`}
+                            onClick={() => setScreeningForm({ ...screeningForm, assessmentScore: num })}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group">
+                      <label>Recruiter Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={screeningForm.recruiter}
+                        onChange={(e) => setScreeningForm({ ...screeningForm, recruiter: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group">
+                      <label>Screening Decision *</label>
+                      <select
+                        required
+                        value={screeningForm.decision}
+                        onChange={(e) => setScreeningForm({ ...screeningForm, decision: e.target.value })}
+                      >
+                        <option value="Pass">Pass → Advance to Shortlisted</option>
+                        <option value="Hold">Hold → Keep in Screening</option>
+                        <option value="Fail">Fail → Move to Rejected</option>
+                      </select>
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Screening Notes &amp; Observations</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Candidate communication skills, salary discussion, notice period verification..."
+                        value={screeningForm.notes}
+                        onChange={(e) => setScreeningForm({ ...screeningForm, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowScreeningModal(false)}>Cancel</button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Saving...' : 'Save Screening Assessment'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Rejection Modal */}
+        {showRejectionModal && selectedCandidate && (
+          <div className="hr-modal-overlay" onClick={() => setShowRejectionModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+              <div className="hr-modal-header">
+                <h3>Reject Candidate: {selectedCandidate.name}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowRejectionModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveRejection}>
+                <div className="hr-modal-body">
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    Record structured rejection data and persist the reason to MongoDB Atlas.
+                  </p>
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group full-width">
+                      <label>Rejection Reason *</label>
+                      <select
+                        required
+                        value={rejectionForm.reason}
+                        onChange={(e) => setRejectionForm({ ...rejectionForm, reason: e.target.value })}
+                      >
+                        <option>Skills mismatch</option>
+                        <option>Experience mismatch</option>
+                        <option>Salary mismatch</option>
+                        <option>Interview failed</option>
+                        <option>Position filled</option>
+                        <option>Candidate not suitable</option>
+                        <option>Candidate withdrew</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Rejection Notes</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Detailed explanation for audit log..."
+                        value={rejectionForm.notes}
+                        onChange={(e) => setRejectionForm({ ...rejectionForm, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowRejectionModal(false)}>Cancel</button>
+                  <button type="submit" className="rec-btn-sm reject" style={{ padding: '0.5rem 1rem' }} disabled={submitting}>
+                    {submitting ? 'Rejecting...' : 'Confirm Rejection'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Withdrawal Modal */}
+        {showWithdrawalModal && selectedCandidate && (
+          <div className="hr-modal-overlay" onClick={() => setShowWithdrawalModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+              <div className="hr-modal-header">
+                <h3>Candidate Withdrawal: {selectedCandidate.name}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowWithdrawalModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveWithdrawal}>
+                <div className="hr-modal-body">
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    Record that the candidate has voluntarily withdrawn from the hiring process.
+                  </p>
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group full-width">
+                      <label>Withdrawal Reason *</label>
+                      <select
+                        required
+                        value={withdrawalForm.reason}
+                        onChange={(e) => setWithdrawalForm({ ...withdrawalForm, reason: e.target.value })}
+                      >
+                        <option>Accepted another offer</option>
+                        <option>Compensation expectations</option>
+                        <option>Relocation / Location mismatch</option>
+                        <option>Personal reasons</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Withdrawal Notes</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Additional details regarding withdrawal..."
+                        value={withdrawalForm.notes}
+                        onChange={(e) => setWithdrawalForm({ ...withdrawalForm, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowWithdrawalModal(false)}>Cancel</button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Recording...' : 'Record Withdrawal'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Technical Assessment Modal */}
+        {showAssessmentModal && selectedCandidate && (
+          <div className="hr-modal-overlay" onClick={() => setShowAssessmentModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+              <div className="hr-modal-header">
+                <h3>Technical Assessment: {selectedCandidate.name}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowAssessmentModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveAssessment}>
+                <div className="hr-modal-body">
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                    Record structured skill assessment results. Passing automatically advances the candidate to the Interview round.
+                  </p>
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group full-width">
+                      <label>Assessment / Test Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. React & Node.js Coding Challenge"
+                        value={assessmentForm.name}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group">
+                      <label>Score Achieved *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1000"
+                        required
+                        value={assessmentForm.score}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, score: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group">
+                      <label>Maximum Score *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1000"
+                        required
+                        value={assessmentForm.maxScore}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, maxScore: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group">
+                      <label>Result / Outcome *</label>
+                      <select
+                        required
+                        value={assessmentForm.result}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, result: e.target.value })}
+                      >
+                        <option value="Passed">Passed → Advance to Interview</option>
+                        <option value="Pending">Pending → In Review</option>
+                        <option value="In Review">In Review</option>
+                        <option value="Failed">Failed → Move to Rejected</option>
+                      </select>
+                    </div>
+                    <div className="hr-form-group">
+                      <label>Evaluator / Reviewer</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Tech Lead / Senior Architect"
+                        value={assessmentForm.evaluator}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, evaluator: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Due Date / Target Date</label>
+                      <input
+                        type="date"
+                        value={assessmentForm.dueDate}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, dueDate: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Feedback &amp; Code Review Notes</label>
+                      <textarea
+                        rows={3}
+                        placeholder="Detailed technical feedback, architecture understanding, problem-solving ability..."
+                        value={assessmentForm.feedback}
+                        onChange={(e) => setAssessmentForm({ ...assessmentForm, feedback: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowAssessmentModal(false)}>Cancel</button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Saving...' : 'Save Assessment Result'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Move Stage Modal */}
+        {showMoveStageModal && selectedCandidate && (() => {
+          const currentNorm = selectedCandidate.stage === 'HR Round' ? 'Final / HR Round' : selectedCandidate.stage;
+          const allowedTargets = VALID_TRANSITIONS[currentNorm] || ALL_PIPELINE_STAGES;
+          return (
+            <div className="hr-modal-overlay" onClick={() => setShowMoveStageModal(false)}>
+              <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                <div className="hr-modal-header">
+                  <h3>Move Candidate: {selectedCandidate.name}</h3>
+                  <button type="button" className="hr-modal-close" onClick={() => setShowMoveStageModal(false)}>&times;</button>
+                </div>
+                <form onSubmit={handleSaveMoveStage}>
+                  <div className="hr-modal-body">
+                    <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Current Stage:</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#0f172a' }}>{currentNorm}</div>
+                    </div>
+                    <div className="hr-form-grid">
+                      <div className="hr-form-group full-width">
+                        <label>Select Target Stage *</label>
+                        <select
+                          required
+                          value={moveStageForm.toStage}
+                          onChange={(e) => setMoveStageForm({ ...moveStageForm, toStage: e.target.value })}
+                        >
+                          {allowedTargets.map((st) => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                          Displaying authorized recruitment progression targets for this candidate.
+                        </span>
+                      </div>
+                      <div className="hr-form-group full-width">
+                        <label>Reason / Justification *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Cleared technical interview round"
+                          value={moveStageForm.reason}
+                          onChange={(e) => setMoveStageForm({ ...moveStageForm, reason: e.target.value })}
+                        />
+                      </div>
+                      <div className="hr-form-group full-width">
+                        <label>Audit Notes</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Optional audit notes for candidate history..."
+                          value={moveStageForm.notes}
+                          onChange={(e) => setMoveStageForm({ ...moveStageForm, notes: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hr-modal-footer">
+                    <button type="button" className="hr-btn-secondary" onClick={() => setShowMoveStageModal(false)}>Cancel</button>
+                    <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                      {submitting ? 'Moving...' : 'Move Stage'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Schedule Interview Modal */}
         {showInterviewModal&&selectedCandidate&&(
@@ -1403,6 +3420,396 @@ export default function Recruitment() {
                 <p style={{color:'#64748b',fontSize:'0.82rem',marginTop:'0.75rem'}}>This will create an employee record, generate an Employee ID, and link the candidate.</p>
               </div>
               <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowOfferConvertModal(false)}>Cancel</button><button type="button" className="rec-btn-sm convert" style={{padding:'0.65rem 1.25rem',fontSize:'0.875rem'}} disabled={offerSubmitting} onClick={handleConvertFromOffer}>{offerSubmitting?'Converting...':'Confirm & Onboard Employee'}</button></div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* EXPERIENCE LETTER GENERATE / EDIT MODAL */}
+        {/* ========================================================= */}
+        {showExperienceModal && (
+          <div className="hr-modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowExperienceModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '740px', zIndex: 1101, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+              <div className="hr-modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <img src="/aasha-logo-new.jpg" alt="Aasha SM" style={{ height: '30px', objectFit: 'contain' }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>
+                      {editingExperienceLetter ? `Edit Experience Letter: ${editingExperienceLetter.letterNumber}` : 'Generate Experience Letter'}
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</span>
+                  </div>
+                </div>
+                <button type="button" className="hr-modal-close" onClick={() => setShowExperienceModal(false)}>&times;</button>
+              </div>
+
+              {experienceError && (
+                <div style={{ margin: '0.75rem 1.5rem 0', padding: '0.65rem 1rem', background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  ⚠️ {experienceError}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveExperience} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div className="hr-modal-body" style={{ overflowY: 'auto', flex: 1, padding: '1.25rem 1.5rem' }}>
+                  <div className="hr-form-grid">
+
+                    {/* Employee Selector (Real Data from Atlas) */}
+                    <div className="hr-form-group full-width">
+                      <label>Select Real Employee *</label>
+                      <select
+                        required
+                        value={experienceForm.employeeId}
+                        onChange={(e) => handleSelectEmployeeForExp(e.target.value)}
+                        disabled={!!editingExperienceLetter}
+                      >
+                        <option value="">-- Choose Employee from Database --</option>
+                        {hrEmployeesLoading ? (
+                          <option disabled value="">Loading employees from database...</option>
+                        ) : hrEmployees.length === 0 ? (
+                          <option disabled value="">No employees found</option>
+                        ) : (
+                          hrEmployees.map((emp) => (
+                            <option key={emp._id} value={emp._id}>
+                              {emp.name} {emp.employeeId ? `(${emp.employeeId})` : ''} &mdash; {emp.designation || 'Staff'} ({emp.department || 'Tech'})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      {experienceForm.employeeId && (
+                        <div style={{ fontSize: '0.78rem', color: '#15803d', marginTop: '0.35rem', background: '#f0fdf4', padding: '0.4rem 0.65rem', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                          ✓ Employee verified from database. Pre-filled details loaded automatically.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Employee Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Full Name"
+                        value={experienceForm.employeeName}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, employeeName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Employee ID</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. EMP-10482"
+                        value={experienceForm.empCode}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, empCode: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Designation *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Senior Full Stack Developer"
+                        value={experienceForm.designation}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, designation: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Department *</label>
+                      <select
+                        required
+                        value={experienceForm.department}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, department: e.target.value })}
+                      >
+                        {OFFICIAL_DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Date of Joining *</label>
+                      <input
+                        type="date"
+                        required
+                        value={experienceForm.joiningDate}
+                        onChange={(e) => handleDateChangeForExp('joiningDate', e.target.value)}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Date of Relieving *</label>
+                      <input
+                        type="date"
+                        required
+                        value={experienceForm.relievingDate}
+                        onChange={(e) => handleDateChangeForExp('relievingDate', e.target.value)}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Employment Duration (Calculated)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 2 Years, 4 Months"
+                        value={experienceForm.employmentDuration}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, employmentDuration: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Letter Issue Date</label>
+                      <input
+                        type="date"
+                        value={experienceForm.letterDate}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, letterDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Work Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Mumbai / Head Office"
+                        value={experienceForm.workLocation}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, workLocation: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Conduct &amp; Character</label>
+                      <select
+                        value={experienceForm.conduct}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, conduct: e.target.value })}
+                      >
+                        <option value="Exemplary">Exemplary</option>
+                        <option value="Very Good">Very Good</option>
+                        <option value="Good">Good</option>
+                        <option value="Satisfactory">Satisfactory</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Reason for Relieving</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Resignation / Personal Aspirations / Higher Studies"
+                        value={experienceForm.reasonForLeaving}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, reasonForLeaving: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Authorized Signatory</label>
+                      <input
+                        type="text"
+                        placeholder="Authorized Signatory Name"
+                        value={experienceForm.authorizedSignatory}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, authorizedSignatory: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Signatory Designation / Title</label>
+                      <input
+                        type="text"
+                        placeholder="Head of Human Resources"
+                        value={experienceForm.authorizedSignatoryTitle}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, authorizedSignatoryTitle: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Document Status</label>
+                      <select
+                        value={experienceForm.status}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, status: e.target.value })}
+                      >
+                        <option value="Issued">Issued</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Revoked">Revoked</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Internal HR Remarks / Notes</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Optional remarks, exit clearance status, notes..."
+                        value={experienceForm.notes}
+                        onChange={(e) => setExperienceForm({ ...experienceForm, notes: e.target.value })}
+                      />
+                    </div>
+
+                  </div>
+                </div>
+
+                <div className="hr-modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#fff', borderTop: '1px solid #e2e8f0', padding: '1rem 1.5rem' }}>
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowExperienceModal(false)}>Cancel</button>
+                  <button type="submit" className="hr-btn-primary" disabled={experienceSubmitting}>
+                    {experienceSubmitting ? 'Saving to Database...' : editingExperienceLetter ? 'Update Letter' : 'Generate Experience Letter'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* EXPERIENCE LETTER PREVIEW MODAL */}
+        {/* ========================================================= */}
+        {showExperiencePreviewModal && viewingExperienceLetter && (
+          <div className="hr-modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowExperiencePreviewModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px', zIndex: 1101, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+              <div className="hr-modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '1rem 1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <img src="/aasha-logo-new.jpg" alt="AASHA SM" style={{ height: '32px', objectFit: 'contain' }} />
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', margin: 0, color: '#0f172a' }}>
+                      Experience Letter &mdash; {viewingExperienceLetter.letterNumber}
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</span>
+                  </div>
+                </div>
+                <button type="button" className="hr-modal-close" onClick={() => setShowExperiencePreviewModal(false)}>&times;</button>
+              </div>
+
+              <div className="hr-modal-body" style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, background: '#f8fafc' }}>
+                <div className="offer-preview-paper" style={{ background: '#fff', borderRadius: '12px', padding: '2.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', maxWidth: '750px', margin: '0 auto' }}>
+                  
+                  {/* Corporate Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #ea580c', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <img src="/aasha-logo-new.jpg" alt="AASHA SM TECHNOLOGIES" style={{ height: '48px', objectFit: 'contain' }} />
+                      <div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.01em' }}>AASHA SM TECHNOLOGIES PRIVATE LIMITED</div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Corporate HR &amp; People Operations · IT Services &amp; Consulting</div>
+                      </div>
+                    </div>
+                    <span className="rec-badge" style={{ background: '#ffedd5', color: '#c2410c', fontWeight: '700', fontSize: '0.75rem', padding: '0.35rem 0.75rem', letterSpacing: '0.05em' }}>
+                      EXPERIENCE CERTIFICATE
+                    </span>
+                  </div>
+
+                  {/* Ref & Date */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Ref No: </span>
+                      <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{viewingExperienceLetter.letterNumber}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Date: </span>
+                      <strong style={{ color: '#0f172a' }}>{formatDate(viewingExperienceLetter.letterDate)}</strong>
+                    </div>
+                  </div>
+
+                  {/* Centered Title */}
+                  <div style={{ textAlign: 'center', margin: '1.75rem 0 1.5rem' }}>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#ea580c', letterSpacing: '0.04em', margin: 0, textTransform: 'uppercase', textDecoration: 'underline' }}>
+                      TO WHOMSOEVER IT MAY CONCERN
+                    </h2>
+                  </div>
+
+                  {/* Body Paragraphs */}
+                  <div style={{ fontSize: '0.92rem', lineHeight: '1.75', color: '#334155' }}>
+                    <p style={{ margin: '0 0 1rem' }}>
+                      This is to certify that <strong>{viewingExperienceLetter.employeeName}</strong>
+                      {viewingExperienceLetter.employeeId ? ` (Employee ID: ${viewingExperienceLetter.employeeId})` : ''} was in formal employment with <strong>AASHA SM TECHNOLOGIES PRIVATE LIMITED</strong> from <strong>{formatDate(viewingExperienceLetter.joiningDate)}</strong> to <strong>{formatDate(viewingExperienceLetter.relievingDate)}</strong>, serving a cumulative tenure of <strong>{viewingExperienceLetter.employmentDuration || computeDurationText(viewingExperienceLetter.joiningDate, viewingExperienceLetter.relievingDate)}</strong>.
+                    </p>
+                    <p style={{ margin: '0 0 1.25rem' }}>
+                      During their tenure of employment, they rendered dedicated service in the role of <strong>{viewingExperienceLetter.designation}</strong> within the <strong>{viewingExperienceLetter.department}</strong> department at our <strong>{viewingExperienceLetter.workLocation || 'Mumbai'}</strong> facility.
+                    </p>
+                  </div>
+
+                  {/* Key Details Summary Box */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+                      Employment Certification Summary
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.6rem 1.5rem', fontSize: '0.84rem' }}>
+                      <div><span style={{ color: '#64748b' }}>Employee Name: </span><strong style={{ color: '#0f172a' }}>{viewingExperienceLetter.employeeName}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Employee ID: </span><strong style={{ color: '#0f172a' }}>{viewingExperienceLetter.employeeId || '—'}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Designation: </span><strong style={{ color: '#0f172a' }}>{viewingExperienceLetter.designation}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Department: </span><strong style={{ color: '#0f172a' }}>{viewingExperienceLetter.department}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Date of Joining: </span><strong style={{ color: '#0f172a' }}>{formatDate(viewingExperienceLetter.joiningDate)}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Date of Relieving: </span><strong style={{ color: '#0f172a' }}>{formatDate(viewingExperienceLetter.relievingDate)}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Total Duration: </span><strong style={{ color: '#16a34a' }}>{viewingExperienceLetter.employmentDuration || computeDurationText(viewingExperienceLetter.joiningDate, viewingExperienceLetter.relievingDate)}</strong></div>
+                      <div><span style={{ color: '#64748b' }}>Work Location: </span><strong style={{ color: '#0f172a' }}>{viewingExperienceLetter.workLocation || 'Head Office, Mumbai'}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Conduct and Separation text */}
+                  <div style={{ fontSize: '0.92rem', lineHeight: '1.75', color: '#334155' }}>
+                    <p style={{ margin: '0 0 1rem' }}>
+                      During their association with AASHA SM TECHNOLOGIES PRIVATE LIMITED, we found them to be sincere, diligent, and result-oriented in discharging their professional responsibilities. Their conduct, character, and professional demeanor were observed to be <strong>{viewingExperienceLetter.conduct?.toLowerCase() || 'exemplary'}</strong>.
+                    </p>
+                    <p style={{ margin: '0 0 1.5rem' }}>
+                      They have been formally relieved from all duties upon {viewingExperienceLetter.reasonForLeaving?.toLowerCase() || 'resignation'}. All company clearances, assets, and accounts have been amicably and satisfactorily settled in full. We thank them for their contributions and wish them every success in all their future endeavors.
+                    </p>
+                  </div>
+
+                  {/* Signatory Block */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.85rem' }}>
+                    <div>
+                      <p style={{ margin: '0 0 0.25rem', color: '#475569' }}>For <strong>AASHA SM TECHNOLOGIES PRIVATE LIMITED</strong></p>
+                      <div style={{ height: '38px' }} />
+                      <strong style={{ display: 'block', color: '#0f172a' }}>{viewingExperienceLetter.authorizedSignatory || 'Human Resources Manager'}</strong>
+                      <span style={{ color: '#64748b', fontSize: '0.82rem' }}>{viewingExperienceLetter.authorizedSignatoryTitle || 'Head of Human Resources'}</span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#94a3b8' }}>
+                      Official Experience Certification · Confidential
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="hr-modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: '#fff', borderTop: '1px solid #e2e8f0', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowExperiencePreviewModal(false)}>Close</button>
+                <button type="button" className="rec-primary-btn" onClick={() => handleDownloadExperiencePDF(viewingExperienceLetter)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '15px', height: '15px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* DELETE EXPERIENCE LETTER MODAL */}
+        {/* ========================================================= */}
+        {showExperienceDeleteModal && viewingExperienceLetter && (
+          <div className="hr-modal-overlay" style={{ zIndex: 1100 }} onClick={() => setShowExperienceDeleteModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', zIndex: 1101 }}>
+              <div className="hr-modal-header">
+                <h3>Delete Experience Letter</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowExperienceDeleteModal(false)}>&times;</button>
+              </div>
+              <div className="hr-modal-body">
+                <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🗑️</div>
+                  <h4 style={{ margin: '0 0 0.5rem', color: '#0f172a' }}>Delete {viewingExperienceLetter.letterNumber}?</h4>
+                  <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                    This will remove the experience letter for <strong>{viewingExperienceLetter.employeeName}</strong>. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="hr-modal-footer">
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowExperienceDeleteModal(false)}>Cancel</button>
+                <button
+                  type="button"
+                  className="rec-btn-sm reject"
+                  style={{ padding: '0.65rem 1.25rem', fontSize: '0.875rem' }}
+                  disabled={experienceSubmitting}
+                  onClick={handleDeleteExperience}
+                >
+                  {experienceSubmitting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
             </div>
           </div>
         )}

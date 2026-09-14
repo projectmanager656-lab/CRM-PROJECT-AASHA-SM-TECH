@@ -3,6 +3,7 @@ import Attendance from '../models/Attendance.js';
 import User from '../models/User.js';
 import LeaveRequest from '../models/LeaveRequest.js';
 import Notification from '../models/Notification.js';
+import Payment from '../models/Payment.js';
 import CompanySetting from '../models/CompanySetting.js';
 import { createForbiddenError, createNotFoundError, createValidationError } from '../utils/apiError.js';
 import { createdResponse, successResponse } from '../utils/apiResponse.js';
@@ -387,6 +388,37 @@ export const PayrollController = {
     if (req.body.notes) record.notes = req.body.notes.trim();
 
     await record.save();
+
+    // Persist Payment transaction in payments collection (with duplicate prevention)
+    try {
+      const existingPayment = await Payment.findOne({ payroll: record._id });
+      if (!existingPayment) {
+        let empName = '';
+        if (record.user) {
+          const u = await User.findById(record.user).select('firstName lastName personalInfo');
+          if (u) {
+            empName = u.personalInfo?.fullName || [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || '';
+          }
+        }
+        const paymentNum = `PAY-${Date.now().toString().slice(-8)}`;
+        await Payment.create({
+          paymentNumber: paymentNum,
+          payroll: record._id,
+          employee: record.user,
+          employeeName: empName,
+          amount: record.net,
+          currency: record.currency || 'INR',
+          paymentDate: record.paymentDate,
+          paymentMethod: record.paymentMethod || 'Bank Transfer',
+          transactionReference: record.paymentReference || '',
+          status: 'Completed',
+          notes: record.notes || `Salary payment for ${record.payPeriod}`,
+          recordedBy: req.user.userId || null,
+        });
+      }
+    } catch (payErr) {
+      console.error('Error creating payment transaction for payroll:', payErr);
+    }
 
     // Send notification to employee
     try {

@@ -218,6 +218,14 @@ export default function HRDashboard() {
   return (
     <UserLayout pageTitle="HR Dashboard">
       <div className="hr-dash-container">
+        {/* Standard Page Header */}
+        <div className="hr-dash-header">
+          <div className="hr-dash-title-area">
+            <h2>HR Overview &amp; Analytics</h2>
+            <p>Real-time workforce metrics, attendance status, leave requests, and payroll tracking.</p>
+          </div>
+        </div>
+
         {/* 5 Dynamic KPI Stat Cards */}
         <div className="hr-kpi-grid">
           {/* 1. Total Active Employees */}

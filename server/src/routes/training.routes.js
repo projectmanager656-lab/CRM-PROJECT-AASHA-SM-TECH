@@ -8,20 +8,39 @@ const router = Router();
 router.use(authenticateToken);
 router.use(authorizeHrOrAdmin);
 
-// Overview
+// Overview & Skill Performance
 router.get('/overview', TrainingController.getOverview);
+router.get('/skill-performance', TrainingController.getSkillPerformance);
 
 // Programs
 router.get('/programs', TrainingController.getPrograms);
+router.get('/programs/:id', TrainingController.getProgramById);
 router.post('/programs', TrainingController.createProgram);
 router.put('/programs/:id', TrainingController.updateProgram);
 router.delete('/programs/:id', TrainingController.deleteProgram);
+router.post('/programs/:id/courses', TrainingController.addCourseToProgram);
+router.delete('/programs/:id/courses/:courseId', TrainingController.removeCourseFromProgram);
+router.post('/programs/:id/batches', TrainingController.addBatchToProgram);
+router.put('/programs/:id/batches/:batchId', TrainingController.updateBatch);
+router.delete('/programs/:id/batches/:batchId', TrainingController.deleteBatch);
 
 // Courses
 router.get('/courses', TrainingController.getCourses);
+router.get('/courses/:id', TrainingController.getCourseById);
 router.post('/courses', TrainingController.createCourse);
 router.put('/courses/:id', TrainingController.updateCourse);
 router.delete('/courses/:id', TrainingController.deleteCourse);
+router.post('/courses/:id/modules', TrainingController.addModuleToCourse);
+router.put('/courses/:id/modules/:moduleId', TrainingController.updateCourseModule);
+router.delete('/courses/:id/modules/:moduleId', TrainingController.deleteCourseModule);
+router.post('/courses/:id/objectives', TrainingController.addObjectiveToCourse);
+router.delete('/courses/:id/objectives/:objectiveId', TrainingController.deleteObjectiveFromCourse);
+router.post('/courses/:id/materials', TrainingController.addMaterialToCourse);
+router.delete('/courses/:id/materials/:materialId', TrainingController.deleteMaterialFromCourse);
+router.post('/courses/:id/programs', TrainingController.linkProgramToCourse);
+router.delete('/courses/:id/programs/:programId', TrainingController.unlinkProgramFromCourse);
+router.put('/courses/:id/assessment-config', TrainingController.updateCourseAssessmentConfig);
+router.put('/courses/:id/certification-config', TrainingController.updateCourseCertificationConfig);
 
 // Trainers
 router.get('/trainers', TrainingController.getTrainers);
@@ -60,6 +79,8 @@ router.delete('/assessments/:id', TrainingController.deleteAssessment);
 router.get('/certifications', TrainingController.getCertifications);
 router.post('/certifications', TrainingController.createCertification);
 router.post('/certifications/generate', TrainingController.generateCertification);
+router.get('/certifications/:id/pdf', TrainingController.downloadCertificatePdf);
+router.get('/certifications/:id/download', TrainingController.downloadCertificatePdf);
 router.post('/certifications/:id/revoke', TrainingController.revokeCertification);
 router.put('/certifications/:id', TrainingController.updateCertification);
 router.delete('/certifications/:id', TrainingController.deleteCertification);

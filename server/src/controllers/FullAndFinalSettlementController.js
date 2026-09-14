@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import FullAndFinalSettlement from '../models/FullAndFinalSettlement.js';
 import User from '../models/User.js';
 import Resignation from '../models/Resignation.js';
+import Payment from '../models/Payment.js';
 import { createForbiddenError, createNotFoundError, createValidationError } from '../utils/apiError.js';
 import { createdResponse, successResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -247,6 +248,31 @@ export const FullAndFinalSettlementController = {
     record.status = 'Paid'; record.payment.paidBy = req.user.userId; record.payment.paidAt = new Date(); record.payment.paymentDate = req.body.paymentDate ? new Date(req.body.paymentDate) : new Date(); record.payment.paymentReference = String(req.body.paymentReference || ''); record.updatedBy = req.user.userId;
     appendHistory(record, 'Payment updated', actor(req), 'Payment marked as paid');
     await record.save();
+
+    // Persist Payment transaction in payments collection (with duplicate prevention)
+    try {
+      const existingPayment = await Payment.findOne({ settlement: record._id });
+      if (!existingPayment) {
+        const paymentNum = `PAY-${Date.now().toString().slice(-8)}`;
+        const empName = employeeName(record.user) || record.employeeSnapshot?.name || '';
+        await Payment.create({
+          paymentNumber: paymentNum,
+          settlement: record._id,
+          employee: record.user?._id || record.user,
+          employeeName: empName,
+          amount: record.netPayable,
+          currency: 'INR',
+          paymentDate: record.payment.paymentDate,
+          paymentMethod: record.payment.paymentMethod || 'Bank Transfer',
+          transactionReference: record.payment.paymentReference || '',
+          status: 'Completed',
+          notes: `Full & Final settlement disbursement for ${empName}`,
+          recordedBy: req.user.userId || null,
+        });
+      }
+    } catch (payErr) {
+      console.error('Error creating payment transaction for settlement:', payErr);
+    }
     await populatedResponse(res, record, 'Settlement marked as paid');
   }),
 

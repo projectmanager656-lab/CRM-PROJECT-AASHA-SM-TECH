@@ -20,15 +20,42 @@ export class RbacService {
     // rather than receiving the former implicit legacy bypass.
     const roleKey = account?.rbacRoleKey || tokenUser.role;
     const role = account?.rbacRoleId ? await Role.findById(account.rbacRoleId) : await Role.findOne({ key: roleKey, status: 'Active' });
-    // Permission resolution is deliberately fail-closed.  A missing/inactive role
+    // Permission resolution is deliberately fail-closed. A missing/inactive role
     // must never turn into administrative access.
     if (!role) return { bypass: false, role: null, permissions: {} };
+
+    // If account access is completely Revoked, return zero permissions
+    if (account?.accessStatus === 'Revoked') {
+      return { bypass: false, role: { id: role._id, key: role.key, name: role.name }, permissions: {} };
+    }
+
     const policies = await RolePermission.find({ roleId: role._id, moduleEnabled: true });
     const permissions = {};
     for (const policy of policies) {
+      if (account?.accessStatus === 'Restricted') {
+        const restricted = new Set((account.restrictedModules || []).map((m) => String(m).toLowerCase()));
+        if (restricted.has(policy.moduleKey.toLowerCase())) continue;
+      }
       permissions[policy.moduleKey] ||= {};
       for (const resource of policy.resourcePermissions) permissions[policy.moduleKey][resource.resourceKey] = resource.actions || {};
     }
+
+    // Merge any custom user-level granted permissions
+    if (account?.customPermissions) {
+      const entries = account.customPermissions instanceof Map
+        ? Array.from(account.customPermissions.entries())
+        : typeof account.customPermissions.forEach === 'function'
+        ? Array.from(account.customPermissions.entries())
+        : Object.entries(account.customPermissions);
+      for (const [modKey, modPerms] of entries) {
+        if (account?.accessStatus === 'Restricted') {
+          const restricted = new Set((account.restrictedModules || []).map((m) => String(m).toLowerCase()));
+          if (restricted.has(String(modKey).toLowerCase())) continue;
+        }
+        permissions[modKey] = { ...(permissions[modKey] || {}), ...modPerms };
+      }
+    }
+
     return { bypass: false, role: { id: role._id, key: role.key, name: role.name }, permissions };
   }
 

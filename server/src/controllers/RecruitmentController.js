@@ -9,16 +9,32 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const isHrOrAdmin = (user) => ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR';
 
+const actorName = (user) => {
+  if (!user) return 'System / HR';
+  if (user.firstName || user.lastName) return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  return user.email || 'HR';
+};
+
 const generateJobId = () => `JOB-${Math.floor(10000 + Math.random() * 90000)}`;
 const generateCandidateId = () => `CAN-${Math.floor(10000 + Math.random() * 90000)}`;
 
 export const RecruitmentController = {
   // 1. Summary KPIs & Pipeline Metrics
-  summary: asyncHandler(async (_req, res) => {
-    const [jobs, candidates] = await Promise.all([
-      JobRequisition.find().lean(),
-      Candidate.find().populate('appliedJob', 'title department').lean(),
+  summary: asyncHandler(async (req, res) => {
+    const jobFilter = {};
+    const candidateFilter = {};
+    if (req.query.appliedJob && req.query.appliedJob !== 'All') {
+      candidateFilter.appliedJob = req.query.appliedJob;
+    }
+
+    const [jobs, allCandidates] = await Promise.all([
+      JobRequisition.find(jobFilter).lean(),
+      Candidate.find().populate('appliedJob', 'title department jobId').lean(),
     ]);
+
+    const candidates = req.query.appliedJob && req.query.appliedJob !== 'All'
+      ? allCandidates.filter((c) => String(c.appliedJob?._id || c.appliedJob) === String(req.query.appliedJob))
+      : allCandidates;
 
     const openPositions = jobs.filter((j) => j.status === 'Open').length;
     const totalApplicants = candidates.length;
@@ -40,12 +56,17 @@ export const RecruitmentController = {
       'Applied',
       'Screening',
       'Shortlisted',
+      'Assessment',
       'Interview',
       'Technical Round',
+      'Final / HR Round',
       'HR Round',
       'Selected',
-      'Rejected',
+      'Offer',
       'Hired',
+      'Rejected',
+      'Withdrawn',
+      'On Hold',
     ];
     const stageCounts = {};
     STAGES.forEach((s) => { stageCounts[s] = 0; });
@@ -320,6 +341,7 @@ export const RecruitmentController = {
       .populate('appliedJob', 'jobId title department location openings')
       .populate('recruiter', 'firstName lastName email')
       .populate('convertedEmployeeId', 'firstName lastName email department designation')
+      .populate('history.changedBy', 'firstName lastName email')
       .lean();
 
     if (!candidate) throw createNotFoundError('Candidate not found');
@@ -348,22 +370,288 @@ export const RecruitmentController = {
   updateStage: asyncHandler(async (req, res) => {
     if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
 
-    const { stage, notes } = req.body;
+    const { stage, fromStage, reason, notes } = req.body;
     if (!stage) throw createValidationError('Stage is required');
+
+    const ALLOWED_STAGES = [
+      'Applied',
+      'Screening',
+      'Shortlisted',
+      'Assessment',
+      'Interview',
+      'Technical Round',
+      'HR Round',
+      'Final / HR Round',
+      'Selected',
+      'Offer',
+      'Hired',
+      'Rejected',
+      'Withdrawn',
+      'On Hold',
+    ];
+    if (!ALLOWED_STAGES.includes(stage)) {
+      throw createValidationError(`Invalid stage: "${stage}". Allowed: ${ALLOWED_STAGES.join(', ')}`);
+    }
 
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) throw createNotFoundError('Candidate not found');
 
+    const oldStage = candidate.stage || 'Applied';
+
+    // Business transition validation rules
+    const VALID_TRANSITIONS = {
+      'Applied': ['Screening', 'Shortlisted', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Screening': ['Applied', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Shortlisted': ['Screening', 'Assessment', 'Interview', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Assessment': ['Shortlisted', 'Interview', 'Technical Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Interview': ['Shortlisted', 'Assessment', 'Technical Round', 'HR Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Technical Round': ['Assessment', 'Interview', 'HR Round', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'HR Round': ['Technical Round', 'Interview', 'Final / HR Round', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Final / HR Round': ['Technical Round', 'Interview', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Selected': ['Offer', 'Interview', 'Final / HR Round', 'Technical Round', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Offer': ['Hired', 'Selected', 'Rejected', 'Withdrawn', 'On Hold'],
+      'Hired': ['Offer', 'Selected', 'Withdrawn'],
+      'On Hold': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Final / HR Round', 'Selected', 'Offer', 'Rejected', 'Withdrawn'],
+      'Rejected': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Technical Round', 'Selected'],
+      'Withdrawn': ['Applied', 'Screening', 'Shortlisted', 'Assessment', 'Interview', 'Selected'],
+    };
+
+    if (stage !== oldStage) {
+      const allowedTargets = VALID_TRANSITIONS[oldStage];
+      if (allowedTargets && !allowedTargets.includes(stage)) {
+        throw createValidationError(
+          `Invalid stage transition: Cannot move candidate directly from "${oldStage}" to "${stage}". Valid progression required.`
+        );
+      }
+    }
+
     candidate.stage = stage;
+
     if (stage === 'Selected') candidate.status = 'In Review';
-    if (stage === 'Rejected') candidate.status = 'Rejected';
-    if (stage === 'Shortlisted') candidate.status = 'Shortlisted';
-    if (['Interview', 'Technical Round', 'HR Round'].includes(stage)) candidate.status = 'Interviewing';
+    else if (stage === 'Offer') candidate.status = 'Offered';
+    else if (stage === 'Hired') candidate.status = 'Hired';
+    else if (stage === 'Rejected') {
+      candidate.status = 'Rejected';
+      candidate.rejection = {
+        reason: reason || 'Stage moved to Rejected',
+        notes: notes || '',
+        rejectedBy: req.user.userId,
+        rejectedByName: actorName(req.user),
+        rejectedAt: new Date(),
+      };
+    } else if (stage === 'Withdrawn') {
+      candidate.status = 'Withdrawn';
+      candidate.withdrawal = {
+        reason: reason || 'Stage moved to Withdrawn',
+        notes: notes || '',
+        recordedBy: req.user.userId,
+        recordedByName: actorName(req.user),
+        withdrawnAt: new Date(),
+      };
+    } else if (stage === 'On Hold') {
+      candidate.status = 'On Hold';
+    } else if (stage === 'Shortlisted') candidate.status = 'Shortlisted';
+    else if (stage === 'Assessment') candidate.status = 'In Review';
+    else if (stage === 'Screening') candidate.status = 'In Review';
+    else if (['Interview', 'Technical Round', 'HR Round', 'Final / HR Round'].includes(stage)) candidate.status = 'Interviewing';
+    else if (stage === 'Applied') candidate.status = 'New';
 
-    candidate.history.push({ stage, updatedAt: new Date(), notes: notes || `Moved to ${stage}` });
+    candidate.history.push({
+      fromStage: fromStage || oldStage,
+      toStage: stage,
+      stage,
+      changedBy: req.user.userId,
+      changedByName: actorName(req.user),
+      reason: reason || '',
+      notes: notes || `Candidate transitioned from ${fromStage || oldStage} to ${stage}`,
+      updatedAt: new Date(),
+    });
+
     await candidate.save();
-
     res.json(successResponse(candidate, `Candidate stage updated to ${stage}`));
+  }),
+
+  recordAssessment: asyncHandler(async (req, res) => {
+    if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
+
+    const { name, score, maxScore, result, evaluator, feedback, dueDate } = req.body;
+    const candidate = await Candidate.findById(req.params.id);
+    if (!candidate) throw createNotFoundError('Candidate not found');
+
+    const scoreNum = Number(score) || 0;
+    const maxScoreNum = Number(maxScore) || 100;
+    const computedPercentage = maxScoreNum > 0 ? Math.round((scoreNum / maxScoreNum) * 100) : 0;
+
+    candidate.assessment = {
+      name: name || 'Technical Assessment',
+      assignedDate: new Date(),
+      dueDate: dueDate ? new Date(dueDate) : null,
+      score: scoreNum,
+      maxScore: maxScoreNum,
+      result: result || (computedPercentage >= 60 ? 'Passed' : 'Failed'),
+      evaluator: evaluator || actorName(req.user),
+      feedback: feedback || '',
+      submittedAt: new Date(),
+    };
+
+    if (computedPercentage > 0) {
+      candidate.atsScore = computedPercentage;
+    }
+
+    const oldStage = candidate.stage || 'Assessment';
+    if (result === 'Passed' || (!result && computedPercentage >= 60)) {
+      candidate.stage = 'Interview';
+      candidate.status = 'Interviewing';
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Interview',
+        stage: 'Interview',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: `Assessment Passed (${scoreNum}/${maxScoreNum})`,
+        notes: feedback || 'Candidate passed technical assessment and progressed to interview round',
+        updatedAt: new Date(),
+      });
+    } else if (result === 'Failed') {
+      candidate.stage = 'Rejected';
+      candidate.status = 'Rejected';
+      candidate.rejection = {
+        reason: 'Failed technical assessment',
+        notes: feedback || `Scored ${scoreNum}/${maxScoreNum}`,
+        rejectedBy: req.user.userId,
+        rejectedByName: actorName(req.user),
+        rejectedAt: new Date(),
+      };
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Rejected',
+        stage: 'Rejected',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: 'Assessment Failed',
+        notes: feedback || `Scored ${scoreNum}/${maxScoreNum}`,
+        updatedAt: new Date(),
+      });
+    } else {
+      candidate.stage = 'Assessment';
+      candidate.status = 'In Review';
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Assessment',
+        stage: 'Assessment',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: 'Assessment recorded: ' + (result || 'Pending'),
+        notes: feedback || `Score: ${scoreNum}/${maxScoreNum}`,
+        updatedAt: new Date(),
+      });
+    }
+
+    await candidate.save();
+    res.json(successResponse(candidate, 'Assessment record saved successfully'));
+  }),
+
+  recordScreening: asyncHandler(async (req, res) => {
+    if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
+
+    const {
+      screeningDate,
+      recruiter,
+      recruiterName,
+      skillsMatch,
+      experienceMatch,
+      communicationAssessment,
+      notes,
+      decision,
+      rejectionReason,
+    } = req.body;
+
+    const candidate = await Candidate.findById(req.params.id);
+    if (!candidate) throw createNotFoundError('Candidate not found');
+
+    const validDecisions = ['Pass', 'Hold', 'Fail', ''];
+    if (decision && !validDecisions.includes(decision)) {
+      throw createValidationError('Invalid screening decision. Allowed: Pass, Hold, Fail');
+    }
+
+    let recruiterId = null;
+    let currentRecruiterName = recruiterName || '';
+    if (recruiter && mongoose.Types.ObjectId.isValid(recruiter)) {
+      recruiterId = recruiter;
+    } else if (recruiter && typeof recruiter === 'string') {
+      currentRecruiterName = recruiter;
+    }
+    if (!recruiterId && req.user?.userId && mongoose.Types.ObjectId.isValid(req.user.userId)) {
+      recruiterId = req.user.userId;
+    }
+    if (!currentRecruiterName) {
+      currentRecruiterName = actorName(req.user);
+    }
+
+    candidate.screening = {
+      screeningDate: screeningDate ? new Date(screeningDate) : new Date(),
+      recruiter: recruiterId,
+      recruiterName: currentRecruiterName,
+      skillsMatch: Number(skillsMatch) || 3,
+      experienceMatch: Number(experienceMatch) || 3,
+      communicationAssessment: Number(communicationAssessment) || 3,
+      notes: notes || '',
+      decision: decision || 'Pass',
+      submittedAt: new Date(),
+      submittedBy: req.user.userId,
+    };
+
+    const oldStage = candidate.stage || 'Screening';
+    if (decision === 'Pass') {
+      candidate.stage = 'Shortlisted';
+      candidate.status = 'Shortlisted';
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Shortlisted',
+        stage: 'Shortlisted',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: 'Screening Evaluation: Pass',
+        notes: notes || 'Candidate cleared screening assessment',
+        updatedAt: new Date(),
+      });
+    } else if (decision === 'Fail') {
+      candidate.stage = 'Rejected';
+      candidate.status = 'Rejected';
+      candidate.rejection = {
+        reason: rejectionReason || 'Failed screening assessment',
+        notes: notes || '',
+        rejectedBy: req.user.userId,
+        rejectedByName: actorName(req.user),
+        rejectedAt: new Date(),
+      };
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Rejected',
+        stage: 'Rejected',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: rejectionReason || 'Screening Evaluation: Fail',
+        notes: notes || 'Candidate did not pass screening assessment',
+        updatedAt: new Date(),
+      });
+    } else if (decision === 'Hold') {
+      candidate.stage = 'Screening';
+      candidate.status = 'In Review';
+      candidate.history.push({
+        fromStage: oldStage,
+        toStage: 'Screening',
+        stage: 'Screening',
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: 'Screening Evaluation: On Hold',
+        notes: notes || 'Screening placed on hold',
+        updatedAt: new Date(),
+      });
+    }
+
+    await candidate.save();
+    res.json(successResponse(candidate, 'Screening assessment saved successfully'));
   }),
 
   shortlistCandidate: asyncHandler(async (req, res) => {
@@ -372,9 +660,19 @@ export const RecruitmentController = {
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) throw createNotFoundError('Candidate not found');
 
+    const oldStage = candidate.stage || 'Applied';
     candidate.stage = 'Shortlisted';
     candidate.status = 'Shortlisted';
-    candidate.history.push({ stage: 'Shortlisted', updatedAt: new Date(), notes: 'Shortlisted for interview rounds' });
+    candidate.history.push({
+      fromStage: oldStage,
+      toStage: 'Shortlisted',
+      stage: 'Shortlisted',
+      changedBy: req.user.userId,
+      changedByName: actorName(req.user),
+      reason: 'Candidate shortlisted for interview rounds',
+      notes: req.body.notes || 'Shortlisted',
+      updatedAt: new Date(),
+    });
     await candidate.save();
 
     res.json(successResponse(candidate, 'Candidate shortlisted successfully'));
@@ -383,15 +681,79 @@ export const RecruitmentController = {
   rejectCandidate: asyncHandler(async (req, res) => {
     if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
 
+    const { reason, notes } = req.body;
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) throw createNotFoundError('Candidate not found');
 
+    const oldStage = candidate.stage || 'Applied';
     candidate.stage = 'Rejected';
     candidate.status = 'Rejected';
-    candidate.history.push({ stage: 'Rejected', updatedAt: new Date(), notes: req.body.reason || 'Candidate rejected' });
+    candidate.rejection = {
+      reason: reason || 'Candidate not suitable',
+      notes: notes || '',
+      rejectedBy: req.user.userId,
+      rejectedByName: actorName(req.user),
+      rejectedAt: new Date(),
+    };
+
+    candidate.history.push({
+      fromStage: oldStage,
+      toStage: 'Rejected',
+      stage: 'Rejected',
+      changedBy: req.user.userId,
+      changedByName: actorName(req.user),
+      reason: reason || 'Candidate rejected',
+      notes: notes || '',
+      updatedAt: new Date(),
+    });
     await candidate.save();
 
-    res.json(successResponse(candidate, 'Candidate rejected'));
+    res.json(successResponse(candidate, 'Candidate rejected successfully'));
+  }),
+
+  recordWithdrawal: asyncHandler(async (req, res) => {
+    if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
+
+    const { reason, notes } = req.body;
+    const candidate = await Candidate.findById(req.params.id);
+    if (!candidate) throw createNotFoundError('Candidate not found');
+
+    const oldStage = candidate.stage || 'Applied';
+    candidate.stage = 'Withdrawn';
+    candidate.status = 'Withdrawn';
+    candidate.withdrawal = {
+      reason: reason || 'Candidate withdrew application',
+      notes: notes || '',
+      recordedBy: req.user.userId,
+      recordedByName: actorName(req.user),
+      withdrawnAt: new Date(),
+    };
+
+    candidate.history.push({
+      fromStage: oldStage,
+      toStage: 'Withdrawn',
+      stage: 'Withdrawn',
+      changedBy: req.user.userId,
+      changedByName: actorName(req.user),
+      reason: reason || 'Withdrawn',
+      notes: notes || 'Candidate application withdrawn',
+      updatedAt: new Date(),
+    });
+    await candidate.save();
+
+    res.json(successResponse(candidate, 'Candidate application marked as Withdrawn'));
+  }),
+
+  getTimeline: asyncHandler(async (req, res) => {
+    const candidate = await Candidate.findById(req.params.id)
+      .select('candidateId name stage status history screening rejection withdrawal interviews offer convertedEmployeeId')
+      .populate('history.changedBy', 'firstName lastName email')
+      .lean();
+
+    if (!candidate) throw createNotFoundError('Candidate not found');
+
+    const history = (candidate.history || []).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    res.json(successResponse({ candidateId: candidate.candidateId, name: candidate.name, history }, 'Candidate timeline retrieved'));
   }),
 
   // ─── 4. INTERVIEW MANAGEMENT CONTROLLERS ─────────────────────────────────
@@ -416,12 +778,18 @@ export const RecruitmentController = {
       status: 'Scheduled',
     });
 
+    const oldStage = candidate.stage || 'Shortlisted';
     candidate.stage = 'Interview';
     candidate.status = 'Interviewing';
     candidate.history.push({
+      fromStage: oldStage,
+      toStage: 'Interview',
       stage: 'Interview',
+      changedBy: req.user.userId,
+      changedByName: actorName(req.user),
+      reason: `Scheduled ${round || 'Interview'}`,
+      notes: `Scheduled for ${new Date(date).toLocaleDateString()} at ${time || '11:00 AM'}`,
       updatedAt: new Date(),
-      notes: `Scheduled ${round || 'Interview'} for ${new Date(date).toLocaleDateString()}`,
     });
 
     await candidate.save();
@@ -463,11 +831,42 @@ export const RecruitmentController = {
       };
       interview.status = 'Completed';
 
-      // Auto update candidate rating
       candidate.rating = Number(feedback.overallRating) || candidate.rating;
       if (feedback.recommendation === 'Strong Hire' || feedback.recommendation === 'Hire') {
+        const prev = candidate.stage;
         candidate.stage = 'Selected';
         candidate.status = 'In Review';
+        candidate.history.push({
+          fromStage: prev,
+          toStage: 'Selected',
+          stage: 'Selected',
+          changedBy: req.user.userId,
+          changedByName: actorName(req.user),
+          reason: `Interview Recommendation: ${feedback.recommendation}`,
+          notes: feedback.comments || 'Interview completed with positive recommendation',
+          updatedAt: new Date(),
+        });
+      } else if (feedback.recommendation === 'Reject') {
+        const prev = candidate.stage;
+        candidate.stage = 'Rejected';
+        candidate.status = 'Rejected';
+        candidate.rejection = {
+          reason: 'Interview failed',
+          notes: feedback.comments || '',
+          rejectedBy: req.user.userId,
+          rejectedByName: actorName(req.user),
+          rejectedAt: new Date(),
+        };
+        candidate.history.push({
+          fromStage: prev,
+          toStage: 'Rejected',
+          stage: 'Rejected',
+          changedBy: req.user.userId,
+          changedByName: actorName(req.user),
+          reason: 'Interview Recommendation: Reject',
+          notes: feedback.comments || 'Candidate rejected following interview feedback',
+          updatedAt: new Date(),
+        });
       }
     }
 

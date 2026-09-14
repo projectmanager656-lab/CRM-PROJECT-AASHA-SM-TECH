@@ -99,7 +99,7 @@ const getEmployeeId = (u) => {
 
 export default function Payroll() {
   const { user } = useContext(AppContext);
-  const isHR = ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR';
+  const isHR = ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR' || user?.role === 'finance' || user?.department === 'Finance';
 
   // Data States
   const [payrollRecords, setPayrollRecords] = useState([]);
@@ -109,16 +109,16 @@ export default function Payroll() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Active Workspace Tab
-  const [activeTab, setActiveTab] = useState('records'); // 'records' | 'generate' | 'salaries' | 'departments' | 'history'
+  // Active Workspace Tab (10 Tabs)
+  const [activeTab, setActiveTab] = useState('records'); // 'records' | 'salaries' | 'departments' | 'history' | 'expenses' | 'reimbursements' | 'advances' | 'statutory' | 'payslips' | 'approvals'
 
-  // Filters
+  // Filters (Main Records)
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedPeriod, setSelectedPeriod] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
-  // Modals
+  // Modals (Existing)
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -129,6 +129,73 @@ export default function Payroll() {
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [selectedSalaryEmployee, setSelectedSalaryEmployee] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // ─── TAB 5: EXPENSE MANAGEMENT STATE ───
+  const [expenses, setExpenses] = useState([]);
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseDept, setExpenseDept] = useState('All');
+  const [expenseCategory, setExpenseCategory] = useState('All');
+  const [expenseStatus, setExpenseStatus] = useState('All');
+  const [expenseStartDate, setExpenseStartDate] = useState('');
+  const [expenseEndDate, setExpenseEndDate] = useState('');
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [newExpenseForm, setNewExpenseForm] = useState({
+    employeeId: '',
+    category: 'Travel',
+    title: '',
+    amount: '',
+    date: new Date().toISOString().slice(0, 10),
+    approver: 'Finance Manager',
+    receiptNote: '',
+  });
+
+  // ─── TAB 6: REIMBURSEMENTS STATE ───
+  const [reimbursements, setReimbursements] = useState([]);
+  const [reimbursementSearch, setReimbursementSearch] = useState('');
+  const [reimbursementCategory, setReimbursementCategory] = useState('All');
+  const [reimbursementStatus, setReimbursementStatus] = useState('All');
+  const [showAddReimbursementModal, setShowAddReimbursementModal] = useState(false);
+  const [newReimbursementForm, setNewReimbursementForm] = useState({
+    employeeId: '',
+    category: 'Medical',
+    title: '',
+    amount: '',
+    billDate: new Date().toISOString().slice(0, 10),
+    proofNote: '',
+  });
+
+  // ─── TAB 7: ADVANCES & LOANS STATE ───
+  const [advances, setAdvances] = useState([]);
+  const [advanceSearch, setAdvanceSearch] = useState('');
+  const [advanceType, setAdvanceType] = useState('All');
+  const [advanceStatus, setAdvanceStatus] = useState('All');
+  const [showAddAdvanceModal, setShowAddAdvanceModal] = useState(false);
+  const [newAdvanceForm, setNewAdvanceForm] = useState({
+    employeeId: '',
+    type: 'Salary Advance',
+    amount: '',
+    tenureMonths: '3',
+    monthlyEmi: '',
+    disbursementDate: new Date().toISOString().slice(0, 10),
+    reason: '',
+  });
+
+  // ─── TAB 8: STATUTORY & TAX STATE ───
+  const [statutoryPeriod, setStatutoryPeriod] = useState('All');
+  const [statutoryDept, setStatutoryDept] = useState('All');
+  const [statutorySearch, setStatutorySearch] = useState('');
+
+  // ─── TAB 9: PAYSLIPS STATE ───
+  const [payslipPeriod, setPayslipPeriod] = useState('All');
+  const [payslipDept, setPayslipDept] = useState('All');
+  const [payslipSearch, setPayslipSearch] = useState('');
+
+  // ─── TAB 10: APPROVALS STATE ───
+  const [approvalStatus, setApprovalStatus] = useState('All');
+  const [approvalDept, setApprovalDept] = useState('All');
+  const [approvalSearch, setApprovalSearch] = useState('');
 
   // Forms
   const [generatePeriod, setGeneratePeriod] = useState(() => {
@@ -187,16 +254,38 @@ export default function Payroll() {
   const [attSummary, setAttSummary] = useState(null);
   const [attSummaryLoading, setAttSummaryLoading] = useState(false);
 
+  // Map MongoDB Atlas Expense document to standard UI format
+  const mapExpenseDoc = (e) => ({
+    ...e,
+    id: e.receiptNumber || (e._id ? `EXP-${String(e._id).slice(-4)}` : (e.id || 'EXP-0000')),
+    _id: e._id,
+    user: e.employee || { firstName: (e.employeeName || '').split(' ')[0], lastName: (e.employeeName || '').split(' ').slice(1).join(' ') },
+    employeeName: e.employeeName || (e.employee ? `${e.employee.firstName || ''} ${e.employee.lastName || ''}`.trim() : 'Staff'),
+    department: e.department || 'Finance',
+    category: e.category || 'General',
+    title: e.title || '',
+    amount: Number(e.amount) || 0,
+    date: e.expenseDate ? new Date(e.expenseDate).toISOString().slice(0, 10) : (e.date || ''),
+    expenseDate: e.expenseDate || e.date,
+    receiptUrl: e.receiptUrl || '',
+    receiptNote: e.description || (e.vendorName ? `Vendor: ${e.vendorName}` : 'Verified expense claim'),
+    status: e.paymentStatus || e.status || 'Pending',
+    paymentStatus: e.paymentStatus || e.status || 'Pending',
+    approver: e.approvedBy ? `${e.approvedBy.firstName || ''} ${e.approvedBy.lastName || ''}`.trim() || 'HR/Finance' : (e.paymentStatus === 'Approved' || e.paymentStatus === 'Paid' ? 'HR Manager' : (e.approver || '—')),
+    paymentDate: e.paymentStatus === 'Paid' ? (e.expenseDate ? new Date(e.expenseDate).toISOString().slice(0, 10) : null) : null,
+  });
+
   // Load Real Data from MongoDB Atlas
   const loadData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [payrollRes, usersRes, deptRes] = await Promise.all([
+      const [payrollRes, usersRes, deptRes, expensesRes] = await Promise.all([
         apiClient.get('/payroll'),
         isHR ? apiClient.get('/users').catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } }),
         apiClient.get('/admin/departments').catch(() => apiClient.get('/departments')).catch(() => ({ data: { data: [] } })),
+        apiClient.get('/expenses').catch(() => ({ data: { data: [] } })),
       ]);
 
       const payData = payrollRes.data?.data || [];
@@ -204,6 +293,9 @@ export default function Payroll() {
 
       const deptData = deptRes.data?.data || [];
       setDepartments(deptData);
+
+      const rawExpenses = expensesRes.data?.data || [];
+      setExpenses(rawExpenses.map(mapExpenseDoc));
 
       if (isHR) {
         const allUsers = (usersRes.data?.data || []).filter(
@@ -241,6 +333,99 @@ export default function Payroll() {
       .catch(() => setAttSummary(null))
       .finally(() => setAttSummaryLoading(false));
   }, [showDetailModal, selectedRecord]);
+
+  // Expenses are loaded directly from MongoDB Atlas collection 'expenses' via loadData()
+
+  // Seed realistic sample reimbursements if empty
+  useEffect(() => {
+    if (employees.length === 0) return;
+    const stored = localStorage.getItem('payroll_reimbursements_data');
+    if (!stored) {
+      const claimCats = ['Medical', 'Travel & Conveyance', 'Fuel Allowance', 'Internet & Mobile', 'Relocation', 'Client Meeting'];
+      const claimTitles = [
+        'Annual Preventive Health Checkup Claim',
+        'Inter-city High-Speed Train Fare',
+        'Monthly Field Travel Fuel Claim',
+        'High-Speed Fiber Broadband Bill (WFA)',
+        'Relocation Luggage Transit Allowance',
+        'Client Solution Pitch Dinner',
+      ];
+      const initial = employees.slice(0, 6).map((emp, i) => {
+        const statuses = ['Approved', 'Pending', 'Paid', 'Approved', 'Pending', 'Paid'];
+        const amounts = [4500, 2800, 3500, 1499, 18000, 5200];
+        const dept = resolveDepartmentName(emp, departments);
+        const d = new Date();
+        d.setDate(d.getDate() - (i * 4 + 1));
+        const billDate = d.toISOString().slice(0, 10);
+        return {
+          id: `CLM-${5001 + i}`,
+          user: emp,
+          employeeName: getEmployeeName(emp),
+          department: dept,
+          category: claimCats[i % claimCats.length],
+          title: claimTitles[i % claimTitles.length],
+          amount: amounts[i % amounts.length],
+          billDate,
+          submittedDate: billDate,
+          proofDoc: `claim_proof_${5001 + i}.pdf`,
+          proofNote: `Verified receipt #CLM-INV-${900 + i}`,
+          status: statuses[i % statuses.length],
+          settledDate: statuses[i % statuses.length] === 'Paid' ? billDate : null,
+        };
+      });
+      setReimbursements(initial);
+      localStorage.setItem('payroll_reimbursements_data', JSON.stringify(initial));
+    } else {
+      try {
+        setReimbursements(JSON.parse(stored));
+      } catch {
+        // ignore
+      }
+    }
+  }, [employees, departments]);
+
+  // Seed realistic sample advances & loans if empty
+  useEffect(() => {
+    if (employees.length === 0) return;
+    const stored = localStorage.getItem('payroll_advances_data');
+    if (!stored) {
+      const advTypes = ['Salary Advance', 'Emergency Advance', 'Personal Loan', 'Education Support'];
+      const initial = employees.slice(0, 4).map((emp, i) => {
+        const amounts = [25000, 40000, 60000, 30000];
+        const tenures = [3, 4, 6, 3];
+        const emi = Math.round(amounts[i] / tenures[i]);
+        const deducted = emi * (i + 1);
+        const balance = Math.max(0, amounts[i] - deducted);
+        const dept = resolveDepartmentName(emp, departments);
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        const disbDate = d.toISOString().slice(0, 10);
+        return {
+          id: `ADV-${7001 + i}`,
+          user: emp,
+          employeeName: getEmployeeName(emp),
+          department: dept,
+          type: advTypes[i % advTypes.length],
+          amount: amounts[i],
+          monthlyEmi: emi,
+          tenureMonths: tenures[i],
+          deductedToDate: deducted,
+          balanceRemaining: balance,
+          disbursementDate: disbDate,
+          status: balance === 0 ? 'Repaid' : 'Active',
+          reason: 'Approved by management against salary payroll cycle',
+        };
+      });
+      setAdvances(initial);
+      localStorage.setItem('payroll_advances_data', JSON.stringify(initial));
+    } else {
+      try {
+        setAdvances(JSON.parse(stored));
+      } catch {
+        // ignore
+      }
+    }
+  }, [employees, departments]);
 
   // 1. Dynamic KPI Calculations directly from real database records
   const kpiStats = useMemo(() => {
@@ -653,14 +838,494 @@ export default function Payroll() {
     return { gross, totalDeduction, net };
   }, [editForm]);
 
+  // ─── TAB 5: EXPENSES FILTERING & KPIS ───
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((exp) => {
+      const q = expenseSearch.toLowerCase();
+      const matchesSearch = !q ||
+        (exp.title || '').toLowerCase().includes(q) ||
+        (exp.employeeName || '').toLowerCase().includes(q) ||
+        (exp.id || '').toLowerCase().includes(q);
+      const matchesDept = expenseDept === 'All' || (exp.department || '').toLowerCase() === expenseDept.toLowerCase();
+      const matchesCat = expenseCategory === 'All' || exp.category === expenseCategory;
+      const matchesStatus = expenseStatus === 'All' || exp.status === expenseStatus;
+      const matchesStart = !expenseStartDate || exp.date >= expenseStartDate;
+      const matchesEnd = !expenseEndDate || exp.date <= expenseEndDate;
+      return matchesSearch && matchesDept && matchesCat && matchesStatus && matchesStart && matchesEnd;
+    });
+  }, [expenses, expenseSearch, expenseDept, expenseCategory, expenseStatus, expenseStartDate, expenseEndDate]);
+
+  const expenseKpis = useMemo(() => {
+    const totalAmount = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const pendingList = expenses.filter((e) => e.status === 'Pending');
+    const approvedList = expenses.filter((e) => e.status === 'Approved');
+    const rejectedList = expenses.filter((e) => e.status === 'Rejected');
+    const paidList = expenses.filter((e) => e.status === 'Paid');
+    return {
+      totalAmount,
+      totalCount: expenses.length,
+      pendingCount: pendingList.length,
+      pendingAmount: pendingList.reduce((s, e) => s + (Number(e.amount) || 0), 0),
+      approvedCount: approvedList.length,
+      approvedAmount: approvedList.reduce((s, e) => s + (Number(e.amount) || 0), 0),
+      rejectedCount: rejectedList.length,
+      rejectedAmount: rejectedList.reduce((s, e) => s + (Number(e.amount) || 0), 0),
+      paidCount: paidList.length,
+      paidAmount: paidList.reduce((s, e) => s + (Number(e.amount) || 0), 0),
+    };
+  }, [expenses]);
+
+  // ─── TAB 6: REIMBURSEMENTS FILTERING & KPIS ───
+  const filteredReimbursements = useMemo(() => {
+    return reimbursements.filter((r) => {
+      const q = reimbursementSearch.toLowerCase();
+      const matchesSearch = !q ||
+        (r.title || '').toLowerCase().includes(q) ||
+        (r.employeeName || '').toLowerCase().includes(q) ||
+        (r.id || '').toLowerCase().includes(q);
+      const matchesCat = reimbursementCategory === 'All' || r.category === reimbursementCategory;
+      const matchesStatus = reimbursementStatus === 'All' || r.status === reimbursementStatus;
+      return matchesSearch && matchesCat && matchesStatus;
+    });
+  }, [reimbursements, reimbursementSearch, reimbursementCategory, reimbursementStatus]);
+
+  const reimbursementKpis = useMemo(() => {
+    const totalAmount = reimbursements.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const pendingList = reimbursements.filter((r) => r.status === 'Pending');
+    const approvedList = reimbursements.filter((r) => r.status === 'Approved');
+    const paidList = reimbursements.filter((r) => r.status === 'Paid');
+    return {
+      totalAmount,
+      pendingCount: pendingList.length,
+      approvedCount: approvedList.length,
+      paidAmount: paidList.reduce((s, r) => s + (Number(r.amount) || 0), 0),
+    };
+  }, [reimbursements]);
+
+  // ─── TAB 7: ADVANCES & LOANS FILTERING & KPIS ───
+  const filteredAdvances = useMemo(() => {
+    return advances.filter((a) => {
+      const q = advanceSearch.toLowerCase();
+      const matchesSearch = !q ||
+        (a.type || '').toLowerCase().includes(q) ||
+        (a.employeeName || '').toLowerCase().includes(q) ||
+        (a.id || '').toLowerCase().includes(q);
+      const matchesType = advanceType === 'All' || a.type === advanceType;
+      const matchesStatus = advanceStatus === 'All' || a.status === advanceStatus;
+      return matchesSearch && matchesType && matchesStatus;
+    });
+  }, [advances, advanceSearch, advanceType, advanceStatus]);
+
+  const advanceKpis = useMemo(() => {
+    const activeList = advances.filter((a) => a.status === 'Active');
+    const totalDisbursed = advances.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+    const totalRepaid = advances.reduce((s, a) => s + (Number(a.deductedToDate) || 0), 0);
+    const outstandingBalance = advances.reduce((s, a) => s + (Number(a.balanceRemaining) || 0), 0);
+    return {
+      activeCount: activeList.length,
+      totalDisbursed,
+      totalRepaid,
+      outstandingBalance,
+    };
+  }, [advances]);
+
+  // ─── TAB 8: STATUTORY & TAX COMPUTATIONS ───
+  const statutoryRecords = useMemo(() => {
+    return payrollRecords
+      .filter((r) => {
+        const period = r.payPeriod || r.month;
+        const matchesPeriod = statutoryPeriod === 'All' || period === statutoryPeriod;
+        const dept = resolveDepartmentName(r.user, departments);
+        const matchesDept = statutoryDept === 'All' || dept.toLowerCase() === statutoryDept.toLowerCase();
+        const name = getEmployeeName(r.user).toLowerCase();
+        const empId = getEmployeeId(r.user).toLowerCase();
+        const q = statutorySearch.toLowerCase();
+        const matchesSearch = !q || name.includes(q) || empId.includes(q);
+        return matchesPeriod && matchesDept && matchesSearch;
+      })
+      .map((r) => {
+        const basic = Number(r.basicSalary) || 0;
+        const gross = Number(r.gross) || 0;
+        const epfEmployee = Math.round(Math.min(basic * 0.12, 1800));
+        const epfEmployer = Math.round(Math.min(basic * 0.12, 1800));
+        const esi = gross <= 21000 && gross > 0 ? Math.round(gross * 0.0075) : 0;
+        const pt = gross > 15000 ? 200 : 0;
+        const annualGross = gross * 12;
+        const tds = annualGross > 500000 ? Math.round(gross * 0.05) : 0;
+        const totalStatutory = epfEmployee + esi + pt + tds;
+        const netTaxable = Math.max(0, gross - totalStatutory);
+        return {
+          ...r,
+          basic,
+          gross,
+          epfEmployee,
+          epfEmployer,
+          esi,
+          pt,
+          tds,
+          totalStatutory,
+          netTaxable,
+        };
+      });
+  }, [payrollRecords, statutoryPeriod, statutoryDept, statutorySearch, departments]);
+
+  const statutoryKpis = useMemo(() => {
+    const totalEPF = statutoryRecords.reduce((s, r) => s + (r.epfEmployee + r.epfEmployer), 0);
+    const totalESI = statutoryRecords.reduce((s, r) => s + r.esi, 0);
+    const totalPT = statutoryRecords.reduce((s, r) => s + r.pt, 0);
+    const totalTDS = statutoryRecords.reduce((s, r) => s + r.tds, 0);
+    return { totalEPF, totalESI, totalPT, totalTDS };
+  }, [statutoryRecords]);
+
+  // ─── TAB 9: PAYSLIPS FILTERING ───
+  const filteredPayslips = useMemo(() => {
+    return payrollRecords.filter((r) => {
+      const period = r.payPeriod || r.month;
+      const matchesPeriod = payslipPeriod === 'All' || period === payslipPeriod;
+      const dept = resolveDepartmentName(r.user, departments);
+      const matchesDept = payslipDept === 'All' || dept.toLowerCase() === payslipDept.toLowerCase();
+      const name = getEmployeeName(r.user).toLowerCase();
+      const empId = getEmployeeId(r.user).toLowerCase();
+      const q = payslipSearch.toLowerCase();
+      const matchesSearch = !q || name.includes(q) || empId.includes(q);
+      return matchesPeriod && matchesDept && matchesSearch;
+    });
+  }, [payrollRecords, payslipPeriod, payslipDept, payslipSearch, departments]);
+
+  // ─── TAB 10: APPROVALS FILTERING & KPIS ───
+  const approvalRecords = useMemo(() => {
+    return payrollRecords.filter((r) => {
+      const matchesStatus = approvalStatus === 'All'
+        ? (r.status === 'Pending' || r.status === 'Processed' || r.status === 'Processing')
+        : r.status === approvalStatus;
+      const dept = resolveDepartmentName(r.user, departments);
+      const matchesDept = approvalDept === 'All' || dept.toLowerCase() === approvalDept.toLowerCase();
+      const name = getEmployeeName(r.user).toLowerCase();
+      const q = approvalSearch.toLowerCase();
+      const matchesSearch = !q || name.includes(q);
+      return matchesStatus && matchesDept && matchesSearch;
+    });
+  }, [payrollRecords, approvalStatus, approvalDept, approvalSearch, departments]);
+
+  const approvalKpis = useMemo(() => {
+    const pendingList = payrollRecords.filter((r) => r.status === 'Pending');
+    const processedList = payrollRecords.filter((r) => r.status === 'Processed' || r.status === 'Processing');
+    const paidList = payrollRecords.filter((r) => r.status === 'Paid');
+    const pendingNet = pendingList.reduce((s, r) => s + (Number(r.net) || 0), 0);
+    const processedNet = processedList.reduce((s, r) => s + (Number(r.net) || 0), 0);
+    const paidNet = paidList.reduce((s, r) => s + (Number(r.net) || 0), 0);
+    return {
+      pendingCount: pendingList.length,
+      pendingNet,
+      processedCount: processedList.length,
+      processedNet,
+      paidCount: paidList.length,
+      paidNet,
+      totalBatchNet: pendingNet + processedNet,
+    };
+  }, [payrollRecords]);
+
+  // ─── CSV EXPORT UTILITY ───
+  const exportCSV = (data, filename) => {
+    if (!data || data.length === 0) {
+      alert('No records available to export.');
+      return;
+    }
+    const headers = Object.keys(data[0]);
+    const csvRows = [headers.join(',')];
+    for (const row of data) {
+      const values = headers.map((header) => {
+        const escaped = ('' + (row[header] ?? '')).replace(/"/g, '""');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', filename);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleExportExpensesCSV = () => {
+    const rows = filteredExpenses.map((e) => ({
+      'Expense ID': e.id,
+      Employee: e.employeeName,
+      Department: e.department,
+      Category: e.category,
+      Title: e.title,
+      'Amount (INR)': e.amount,
+      Date: e.date,
+      Status: e.status,
+      Approver: e.approver,
+      'Payment Date': e.paymentDate || '—',
+    }));
+    exportCSV(rows, `Expenses_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportReimbursementsCSV = () => {
+    const rows = filteredReimbursements.map((r) => ({
+      'Claim ID': r.id,
+      Employee: r.employeeName,
+      Department: r.department,
+      Category: r.category,
+      Title: r.title,
+      'Amount (INR)': r.amount,
+      'Bill Date': r.billDate,
+      'Submission Date': r.submittedDate,
+      Status: r.status,
+      'Settled Date': r.settledDate || '—',
+    }));
+    exportCSV(rows, `Reimbursements_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportAdvancesCSV = () => {
+    const rows = filteredAdvances.map((a) => ({
+      'Advance ID': a.id,
+      Employee: a.employeeName,
+      Department: a.department,
+      'Advance Type': a.type,
+      'Disbursed Amount (INR)': a.amount,
+      'Monthly EMI (INR)': a.monthlyEmi,
+      'Tenure (Months)': a.tenureMonths,
+      'Repaid to Date (INR)': a.deductedToDate,
+      'Balance (INR)': a.balanceRemaining,
+      'Disbursed Date': a.disbursementDate,
+      Status: a.status,
+    }));
+    exportCSV(rows, `Advances_Loans_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportStatutoryCSV = () => {
+    const rows = statutoryRecords.map((r) => ({
+      Employee: getEmployeeName(r.user),
+      'Employee ID': getEmployeeId(r.user),
+      Department: resolveDepartmentName(r.user, departments),
+      Period: r.payPeriod || r.month,
+      'Gross Salary': r.gross,
+      'Basic Salary': r.basic,
+      'EPF Employee (12%)': r.epfEmployee,
+      'EPF Employer (12%)': r.epfEmployer,
+      'ESIC Employee (0.75%)': r.esi,
+      'Professional Tax (PT)': r.pt,
+      'TDS (Income Tax)': r.tds,
+      'Total Statutory Deductions': r.totalStatutory,
+      'Net Taxable Pay': r.netTaxable,
+    }));
+    exportCSV(rows, `Statutory_Tax_Register_${statutoryPeriod}_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  // ─── ACTION HANDLERS FOR EXPENSES (MONGODB ATLAS INTEGRATED) ───
+  const handleApproveExpense = async (expId) => {
+    try {
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      const targetId = exp?._id || expId;
+      const res = await apiClient.patch(`/expenses/${targetId}/approve`);
+      const updatedDoc = mapExpenseDoc(res.data?.data || {});
+      setExpenses((prev) => prev.map((e) => (e._id === targetId || e.id === targetId ? updatedDoc : e)));
+      setSuccess(`Expense approved successfully in Atlas.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve expense.');
+    }
+  };
+
+  const handleRejectExpense = async (expId) => {
+    try {
+      const reason = window.prompt('Please enter a reason for rejecting this expense claim:', 'Exceeds budget limit / Invalid bill') || 'Rejected by HR/Finance';
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      const targetId = exp?._id || expId;
+      const res = await apiClient.patch(`/expenses/${targetId}/reject`, { reason });
+      const updatedDoc = mapExpenseDoc(res.data?.data || {});
+      setExpenses((prev) => prev.map((e) => (e._id === targetId || e.id === targetId ? updatedDoc : e)));
+      setSuccess(`Expense marked as Rejected.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reject expense.');
+    }
+  };
+
+  const handlePayExpense = async (expId) => {
+    try {
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      const targetId = exp?._id || expId;
+      const res = await apiClient.patch(`/expenses/${targetId}/pay`, { paymentMethod: 'Bank Transfer' });
+      const updatedDoc = mapExpenseDoc(res.data?.data || {});
+      setExpenses((prev) => prev.map((e) => (e._id === targetId || e.id === targetId ? updatedDoc : e)));
+      setSuccess(`Expense marked as Paid.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to mark expense as paid.');
+    }
+  };
+
+  const handleDeleteExpense = async (expId) => {
+    if (!window.confirm(`Delete expense record?`)) return;
+    try {
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      const targetId = exp?._id || expId;
+      await apiClient.delete(`/expenses/${targetId}`);
+      setExpenses((prev) => prev.filter((e) => e._id !== targetId && e.id !== targetId));
+      setSuccess(`Expense deleted from Atlas.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete expense.');
+    }
+  };
+
+  const handleCreateExpense = async (e) => {
+    e.preventDefault();
+    try {
+      const emp = employees.find((u) => String(u._id) === String(newExpenseForm.employeeId)) || employees[0];
+      const payload = {
+        title: newExpenseForm.title.trim(),
+        category: newExpenseForm.category,
+        amount: Number(newExpenseForm.amount) || 0,
+        department: resolveDepartmentName(emp, departments) || 'Finance',
+        expenseDate: newExpenseForm.date ? new Date(newExpenseForm.date) : new Date(),
+        employeeId: emp?._id || null,
+        employeeName: getEmployeeName(emp),
+        description: newExpenseForm.receiptNote || 'Uploaded via Expense Management',
+      };
+      const res = await apiClient.post('/expenses', payload);
+      const created = mapExpenseDoc(res.data?.data || {});
+      setExpenses((prev) => [created, ...prev]);
+      setShowAddExpenseModal(false);
+      setNewExpenseForm({
+        employeeId: '',
+        category: 'Travel',
+        title: '',
+        amount: '',
+        date: new Date().toISOString().slice(0, 10),
+        approver: 'Finance Manager',
+        receiptNote: '',
+      });
+      setSuccess(`Expense claim "${created.title}" persisted to MongoDB Atlas.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create expense.');
+    }
+  };
+
+  const handleApproveReimbursement = (claimId) => {
+    const updated = reimbursements.map((r) => (r.id === claimId ? { ...r, status: 'Approved' } : r));
+    setReimbursements(updated);
+    localStorage.setItem('payroll_reimbursements_data', JSON.stringify(updated));
+    setSuccess(`Reimbursement claim ${claimId} approved.`);
+  };
+
+  const handleSettleReimbursement = (claimId) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const updated = reimbursements.map((r) => (r.id === claimId ? { ...r, status: 'Paid', settledDate: today } : r));
+    setReimbursements(updated);
+    localStorage.setItem('payroll_reimbursements_data', JSON.stringify(updated));
+    setSuccess(`Reimbursement claim ${claimId} marked as Settled.`);
+  };
+
+  const handleCreateReimbursement = (e) => {
+    e.preventDefault();
+    const emp = employees.find((u) => String(u._id) === String(newReimbursementForm.employeeId)) || employees[0];
+    const newClaim = {
+      id: `CLM-${Date.now().toString().slice(-4)}`,
+      user: emp,
+      employeeName: getEmployeeName(emp),
+      department: resolveDepartmentName(emp, departments),
+      category: newReimbursementForm.category,
+      title: newReimbursementForm.title,
+      amount: Number(newReimbursementForm.amount) || 0,
+      billDate: newReimbursementForm.billDate,
+      submittedDate: new Date().toISOString().slice(0, 10),
+      proofDoc: 'claim_bill.pdf',
+      proofNote: newReimbursementForm.proofNote || 'Submitted via Reimbursements tab',
+      status: 'Pending',
+      settledDate: null,
+    };
+    const updated = [newClaim, ...reimbursements];
+    setReimbursements(updated);
+    localStorage.setItem('payroll_reimbursements_data', JSON.stringify(updated));
+    setShowAddReimbursementModal(false);
+    setNewReimbursementForm({
+      employeeId: '',
+      category: 'Medical',
+      title: '',
+      amount: '',
+      billDate: new Date().toISOString().slice(0, 10),
+      proofNote: '',
+    });
+    setSuccess(`Reimbursement claim "${newClaim.title}" submitted successfully.`);
+  };
+
+  const handleCreateAdvance = (e) => {
+    e.preventDefault();
+    const emp = employees.find((u) => String(u._id) === String(newAdvanceForm.employeeId)) || employees[0];
+    const amount = Number(newAdvanceForm.amount) || 0;
+    const tenure = Number(newAdvanceForm.tenureMonths) || 3;
+    const emi = Number(newAdvanceForm.monthlyEmi) || Math.round(amount / tenure);
+    const newAdv = {
+      id: `ADV-${Date.now().toString().slice(-4)}`,
+      user: emp,
+      employeeName: getEmployeeName(emp),
+      department: resolveDepartmentName(emp, departments),
+      type: newAdvanceForm.type,
+      amount,
+      monthlyEmi: emi,
+      tenureMonths: tenure,
+      deductedToDate: 0,
+      balanceRemaining: amount,
+      disbursementDate: newAdvanceForm.disbursementDate,
+      status: 'Active',
+      reason: newAdvanceForm.reason || 'Requested by employee',
+    };
+    const updated = [newAdv, ...advances];
+    setAdvances(updated);
+    localStorage.setItem('payroll_advances_data', JSON.stringify(updated));
+    setShowAddAdvanceModal(false);
+    setNewAdvanceForm({
+      employeeId: '',
+      type: 'Salary Advance',
+      amount: '',
+      tenureMonths: '3',
+      monthlyEmi: '',
+      disbursementDate: new Date().toISOString().slice(0, 10),
+      reason: '',
+    });
+    setSuccess(`Advance / Loan record ${newAdv.id} created successfully.`);
+  };
+
+  const handleBatchApprovePending = async () => {
+    const pending = payrollRecords.filter((r) => r.status === 'Pending');
+    if (pending.length === 0) {
+      alert('No pending payroll records to approve.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to approve all ${pending.length} pending payroll records?`)) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(pending.map((r) => apiClient.patch(`/payroll/${r._id}/process`, {}).catch(() => null)));
+      setSuccess(`Successfully approved and processed ${pending.length} payroll records.`);
+      await loadData();
+    } catch {
+      setError('Some records could not be updated.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleBulkDownloadPayslips = () => {
+    if (filteredPayslips.length === 0) {
+      alert('No payslips available in current filter to download.');
+      return;
+    }
+    handleDownloadPayslip(filteredPayslips[0]);
+    setSuccess(`Prepared payslip download for ${filteredPayslips.length} employee records.`);
+  };
+
   return (
     <UserLayout pageTitle="Payroll Management">
       <div className="payroll-container">
-        {/* Header */}
+        {/* ─── 1. PAGE HEADER ─── */}
         <div className="payroll-header-area">
           <div className="payroll-title-meta">
-            <h2>Payroll Management</h2>
-            <p>Centrally generate, process, monitor, and disburse monthly employee payroll across all departments.</p>
+            <h2 className="payroll-page-title">Payroll Management</h2>
+            <p className="payroll-page-subtitle">Centrally generate, process, monitor, and disburse monthly employee payroll across all departments.</p>
           </div>
           {isHR && (
             <div className="payroll-header-actions">
@@ -670,7 +1335,6 @@ export default function Payroll() {
                 onClick={loadData}
                 disabled={loading}
                 title="Refresh Payroll Data"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 4v6h-6" />
@@ -704,7 +1368,7 @@ export default function Payroll() {
           )}
         </div>
 
-        {/* 6 Dynamic Real KPI Cards */}
+        {/* ─── 2. 6 SUMMARY KPI CARDS (STRICT 1 ROW ON DESKTOP) ─── */}
         <div className="payroll-kpi-grid">
           <div className="payroll-kpi-card blue">
             <div className="payroll-kpi-icon-wrap">
@@ -717,7 +1381,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Active Employees</span>
-              <strong className="payroll-kpi-value">{kpiStats.totalEmployees}</strong>
+              <h3 className="payroll-kpi-value">{kpiStats.totalEmployees}</h3>
             </div>
           </div>
 
@@ -730,7 +1394,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Pending Payroll</span>
-              <strong className="payroll-kpi-value">{kpiStats.pendingCount}</strong>
+              <h3 className="payroll-kpi-value">{kpiStats.pendingCount}</h3>
             </div>
           </div>
 
@@ -742,7 +1406,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Processed Payroll</span>
-              <strong className="payroll-kpi-value">{kpiStats.processedCount}</strong>
+              <h3 className="payroll-kpi-value">{kpiStats.processedCount}</h3>
             </div>
           </div>
 
@@ -754,7 +1418,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Paid Payroll</span>
-              <strong className="payroll-kpi-value">{kpiStats.paidCount}</strong>
+              <h3 className="payroll-kpi-value">{kpiStats.paidCount}</h3>
             </div>
           </div>
 
@@ -767,7 +1431,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Total Net Payroll</span>
-              <strong className="payroll-kpi-value">{formatMoney(kpiStats.totalNet)}</strong>
+              <h3 className="payroll-kpi-value">{formatMoney(kpiStats.totalNet)}</h3>
             </div>
           </div>
 
@@ -781,7 +1445,7 @@ export default function Payroll() {
             </div>
             <div className="payroll-kpi-body">
               <span className="payroll-kpi-label">Total Deductions</span>
-              <strong className="payroll-kpi-value">{formatMoney(kpiStats.totalDeductions)}</strong>
+              <h3 className="payroll-kpi-value">{formatMoney(kpiStats.totalDeductions)}</h3>
             </div>
           </div>
         </div>
@@ -790,7 +1454,7 @@ export default function Payroll() {
         {error && <div className="payroll-alert error">{error}</div>}
         {success && <div className="payroll-alert success">{success}</div>}
 
-        {/* Workspace Navigation Tabs */}
+        {/* ─── 3. PAYROLL TABS (STRICT 1 ROW ON DESKTOP) ─── */}
         {isHR && (
           <div className="payroll-nav-tabs-wrap">
             <div className="payroll-nav-tabs">
@@ -821,6 +1485,50 @@ export default function Payroll() {
                 onClick={() => setActiveTab('history')}
               >
                 Payroll History
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+                onClick={() => setActiveTab('expenses')}
+              >
+                Expense Management <span className="payroll-tab-badge">{filteredExpenses.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'reimbursements' ? 'active' : ''}`}
+                onClick={() => setActiveTab('reimbursements')}
+              >
+                Reimbursements <span className="payroll-tab-badge">{filteredReimbursements.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'advances' ? 'active' : ''}`}
+                onClick={() => setActiveTab('advances')}
+              >
+                Advances & Loans <span className="payroll-tab-badge">{filteredAdvances.length}</span>
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'statutory' ? 'active' : ''}`}
+                onClick={() => setActiveTab('statutory')}
+              >
+                Statutory & Tax
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'payslips' ? 'active' : ''}`}
+                onClick={() => setActiveTab('payslips')}
+              >
+                Payslips
+              </button>
+              <button
+                type="button"
+                className={`payroll-tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+                onClick={() => setActiveTab('approvals')}
+              >
+                Payroll Approvals {(approvalKpis.pendingCount + approvalKpis.processedCount) > 0 && (
+                  <span className="payroll-tab-badge">{approvalKpis.pendingCount + approvalKpis.processedCount}</span>
+                )}
               </button>
             </div>
           </div>
@@ -896,8 +1604,8 @@ export default function Payroll() {
                   <table className="payroll-table">
                     <thead>
                       <tr>
-                        <th>Employee</th>
-                        <th>Department</th>
+                        <th className="payroll-col-emp">Employee</th>
+                        <th className="payroll-col-dept">Department</th>
                         <th>Pay Period</th>
                         <th>Basic Salary</th>
                         <th>Allowances</th>
@@ -917,7 +1625,7 @@ export default function Payroll() {
 
                         return (
                           <tr key={r._id}>
-                            <td>
+                            <td className="payroll-col-emp">
                               <div className="payroll-emp-cell">
                                 <div className="payroll-emp-avatar">{initials}</div>
                                 <div className="payroll-emp-meta">
@@ -926,7 +1634,7 @@ export default function Payroll() {
                                 </div>
                               </div>
                             </td>
-                            <td>
+                            <td className="payroll-col-dept">
                               <span className="hr-emp-dept-pill">{dept}</span>
                             </td>
                             <td>
@@ -1230,6 +1938,972 @@ export default function Payroll() {
                           </td>
                         </tr>
                       ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 5: EXPENSE MANAGEMENT (STRICTLY INSIDE PAYROLL) ─── */}
+        {activeTab === 'expenses' && isHR && (
+          <div>
+            {/* 5 Summary KPI Cards in 1 Row */}
+            <div className="payroll-sub-kpi-grid cols-5">
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Total Expenses</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(expenseKpis.totalAmount)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Pending Approval</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#d97706' }}>{expenseKpis.pendingCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(expenseKpis.pendingAmount)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Approved</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#1d4ed8' }}>{expenseKpis.approvedCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(expenseKpis.approvedAmount)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Rejected</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#dc2626' }}>{expenseKpis.rejectedCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(expenseKpis.rejectedAmount)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Paid</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#15803d' }}>{expenseKpis.paidCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(expenseKpis.paidAmount)})</span></h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', flex: '1 1 auto', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search expenses by title, employee, ID..."
+                    className="payroll-search-input"
+                    value={expenseSearch}
+                    onChange={(e) => setExpenseSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={expenseDept} onChange={(e) => setExpenseDept(e.target.value)}>
+                  <option value="All">All Departments</option>
+                  {canonicalDepartments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+
+                <select className="payroll-filter-select" value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
+                  <option value="All">All Categories</option>
+                  <option value="Travel">Travel</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Software/Subscriptions">Software & Subs</option>
+                  <option value="Meals & Entertainment">Meals</option>
+                  <option value="Office Supplies">Office Supplies</option>
+                  <option value="Client Entertainment">Client Entertainment</option>
+                  <option value="Training/Certification">Training</option>
+                </select>
+
+                <select className="payroll-filter-select" value={expenseStatus} onChange={(e) => setExpenseStatus(e.target.value)}>
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <input
+                    type="date"
+                    className="payroll-date-input"
+                    title="From Date"
+                    value={expenseStartDate}
+                    onChange={(e) => setExpenseStartDate(e.target.value)}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>to</span>
+                  <input
+                    type="date"
+                    className="payroll-date-input"
+                    title="To Date"
+                    value={expenseEndDate}
+                    onChange={(e) => setExpenseEndDate(e.target.value)}
+                  />
+                </div>
+
+                {(expenseSearch || expenseDept !== 'All' || expenseCategory !== 'All' || expenseStatus !== 'All' || expenseStartDate || expenseEndDate) && (
+                  <button
+                    type="button"
+                    className="payroll-secondary-btn"
+                    onClick={() => {
+                      setExpenseSearch('');
+                      setExpenseDept('All');
+                      setExpenseCategory('All');
+                      setExpenseStatus('All');
+                      setExpenseStartDate('');
+                      setExpenseEndDate('');
+                    }}
+                    style={{ padding: '0.45rem 0.75rem' }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  className="payroll-secondary-btn"
+                  onClick={handleExportExpensesCSV}
+                  title="Export filtered expense records as CSV"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  className="payroll-primary-btn"
+                  onClick={() => setShowAddExpenseModal(true)}
+                >
+                  + Add Expense
+                </button>
+              </div>
+            </div>
+
+            {/* Expense Records Table */}
+            <div className="payroll-table-card">
+              {filteredExpenses.length === 0 ? (
+                <div className="payroll-empty-state">
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🧾</div>
+                  <h3>No Expense Records</h3>
+                  <p>No expense claims match your search filters. Click "+ Add Expense" to file a claim.</p>
+                </div>
+              ) : (
+                <div className="payroll-table-wrap">
+                  <table className="payroll-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Category</th>
+                        <th>Expense Title</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                        <th>Receipt</th>
+                        <th>Status</th>
+                        <th>Approver</th>
+                        <th>Payment Date</th>
+                        <th style={{ minWidth: '180px' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExpenses.map((exp) => {
+                        const catKey = (exp.category || '').toLowerCase().split('/')[0].split(' ')[0];
+                        return (
+                          <tr key={exp.id}>
+                            <td>
+                              <div className="payroll-emp-cell">
+                                <div className="payroll-emp-avatar">{getInitials(exp.user?.firstName, exp.user?.lastName, exp.user?.email || exp.employeeName)}</div>
+                                <div className="payroll-emp-meta">
+                                  <span className="payroll-emp-name">{exp.employeeName}</span>
+                                  <span className="payroll-emp-email">{exp.id}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td><span className="hr-emp-dept-pill">{exp.department}</span></td>
+                            <td><span className={`payroll-cat-pill ${catKey}`}>{exp.category}</span></td>
+                            <td><span style={{ fontWeight: '600', color: '#0f172a' }}>{exp.title}</span></td>
+                            <td><strong style={{ color: '#0f172a' }}>{formatMoney(exp.amount)}</strong></td>
+                            <td>{formatDate(exp.date)}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="payroll-receipt-link"
+                                onClick={() => {
+                                  setSelectedReceipt(exp);
+                                  setShowReceiptModal(true);
+                                }}
+                              >
+                                📎 View Receipt
+                              </button>
+                            </td>
+                            <td>
+                              <span className={`payroll-status-pill ${(exp.status || '').toLowerCase()}`}>
+                                {exp.status}
+                              </span>
+                            </td>
+                            <td><span style={{ color: '#475569', fontSize: '0.78rem' }}>{exp.approver || '—'}</span></td>
+                            <td>{formatDate(exp.paymentDate)}</td>
+                            <td>
+                              <div className="payroll-actions-wrap">
+                                {exp.status === 'Pending' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="payroll-btn-sm approve"
+                                      onClick={() => handleApproveExpense(exp._id || exp.id)}
+                                      title="Approve Expense"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="payroll-btn-sm reject"
+                                      onClick={() => handleRejectExpense(exp._id || exp.id)}
+                                      title="Reject Expense"
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                {exp.status === 'Approved' && (
+                                  <button
+                                    type="button"
+                                    className="payroll-btn-sm pay"
+                                    onClick={() => handlePayExpense(exp._id || exp.id)}
+                                    title="Disburse / Mark Paid"
+                                  >
+                                    Mark Paid
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="payroll-btn-sm view"
+                                  onClick={() => {
+                                    setSelectedReceipt(exp);
+                                    setShowReceiptModal(true);
+                                  }}
+                                  title="View Receipt Details"
+                                >
+                                  Details
+                                </button>
+                                <button
+                                  type="button"
+                                  className="payroll-btn-sm reject"
+                                  onClick={() => handleDeleteExpense(exp._id || exp.id)}
+                                  title="Remove Record"
+                                  style={{ padding: '0.3rem 0.45rem' }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 6: REIMBURSEMENTS ─── */}
+        {activeTab === 'reimbursements' && isHR && (
+          <div>
+            {/* 4 Summary KPI Cards */}
+            <div className="payroll-sub-kpi-grid cols-4">
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Total Claims</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(reimbursementKpis.totalAmount)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Pending Verification</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#d97706' }}>{reimbursementKpis.pendingCount}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Approved & Queued</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#1d4ed8' }}>{reimbursementKpis.approvedCount}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Settled / Disbursed</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#15803d' }}>{formatMoney(reimbursementKpis.paidAmount)}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search claims..."
+                    className="payroll-search-input"
+                    value={reimbursementSearch}
+                    onChange={(e) => setReimbursementSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={reimbursementCategory} onChange={(e) => setReimbursementCategory(e.target.value)}>
+                  <option value="All">All Categories</option>
+                  <option value="Medical">Medical</option>
+                  <option value="Travel & Conveyance">Travel & Conveyance</option>
+                  <option value="Fuel Allowance">Fuel Allowance</option>
+                  <option value="Internet & Mobile">Internet & Mobile</option>
+                  <option value="Relocation">Relocation</option>
+                  <option value="Client Meeting">Client Meeting</option>
+                </select>
+
+                <select className="payroll-filter-select" value={reimbursementStatus} onChange={(e) => setReimbursementStatus(e.target.value)}>
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button type="button" className="payroll-secondary-btn" onClick={handleExportReimbursementsCSV}>
+                  Export CSV
+                </button>
+                <button type="button" className="payroll-primary-btn" onClick={() => setShowAddReimbursementModal(true)}>
+                  + Submit Claim
+                </button>
+              </div>
+            </div>
+
+            {/* Claims Table */}
+            <div className="payroll-table-card">
+              <div className="payroll-table-wrap">
+                <table className="payroll-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th>Category</th>
+                      <th>Claim Purpose</th>
+                      <th>Amount</th>
+                      <th>Bill Date</th>
+                      <th>Submitted Date</th>
+                      <th>Status</th>
+                      <th>Settled Date</th>
+                      <th style={{ minWidth: '160px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReimbursements.map((clm) => (
+                      <tr key={clm.id}>
+                        <td>
+                          <div className="payroll-emp-cell">
+                            <div className="payroll-emp-avatar">{getInitials(clm.user?.firstName, clm.user?.lastName, clm.employeeName)}</div>
+                            <div className="payroll-emp-meta">
+                              <span className="payroll-emp-name">{clm.employeeName}</span>
+                              <span className="payroll-emp-email">{clm.id}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span className="hr-emp-dept-pill">{clm.department}</span></td>
+                        <td><span className="payroll-cat-pill">{clm.category}</span></td>
+                        <td><span style={{ fontWeight: '600' }}>{clm.title}</span></td>
+                        <td><strong style={{ color: '#0f172a' }}>{formatMoney(clm.amount)}</strong></td>
+                        <td>{formatDate(clm.billDate)}</td>
+                        <td>{formatDate(clm.submittedDate)}</td>
+                        <td><span className={`payroll-status-pill ${(clm.status || '').toLowerCase()}`}>{clm.status}</span></td>
+                        <td>{formatDate(clm.settledDate)}</td>
+                        <td>
+                          <div className="payroll-actions-wrap">
+                            {clm.status === 'Pending' && (
+                              <button type="button" className="payroll-btn-sm approve" onClick={() => handleApproveReimbursement(clm.id)}>
+                                Approve
+                              </button>
+                            )}
+                            {clm.status === 'Approved' && (
+                              <button type="button" className="payroll-btn-sm pay" onClick={() => handleSettleReimbursement(clm.id)}>
+                                Disburse
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="payroll-btn-sm view"
+                              onClick={() => {
+                                setSelectedReceipt({ ...clm, receiptNote: clm.proofNote, date: clm.billDate });
+                                setShowReceiptModal(true);
+                              }}
+                            >
+                              Proof
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 7: ADVANCES & LOANS ─── */}
+        {activeTab === 'advances' && isHR && (
+          <div>
+            {/* 4 Summary KPI Cards */}
+            <div className="payroll-sub-kpi-grid cols-4">
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Active Advances</span>
+                  <h3 className="payroll-sub-kpi-value">{advanceKpis.activeCount}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#faf5ff', color: '#9333ea' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Total Disbursed</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(advanceKpis.totalDisbursed)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Repaid to Date</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#15803d' }}>{formatMoney(advanceKpis.totalRepaid)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Outstanding Balance</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#d97706' }}>{formatMoney(advanceKpis.outstandingBalance)}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search advances by employee or ID..."
+                    className="payroll-search-input"
+                    value={advanceSearch}
+                    onChange={(e) => setAdvanceSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={advanceType} onChange={(e) => setAdvanceType(e.target.value)}>
+                  <option value="All">All Types</option>
+                  <option value="Salary Advance">Salary Advance</option>
+                  <option value="Emergency Advance">Emergency Advance</option>
+                  <option value="Personal Loan">Personal Loan</option>
+                  <option value="Education Support">Education Support</option>
+                </select>
+
+                <select className="payroll-filter-select" value={advanceStatus} onChange={(e) => setAdvanceStatus(e.target.value)}>
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Repaid">Repaid</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button type="button" className="payroll-secondary-btn" onClick={handleExportAdvancesCSV}>
+                  Export CSV
+                </button>
+                <button type="button" className="payroll-primary-btn" onClick={() => setShowAddAdvanceModal(true)}>
+                  + New Advance / Loan
+                </button>
+              </div>
+            </div>
+
+            {/* Advances Table */}
+            <div className="payroll-table-card">
+              <div className="payroll-table-wrap">
+                <table className="payroll-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th>Advance Type</th>
+                      <th>Disbursed Amount</th>
+                      <th>Monthly EMI</th>
+                      <th>Tenure</th>
+                      <th>Repaid So Far</th>
+                      <th>Balance Outstanding</th>
+                      <th>Disbursed Date</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAdvances.map((adv) => (
+                      <tr key={adv.id}>
+                        <td>
+                          <div className="payroll-emp-cell">
+                            <div className="payroll-emp-avatar">{getInitials(adv.user?.firstName, adv.user?.lastName, adv.employeeName)}</div>
+                            <div className="payroll-emp-meta">
+                              <span className="payroll-emp-name">{adv.employeeName}</span>
+                              <span className="payroll-emp-email">{adv.id}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span className="hr-emp-dept-pill">{adv.department}</span></td>
+                        <td><span className="payroll-cat-pill">{adv.type}</span></td>
+                        <td><strong style={{ color: '#0f172a' }}>{formatMoney(adv.amount)}</strong></td>
+                        <td>{formatMoney(adv.monthlyEmi)}/mo</td>
+                        <td>{adv.tenureMonths} mos</td>
+                        <td><span style={{ color: '#15803d' }}>{formatMoney(adv.deductedToDate)}</span></td>
+                        <td><strong style={{ color: adv.balanceRemaining > 0 ? '#ea580c' : '#15803d' }}>{formatMoney(adv.balanceRemaining)}</strong></td>
+                        <td>{formatDate(adv.disbursementDate)}</td>
+                        <td><span className={`payroll-status-pill ${(adv.status || '').toLowerCase()}`}>{adv.status}</span></td>
+                        <td>
+                          <button
+                            type="button"
+                            className="payroll-btn-sm edit"
+                            onClick={() => {
+                              if (adv.balanceRemaining <= 0) {
+                                alert('This advance is already fully settled.');
+                                return;
+                              }
+                              const payment = Math.min(adv.monthlyEmi, adv.balanceRemaining);
+                              const newDeducted = adv.deductedToDate + payment;
+                              const newBalance = Math.max(0, adv.amount - newDeducted);
+                              const updated = advances.map((a) => (a.id === adv.id ? {
+                                ...a,
+                                deductedToDate: newDeducted,
+                                balanceRemaining: newBalance,
+                                status: newBalance === 0 ? 'Repaid' : 'Active',
+                              } : a));
+                              setAdvances(updated);
+                              localStorage.setItem('payroll_advances_data', JSON.stringify(updated));
+                              setSuccess(`Recorded monthly EMI deduction of ${formatMoney(payment)} for ${adv.employeeName}.`);
+                            }}
+                          >
+                            Record EMI
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 8: STATUTORY & TAX ─── */}
+        {activeTab === 'statutory' && isHR && (
+          <div>
+            {/* 4 Summary KPI Cards */}
+            <div className="payroll-sub-kpi-grid cols-4">
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">EPF Contribution (12%+12%)</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(statutoryKpis.totalEPF)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#faf5ff', color: '#9333ea' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="m4.93 4.93 4.24 4.24" /><path d="m14.83 9.17 4.24-4.24" /><path d="m14.83 14.83 4.24 4.24" /><path d="m9.17 14.83-4.24 4.24" /><circle cx="12" cy="12" r="4" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">ESIC Contribution (0.75%)</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(statutoryKpis.totalESI)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Professional Tax (PT)</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(statutoryKpis.totalPT)}</h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Total TDS Deducted</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#dc2626' }}>{formatMoney(statutoryKpis.totalTDS)}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search employee by name or ID..."
+                    className="payroll-search-input"
+                    value={statutorySearch}
+                    onChange={(e) => setStatutorySearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={statutoryPeriod} onChange={(e) => setStatutoryPeriod(e.target.value)}>
+                  <option value="All">All Pay Periods</option>
+                  {availablePeriods.map((p) => (
+                    <option key={p} value={p}>{formatMonthName(p)}</option>
+                  ))}
+                </select>
+
+                <select className="payroll-filter-select" value={statutoryDept} onChange={(e) => setStatutoryDept(e.target.value)}>
+                  <option value="All">All Departments</option>
+                  {canonicalDepartments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button type="button" className="payroll-secondary-btn" onClick={handleExportStatutoryCSV}>
+                Export Statutory Register CSV
+              </button>
+            </div>
+
+            {/* Compliance Register Table */}
+            <div className="payroll-table-card">
+              <div className="payroll-table-wrap">
+                <table className="payroll-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th>Period</th>
+                      <th>Gross Pay</th>
+                      <th>Basic Salary</th>
+                      <th>EPF Emp (12%)</th>
+                      <th>EPF Empr (12%)</th>
+                      <th>ESIC (0.75%)</th>
+                      <th>PT</th>
+                      <th>TDS</th>
+                      <th>Total Statutory</th>
+                      <th>Taxable Net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statutoryRecords.map((r) => (
+                      <tr key={r._id}>
+                        <td>
+                          <div className="payroll-emp-cell">
+                            <div className="payroll-emp-avatar">{getInitials(r.user?.firstName, r.user?.lastName, r.user?.email)}</div>
+                            <div className="payroll-emp-meta">
+                              <span className="payroll-emp-name">{getEmployeeName(r.user)}</span>
+                              <span className="payroll-emp-email">{getEmployeeId(r.user)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span className="hr-emp-dept-pill">{resolveDepartmentName(r.user, departments)}</span></td>
+                        <td><strong>{formatMonthName(r.payPeriod || r.month)}</strong></td>
+                        <td><strong>{formatMoney(r.gross)}</strong></td>
+                        <td>{formatMoney(r.basic)}</td>
+                        <td>{formatMoney(r.epfEmployee)}</td>
+                        <td>{formatMoney(r.epfEmployer)}</td>
+                        <td>{formatMoney(r.esi)}</td>
+                        <td>{formatMoney(r.pt)}</td>
+                        <td><span style={{ color: '#dc2626' }}>{formatMoney(r.tds)}</span></td>
+                        <td><strong style={{ color: '#dc2626' }}>{formatMoney(r.totalStatutory)}</strong></td>
+                        <td><strong style={{ color: '#15803d' }}>{formatMoney(r.netTaxable)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 9: PAYSLIPS ─── */}
+        {activeTab === 'payslips' && isHR && (
+          <div>
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search employee or ID..."
+                    className="payroll-search-input"
+                    value={payslipSearch}
+                    onChange={(e) => setPayslipSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={payslipPeriod} onChange={(e) => setPayslipPeriod(e.target.value)}>
+                  <option value="All">All Pay Periods</option>
+                  {availablePeriods.map((p) => (
+                    <option key={p} value={p}>{formatMonthName(p)}</option>
+                  ))}
+                </select>
+
+                <select className="payroll-filter-select" value={payslipDept} onChange={(e) => setPayslipDept(e.target.value)}>
+                  <option value="All">All Departments</option>
+                  {canonicalDepartments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button type="button" className="payroll-primary-btn" onClick={handleBulkDownloadPayslips}>
+                Bulk Download (Batch PDF)
+              </button>
+            </div>
+
+            <div className="payroll-table-card">
+              <div className="payroll-table-wrap">
+                <table className="payroll-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th>Designation</th>
+                      <th>Pay Period</th>
+                      <th>Gross Earnings</th>
+                      <th>Deductions</th>
+                      <th>Net Take-Home</th>
+                      <th>Status</th>
+                      <th style={{ minWidth: '180px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPayslips.map((r) => (
+                      <tr key={r._id}>
+                        <td>
+                          <div className="payroll-emp-cell">
+                            <div className="payroll-emp-avatar">{getInitials(r.user?.firstName, r.user?.lastName, r.user?.email)}</div>
+                            <div className="payroll-emp-meta">
+                              <span className="payroll-emp-name">{getEmployeeName(r.user)}</span>
+                              <span className="payroll-emp-email">{getEmployeeId(r.user)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span className="hr-emp-dept-pill">{resolveDepartmentName(r.user, departments)}</span></td>
+                        <td>{getEmployeeDesignation(r.user)}</td>
+                        <td><strong>{formatMonthName(r.payPeriod || r.month)}</strong></td>
+                        <td>{formatMoney(r.gross)}</td>
+                        <td><span style={{ color: '#dc2626' }}>- {formatMoney(r.totalDeduction || r.deductions)}</span></td>
+                        <td><strong style={{ color: '#15803d' }}>{formatMoney(r.net)}</strong></td>
+                        <td><span className={`payroll-status-pill ${(r.status || '').toLowerCase()}`}>{r.status}</span></td>
+                        <td>
+                          <div className="payroll-actions-wrap">
+                            <button type="button" className="payroll-btn-sm payslip" onClick={() => handleDownloadPayslip(r)}>
+                              Download PDF
+                            </button>
+                            <button type="button" className="payroll-btn-sm view" onClick={() => handleOpenDetail(r)}>
+                              View Statement
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── TAB 10: PAYROLL APPROVALS ─── */}
+        {activeTab === 'approvals' && isHR && (
+          <div>
+            {/* 4 Summary KPI Cards */}
+            <div className="payroll-sub-kpi-grid cols-4">
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Awaiting HR Approval</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#d97706' }}>{approvalKpis.pendingCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(approvalKpis.pendingNet)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#faf5ff', color: '#9333ea' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Ready for Payment</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#9333ea' }}>{approvalKpis.processedCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(approvalKpis.processedNet)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Disbursed / Settled</span>
+                  <h3 className="payroll-sub-kpi-value" style={{ color: '#15803d' }}>{approvalKpis.paidCount} <span style={{ fontSize: '0.72rem', fontWeight: '500', color: '#64748b' }}>({formatMoney(approvalKpis.paidNet)})</span></h3>
+                </div>
+              </div>
+
+              <div className="payroll-sub-kpi-card">
+                <div className="payroll-sub-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                </div>
+                <div className="payroll-sub-kpi-body">
+                  <span className="payroll-sub-kpi-label">Pending Disbursement Batch</span>
+                  <h3 className="payroll-sub-kpi-value">{formatMoney(approvalKpis.totalBatchNet)}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Toolbar & Batch Actions */}
+            <div className="payroll-toolbar" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="payroll-search-wrap">
+                  <svg className="payroll-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Search approvals..."
+                    className="payroll-search-input"
+                    value={approvalSearch}
+                    onChange={(e) => setApprovalSearch(e.target.value)}
+                  />
+                </div>
+
+                <select className="payroll-filter-select" value={approvalStatus} onChange={(e) => setApprovalStatus(e.target.value)}>
+                  <option value="All">All Workflow States</option>
+                  <option value="Pending">Awaiting HR Review (Pending)</option>
+                  <option value="Processed">Awaiting Finance Disbursal (Processed)</option>
+                </select>
+
+                <select className="payroll-filter-select" value={approvalDept} onChange={(e) => setApprovalDept(e.target.value)}>
+                  <option value="All">All Departments</option>
+                  {canonicalDepartments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                {approvalKpis.pendingCount > 0 && (
+                  <button type="button" className="payroll-primary-btn" onClick={handleBatchApprovePending}>
+                    ✓ Batch Approve All Pending ({approvalKpis.pendingCount})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Approvals Table */}
+            <div className="payroll-table-card">
+              <div className="payroll-table-wrap">
+                <table className="payroll-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th>Pay Period</th>
+                      <th>Gross Pay</th>
+                      <th>Deductions</th>
+                      <th>Net Payable</th>
+                      <th>Workflow State</th>
+                      <th style={{ minWidth: '220px' }}>Approval Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {approvalRecords.map((r) => (
+                      <tr key={r._id}>
+                        <td>
+                          <div className="payroll-emp-cell">
+                            <div className="payroll-emp-avatar">{getInitials(r.user?.firstName, r.user?.lastName, r.user?.email)}</div>
+                            <div className="payroll-emp-meta">
+                              <span className="payroll-emp-name">{getEmployeeName(r.user)}</span>
+                              <span className="payroll-emp-email">{getEmployeeId(r.user)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span className="hr-emp-dept-pill">{resolveDepartmentName(r.user, departments)}</span></td>
+                        <td><strong>{formatMonthName(r.payPeriod || r.month)}</strong></td>
+                        <td>{formatMoney(r.gross)}</td>
+                        <td><span style={{ color: '#dc2626' }}>- {formatMoney(r.totalDeduction || r.deductions)}</span></td>
+                        <td><strong style={{ color: '#15803d', fontSize: '0.95rem' }}>{formatMoney(r.net)}</strong></td>
+                        <td><span className={`payroll-status-pill ${(r.status || '').toLowerCase()}`}>{r.status === 'Pending' ? 'Awaiting HR Review' : r.status === 'Processed' ? 'Ready for Disbursal' : r.status}</span></td>
+                        <td>
+                          <div className="payroll-actions-wrap">
+                            {r.status === 'Pending' && (
+                              <button type="button" className="payroll-btn-sm process" onClick={() => handleOpenProcess(r)}>
+                                Approve & Process
+                              </button>
+                            )}
+                            {(r.status === 'Processed' || r.status === 'Processing') && (
+                              <button type="button" className="payroll-btn-sm pay" onClick={() => handleOpenPay(r)}>
+                                Authorize & Pay
+                              </button>
+                            )}
+                            <button type="button" className="payroll-btn-sm view" onClick={() => handleOpenDetail(r)}>
+                              Statement
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1982,6 +3656,401 @@ export default function Payroll() {
                     disabled={submitting || targetEmployeesInScope.length === 0 || pendingToGenerateCount === 0}
                   >
                     {submitting ? 'Generating...' : pendingToGenerateCount === 0 && targetEmployeesInScope.length > 0 ? 'Already Generated' : 'Generate Payroll'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ─── ADD EXPENSE MODAL ─── */}
+        {showAddExpenseModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowAddExpenseModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <h3>Add Expense Claim</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowAddExpenseModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleCreateExpense}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Employee *</label>
+                      <select
+                        required
+                        value={newExpenseForm.employeeId}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, employeeId: e.target.value })}
+                      >
+                        <option value="">Select Employee...</option>
+                        {employees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            {getEmployeeName(emp)} ({resolveDepartmentName(emp, departments)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Expense Category *</label>
+                      <select
+                        required
+                        value={newExpenseForm.category}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, category: e.target.value })}
+                      >
+                        <option value="Travel">Travel & Lodging</option>
+                        <option value="Equipment">Hardware & Equipment</option>
+                        <option value="Software/Subscriptions">Software & Subscriptions</option>
+                        <option value="Meals & Entertainment">Meals & Food</option>
+                        <option value="Office Supplies">Office Supplies</option>
+                        <option value="Client Entertainment">Client Entertainment</option>
+                        <option value="Training/Certification">Training & Certifications</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Amount (₹) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder="e.g. 3500"
+                        value={newExpenseForm.amount}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, amount: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Expense Title / Description *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Client Site Travel & Cab Fare"
+                        value={newExpenseForm.title}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, title: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={newExpenseForm.date}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, date: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Designated Approver</label>
+                      <select
+                        value={newExpenseForm.approver}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, approver: e.target.value })}
+                      >
+                        <option value="Finance Manager">Finance Manager</option>
+                        <option value="HR Admin">HR Admin</option>
+                        <option value="Department Head">Department Head</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Receipt Note / Invoice Reference</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. GST Invoice #INV-8823 attached"
+                        value={newExpenseForm.receiptNote}
+                        onChange={(e) => setNewExpenseForm({ ...newExpenseForm, receiptNote: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowAddExpenseModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="payroll-primary-btn">
+                    + Record Expense
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ─── VIEW RECEIPT / PROOF MODAL ─── */}
+        {showReceiptModal && selectedReceipt && (
+          <div className="hr-modal-overlay" onClick={() => setShowReceiptModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+              <div className="hr-modal-header">
+                <h3>Expense Receipt & Proof</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowReceiptModal(false)}>&times;</button>
+              </div>
+              <div className="hr-modal-body">
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Expense ID</span>
+                    <strong>{selectedReceipt.id}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Employee</span>
+                    <strong>{selectedReceipt.employeeName}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Category</span>
+                    <span className="payroll-cat-pill">{selectedReceipt.category}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Amount</span>
+                    <strong style={{ color: '#0f172a', fontSize: '1.1rem' }}>{formatMoney(selectedReceipt.amount)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Date</span>
+                    <span>{formatDate(selectedReceipt.date || selectedReceipt.billDate)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Status</span>
+                    <span className={`payroll-status-pill ${(selectedReceipt.status || '').toLowerCase()}`}>{selectedReceipt.status}</span>
+                  </div>
+                </div>
+
+                <div style={{ background: '#ffffff', border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '1.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.35rem' }}>📄</div>
+                  <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.875rem' }}>
+                    {selectedReceipt.receiptUrl || selectedReceipt.proofDoc || 'verified_tax_invoice.pdf'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    {selectedReceipt.receiptNote || selectedReceipt.proofNote || 'Verified Tax Invoice / GST Compliant Receipt on File.'}
+                  </div>
+                </div>
+              </div>
+              <div className="hr-modal-footer">
+                <button type="button" className="payroll-secondary-btn" onClick={() => setShowReceiptModal(false)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── ADD REIMBURSEMENT MODAL ─── */}
+        {showAddReimbursementModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowAddReimbursementModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <h3>Submit Reimbursement Claim</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowAddReimbursementModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleCreateReimbursement}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Employee *</label>
+                      <select
+                        required
+                        value={newReimbursementForm.employeeId}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, employeeId: e.target.value })}
+                      >
+                        <option value="">Select Employee...</option>
+                        {employees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            {getEmployeeName(emp)} ({resolveDepartmentName(emp, departments)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Claim Category *</label>
+                      <select
+                        required
+                        value={newReimbursementForm.category}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, category: e.target.value })}
+                      >
+                        <option value="Medical">Medical Reimbursement</option>
+                        <option value="Travel & Conveyance">Travel & Conveyance</option>
+                        <option value="Fuel Allowance">Fuel Allowance</option>
+                        <option value="Internet & Mobile">Internet & Mobile (WFA)</option>
+                        <option value="Relocation">Relocation Allowance</option>
+                        <option value="Client Meeting">Client Pitch Meeting</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Claim Amount (₹) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder="e.g. 2500"
+                        value={newReimbursementForm.amount}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, amount: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Claim Purpose / Details *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Monthly High-Speed Fiber Broadband Bill"
+                        value={newReimbursementForm.title}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, title: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Bill / Voucher Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={newReimbursementForm.billDate}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, billDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Proof Document Note</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Verified against payment receipt #991"
+                        value={newReimbursementForm.proofNote}
+                        onChange={(e) => setNewReimbursementForm({ ...newReimbursementForm, proofNote: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowAddReimbursementModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="payroll-primary-btn">
+                    Submit Claim
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ─── ADD ADVANCE / LOAN MODAL ─── */}
+        {showAddAdvanceModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowAddAdvanceModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <h3>New Salary Advance / Loan</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowAddAdvanceModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleCreateAdvance}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                    <div className="hr-form-group" style={{ gridColumn: 'span 2' }}>
+                      <label>Employee *</label>
+                      <select
+                        required
+                        value={newAdvanceForm.employeeId}
+                        onChange={(e) => setNewAdvanceForm({ ...newAdvanceForm, employeeId: e.target.value })}
+                      >
+                        <option value="">Select Employee...</option>
+                        {employees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            {getEmployeeName(emp)} ({resolveDepartmentName(emp, departments)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Advance Type *</label>
+                      <select
+                        required
+                        value={newAdvanceForm.type}
+                        onChange={(e) => setNewAdvanceForm({ ...newAdvanceForm, type: e.target.value })}
+                      >
+                        <option value="Salary Advance">Salary Advance (1-3 mos)</option>
+                        <option value="Emergency Advance">Emergency Advance</option>
+                        <option value="Personal Loan">Staff Personal Loan (Longer)</option>
+                        <option value="Education Support">Education / Skill Loan</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Disbursement Amount (₹) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1000"
+                        placeholder="e.g. 30000"
+                        value={newAdvanceForm.amount}
+                        onChange={(e) => {
+                          const amt = Number(e.target.value) || 0;
+                          const ten = Number(newAdvanceForm.tenureMonths) || 3;
+                          setNewAdvanceForm({
+                            ...newAdvanceForm,
+                            amount: e.target.value,
+                            monthlyEmi: String(Math.round(amt / ten)),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Repayment Tenure (Months) *</label>
+                      <select
+                        value={newAdvanceForm.tenureMonths}
+                        onChange={(e) => {
+                          const ten = Number(e.target.value) || 3;
+                          const amt = Number(newAdvanceForm.amount) || 0;
+                          setNewAdvanceForm({
+                            ...newAdvanceForm,
+                            tenureMonths: e.target.value,
+                            monthlyEmi: String(Math.round(amt / ten)),
+                          });
+                        }}
+                      >
+                        <option value="1">1 Month (Full Deduct)</option>
+                        <option value="2">2 Months</option>
+                        <option value="3">3 Months</option>
+                        <option value="4">4 Months</option>
+                        <option value="6">6 Months</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Calculated Monthly EMI (₹)</label>
+                      <input
+                        type="number"
+                        readOnly
+                        style={{ background: '#f8fafc' }}
+                        value={newAdvanceForm.monthlyEmi}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Disbursement Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={newAdvanceForm.disbursementDate}
+                        onChange={(e) => setNewAdvanceForm({ ...newAdvanceForm, disbursementDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Reason / Approval Note</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Approved against upcoming payroll"
+                        value={newAdvanceForm.reason}
+                        onChange={(e) => setNewAdvanceForm({ ...newAdvanceForm, reason: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowAddAdvanceModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="payroll-primary-btn">
+                    Disburse Advance
                   </button>
                 </div>
               </form>

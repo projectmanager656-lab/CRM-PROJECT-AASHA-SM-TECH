@@ -20,12 +20,16 @@ router.post('/terminate-employee', authorizeHrOrAdmin, ResignationController.ter
 router.route('/:id')
   .get(ResignationController.get);
 
+router.get('/:id/offboarding-details', ResignationController.getOffboardingDetails);
 router.patch('/:id/review', authorizeHrOrAdmin, ResignationController.review);
 router.patch('/:id/approve', authorizeHrOrAdmin, ResignationController.approve);
 router.patch('/:id/reject', authorizeHrOrAdmin, ResignationController.reject);
 router.patch('/:id/notice-period', authorizeHrOrAdmin, ResignationController.updateNoticePeriod);
 router.patch('/:id/clearance', authorizeHrOrAdmin, ResignationController.updateClearance);
+router.patch('/:id/start-offboarding', authorizeHrOrAdmin, ResignationController.startOffboarding);
+router.patch('/:id/access', authorizeHrOrAdmin, ResignationController.updateAccess);
 router.post('/:id/exit-interview', authorizeHrOrAdmin, ResignationController.submitExitInterview);
 router.post('/:id/complete-exit', authorizeHrOrAdmin, ResignationController.completeExit);
+router.post('/:id/finalize-settlement', authorizeHrOrAdmin, ResignationController.finalizeSettlement);
 
 export default router;

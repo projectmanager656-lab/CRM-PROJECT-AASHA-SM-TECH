@@ -2,32 +2,113 @@ import mongoose from 'mongoose';
 
 const { Schema } = mongoose;
 
+// 1. Training Program Batch
+const trainingProgramBatchSchema = new Schema({
+  batchName: { type: String, required: true, trim: true },
+  startDate: { type: Date },
+  endDate: { type: Date },
+  capacity: { type: Number, default: 0 },
+  status: { type: String, enum: ['Upcoming', 'Scheduled', 'Active', 'In Progress', 'Completed', 'Cancelled', 'On Hold'], default: 'Scheduled' }
+}, { timestamps: true });
+
 // 1. Training Program
 const trainingProgramSchema = new Schema({
   name: { type: String, required: true, trim: true },
+  programCode: { type: String, trim: true, unique: true, sparse: true },
   description: { type: String, trim: true },
-  trainingType: { type: String, enum: ['Internal', 'External', 'Online', 'Workshop', 'On-the-Job'], default: 'Internal' },
+  trainingType: {
+    type: String,
+    enum: ['Internal', 'External', 'Online', 'Workshop', 'On-the-Job', 'Skill Development', 'Certification', 'Compliance', 'Other'],
+    default: 'Internal'
+  },
+  category: {
+    type: String,
+    enum: ['Technical', 'Soft Skills', 'Leadership', 'Management', 'Communication', 'IT Skills', 'Other', 'General'],
+    default: 'Technical'
+  },
   department: { type: Schema.Types.ObjectId, ref: 'Department' },
+  programOwner: { type: Schema.Types.ObjectId, ref: 'User' },
+  trainer: { type: Schema.Types.ObjectId, ref: 'TrainingTrainer' },
   startDate: { type: Date },
   endDate: { type: Date },
-  status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Completed', 'Cancelled', 'On Hold'], default: 'Draft' },
+  totalHours: { type: Number, default: 0 },
+  capacity: { type: Number, default: 0 },
   budget: { type: Number, default: 0 },
+  currency: { type: String, default: 'INR' },
+  status: {
+    type: String,
+    enum: ['Draft', 'Planned', 'Scheduled', 'Active', 'Completed', 'Cancelled', 'On Hold', 'Archived'],
+    default: 'Draft'
+  },
+  isArchived: { type: Boolean, default: false },
   courses: [{ type: Schema.Types.ObjectId, ref: 'TrainingCourse' }],
+  batches: [trainingProgramBatchSchema],
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
-// 2. Training Course
+// 2. Training Course Sub-Schemas
+const courseModuleSchema = new Schema({
+  moduleName: { type: String, required: true, trim: true },
+  description: { type: String, trim: true },
+  duration: { type: String, default: '' },
+  order: { type: Number, default: 1 }
+}, { timestamps: true });
+
+const courseObjectiveSchema = new Schema({
+  objective: { type: String, required: true, trim: true },
+  order: { type: Number, default: 1 }
+}, { timestamps: true });
+
+const courseMaterialSchema = new Schema({
+  title: { type: String, required: true, trim: true },
+  materialType: {
+    type: String,
+    enum: ['PDF', 'PPT', 'Document', 'Video', 'URL', 'Assignment', 'Other'],
+    default: 'Document'
+  },
+  url: { type: String, trim: true },
+  fileName: { type: String, trim: true },
+  fileSize: { type: String, trim: true },
+  notes: { type: String, trim: true },
+  uploadedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+// 2. Training Course Master Entity
 const trainingCourseSchema = new Schema({
   title: { type: String, required: true, trim: true },
-  code: { type: String, trim: true },
+  code: { type: String, trim: true, unique: true, sparse: true },
   description: { type: String, trim: true },
-  category: { type: String, default: 'General' },
-  skillTopic: { type: String },
-  durationHours: { type: Number, default: 0 },
+  category: { type: String, default: 'Technical' },
+  skillTopic: { type: String, trim: true },
   difficulty: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], default: 'Beginner' },
+  department: { type: Schema.Types.ObjectId, ref: 'Department' },
+  trainer: { type: Schema.Types.ObjectId, ref: 'TrainingTrainer' },
+  trainingProvider: { type: String, trim: true, default: 'Internal HR' },
+  duration: { type: Number, default: 0 },
+  durationUnit: { type: String, enum: ['Hours', 'Days', 'Weeks'], default: 'Hours' },
+  durationHours: { type: Number, default: 0 },
+  prerequisites: { type: Schema.Types.Mixed },
+  requiredSkills: { type: Schema.Types.Mixed },
+  programs: [{ type: Schema.Types.ObjectId, ref: 'TrainingProgram' }],
+  program: { type: Schema.Types.ObjectId, ref: 'TrainingProgram' }, // Preserved for backwards compatibility
+  modules: [courseModuleSchema],
+  learningObjectives: [courseObjectiveSchema],
+  materials: [courseMaterialSchema],
+  assessmentConfig: {
+    required: { type: Boolean, default: false },
+    passingScore: { type: Number, default: 60 },
+    maxAttempts: { type: Number, default: 3 }
+  },
+  certificationConfig: {
+    eligible: { type: Boolean, default: false },
+    minAttendancePct: { type: Number, default: 80 },
+    minAssessmentScore: { type: Number, default: 60 },
+    requireCourseCompletion: { type: Boolean, default: true }
+  },
   assessmentRequired: { type: Boolean, default: false },
   certificationRequired: { type: Boolean, default: false },
-  status: { type: String, enum: ['Active', 'Inactive', 'Archived'], default: 'Active' },
+  status: { type: String, enum: ['Draft', 'Active', 'Inactive', 'Archived'], default: 'Draft' },
+  isArchived: { type: Boolean, default: false },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 

@@ -35,29 +35,42 @@ export default function CustomSelect({
 
   const selectedOption = normalizedOptions.find((opt) => String(opt.value) === String(value));
 
-  // Calculate position when opening
+  const calculateCoords = (rect) => {
+    if (!rect) return { top: 0, left: 0, width: 0, openUpward: false };
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const menuHeight = menuRef.current?.offsetHeight || 220;
+    const openUpward = spaceBelow < menuHeight + 10 && rect.top > menuHeight;
+    const top = openUpward ? rect.top - menuHeight - 4 : rect.bottom + 4;
+    const minW = Math.max(rect.width, 160);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - minW - 8));
+    return {
+      top: Math.max(10, top),
+      left,
+      width: minW,
+      openUpward
+    };
+  };
+
+  // Calculate position when opening or scrolling
   const updatePosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const openUpward = spaceBelow < 220 && rect.top > 220;
-
-    const top = openUpward ? rect.top - 230 : rect.bottom + 4;
-    setCoords({
-      top: Math.max(10, top),
-      left: rect.left,
-      width: rect.width,
-      openUpward
-    });
+    setCoords(calculateCoords(rect));
   };
 
   const handleToggle = () => {
     if (disabled) return;
     if (!isOpen) {
-      updatePosition();
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setCoords(calculateCoords(rect));
+      }
       setSearch('');
       setIsOpen(true);
-      setTimeout(() => searchInputRef.current?.focus(), 50);
+      requestAnimationFrame(() => {
+        updatePosition();
+        searchInputRef.current?.focus({ preventScroll: true });
+      });
     } else {
       setIsOpen(false);
     }

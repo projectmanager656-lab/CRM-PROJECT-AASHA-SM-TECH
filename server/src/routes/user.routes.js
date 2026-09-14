@@ -12,6 +12,9 @@ router.get('/:id', UserController.getUserById);
 router.post('/', UserController.createUser);
 router.put('/:id', UserController.updateUser);
 router.patch('/:id', UserController.updateUser);
+router.post('/:id/transfer', UserController.transferEmployee);
+router.patch('/:id/status', UserController.updateStatus);
+router.get('/:id/history', UserController.getEmployeeHistory);
 router.delete('/:id', UserController.deactivateUser);
 
 export default router;

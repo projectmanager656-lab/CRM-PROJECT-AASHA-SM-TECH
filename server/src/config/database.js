@@ -3,14 +3,17 @@ import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
 import { config } from './environment.js';
 
+import dns from 'dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (_err) {}
+
 const connectDB = async () => {
   try {
     logger.info('Attempting to connect to MongoDB...');
     
     const connection = await mongoose.connect(config.mongodbUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
     });
     

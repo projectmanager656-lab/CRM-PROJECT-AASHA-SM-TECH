@@ -11,39 +11,91 @@ const toId = (v) => {
 };
 
 export class TrainingController {
-  /* ──────── Overview ──────── */
+  /* ──────── Overview & Skill Performance ──────── */
   static getOverview = asyncHandler(async (_req, res) => {
     const data = await TrainingService.getOverview();
     res.json(successResponse(data, 'Training overview retrieved'));
   });
 
+  static getSkillPerformance = asyncHandler(async (_req, res) => {
+    const data = await TrainingService.getSkillPerformance();
+    res.json(successResponse(data, 'Skill performance retrieved'));
+  });
+
   /* ──────── Programs ──────── */
   static getPrograms = asyncHandler(async (req, res) => {
     const query = {};
-    if (req.query.status) query.status = req.query.status;
-    if (req.query.department) query.department = req.query.department;
+    if (req.query.status && req.query.status !== 'All') query.status = req.query.status;
+    if (req.query.department && req.query.department !== 'All') query.department = req.query.department;
+    if (req.query.trainingType && req.query.trainingType !== 'All') query.trainingType = req.query.trainingType;
+    if (req.query.category && req.query.category !== 'All') query.category = req.query.category;
+    if (req.query.programOwner) query.programOwner = req.query.programOwner;
     if (req.query.search) query.search = req.query.search;
     const data = await TrainingService.getPrograms(query);
     res.json(successResponse(data, 'Programs retrieved'));
   });
 
+  static getProgramById = asyncHandler(async (req, res) => {
+    const data = await TrainingService.getProgramById(req.params.id);
+    if (!data) throw createNotFoundError('Program not found');
+    res.json(successResponse(data, 'Program retrieved'));
+  });
+
   static createProgram = asyncHandler(async (req, res) => {
-    const { name } = req.body;
-    if (!name) throw createValidationError('Program name is required');
+    const { name, trainingType, department, startDate, endDate } = req.body;
+    if (!name || !name.trim()) throw createValidationError('Program name is required');
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      throw createValidationError('End date cannot be earlier than start date');
+    }
     const data = await TrainingService.createProgram({ ...req.body, createdBy: req.user.userId });
-    res.status(201).json(createdResponse(data, 'Program created'));
+    res.status(201).json(createdResponse(data, 'Program created successfully'));
   });
 
   static updateProgram = asyncHandler(async (req, res) => {
+    const { startDate, endDate } = req.body;
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      throw createValidationError('End date cannot be earlier than start date');
+    }
     const data = await TrainingService.updateProgram(req.params.id, req.body);
     if (!data) throw createNotFoundError('Program not found');
-    res.json(successResponse(data, 'Program updated'));
+    res.json(successResponse(data, 'Program updated successfully'));
   });
 
   static deleteProgram = asyncHandler(async (req, res) => {
-    const data = await TrainingService.deleteProgram(req.params.id);
-    if (!data) throw createNotFoundError('Program not found');
-    res.json(successResponse(data, 'Program deleted'));
+    const force = req.query.force === 'true';
+    const result = await TrainingService.deleteProgram(req.params.id, force);
+    if (!result || (!result.deleted && !result.archived)) throw createNotFoundError('Program not found');
+    res.json(successResponse(result, result.message));
+  });
+
+  static addCourseToProgram = asyncHandler(async (req, res) => {
+    const { courseId } = req.body;
+    if (!courseId) throw createValidationError('Course ID is required');
+    const data = await TrainingService.addCourseToProgram(req.params.id, courseId);
+    res.json(successResponse(data, 'Course added to program successfully'));
+  });
+
+  static removeCourseFromProgram = asyncHandler(async (req, res) => {
+    const { courseId } = req.params;
+    const data = await TrainingService.removeCourseFromProgram(req.params.id, courseId);
+    res.json(successResponse(data, 'Course removed from program successfully'));
+  });
+
+  static addBatchToProgram = asyncHandler(async (req, res) => {
+    const { batchName } = req.body;
+    if (!batchName || !batchName.trim()) throw createValidationError('Batch name is required');
+    const data = await TrainingService.addBatchToProgram(req.params.id, req.body);
+    res.status(201).json(createdResponse(data, 'Batch added successfully'));
+  });
+
+  static updateBatch = asyncHandler(async (req, res) => {
+    const data = await TrainingService.updateBatch(req.params.id, req.params.batchId, req.body);
+    res.json(successResponse(data, 'Batch updated successfully'));
+  });
+
+  static deleteBatch = asyncHandler(async (req, res) => {
+    const data = await TrainingService.deleteBatch(req.params.id, req.params.batchId);
+    res.json(successResponse(data, 'Batch deleted successfully'));
   });
 
   /* ──────── Courses ──────── */
@@ -51,28 +103,103 @@ export class TrainingController {
     const query = {};
     if (req.query.status) query.status = req.query.status;
     if (req.query.difficulty) query.difficulty = req.query.difficulty;
+    if (req.query.level) query.level = req.query.level;
+    if (req.query.category) query.category = req.query.category;
+    if (req.query.department) query.department = req.query.department;
+    if (req.query.trainer) query.trainer = req.query.trainer;
     if (req.query.search) query.search = req.query.search;
+    if (req.query.program) query.program = req.query.program;
     const data = await TrainingService.getCourses(query);
     res.json(successResponse(data, 'Courses retrieved'));
   });
 
+  static getCourseById = asyncHandler(async (req, res) => {
+    const data = await TrainingService.getCourseById(req.params.id);
+    if (!data) throw createNotFoundError('Course not found');
+    res.json(successResponse(data, 'Course retrieved'));
+  });
+
   static createCourse = asyncHandler(async (req, res) => {
     const { title } = req.body;
-    if (!title) throw createValidationError('Course title is required');
+    if (!title || !title.trim()) throw createValidationError('Course title is required');
     const data = await TrainingService.createCourse({ ...req.body, createdBy: req.user.userId });
-    res.status(201).json(createdResponse(data, 'Course created'));
+    res.status(201).json(createdResponse(data, 'Course created successfully'));
   });
 
   static updateCourse = asyncHandler(async (req, res) => {
     const data = await TrainingService.updateCourse(req.params.id, req.body);
     if (!data) throw createNotFoundError('Course not found');
-    res.json(successResponse(data, 'Course updated'));
+    res.json(successResponse(data, 'Course updated successfully'));
   });
 
   static deleteCourse = asyncHandler(async (req, res) => {
-    const data = await TrainingService.deleteCourse(req.params.id);
-    if (!data) throw createNotFoundError('Course not found');
-    res.json(successResponse(data, 'Course deleted'));
+    const force = req.query.force === 'true';
+    const result = await TrainingService.deleteCourse(req.params.id, force);
+    if (!result || (!result.deleted && !result.archived)) throw createNotFoundError('Course not found');
+    res.json(successResponse(result, result.message));
+  });
+
+  static addModuleToCourse = asyncHandler(async (req, res) => {
+    const { moduleName } = req.body;
+    if (!moduleName || !moduleName.trim()) throw createValidationError('Module name is required');
+    const data = await TrainingService.addModuleToCourse(req.params.id, req.body);
+    res.status(201).json(createdResponse(data, 'Module added to course'));
+  });
+
+  static updateCourseModule = asyncHandler(async (req, res) => {
+    const data = await TrainingService.updateCourseModule(req.params.id, req.params.moduleId, req.body);
+    res.json(successResponse(data, 'Module updated'));
+  });
+
+  static deleteCourseModule = asyncHandler(async (req, res) => {
+    const data = await TrainingService.deleteCourseModule(req.params.id, req.params.moduleId);
+    res.json(successResponse(data, 'Module deleted'));
+  });
+
+  static addObjectiveToCourse = asyncHandler(async (req, res) => {
+    const { objective } = req.body;
+    if (!objective || !objective.trim()) throw createValidationError('Objective is required');
+    const data = await TrainingService.addObjectiveToCourse(req.params.id, req.body);
+    res.status(201).json(createdResponse(data, 'Learning objective added'));
+  });
+
+  static deleteObjectiveFromCourse = asyncHandler(async (req, res) => {
+    const data = await TrainingService.deleteObjectiveFromCourse(req.params.id, req.params.objectiveId);
+    res.json(successResponse(data, 'Learning objective deleted'));
+  });
+
+  static addMaterialToCourse = asyncHandler(async (req, res) => {
+    const { title } = req.body;
+    if (!title || !title.trim()) throw createValidationError('Material title is required');
+    const data = await TrainingService.addMaterialToCourse(req.params.id, req.body);
+    res.status(201).json(createdResponse(data, 'Material added'));
+  });
+
+  static deleteMaterialFromCourse = asyncHandler(async (req, res) => {
+    const data = await TrainingService.deleteMaterialFromCourse(req.params.id, req.params.materialId);
+    res.json(successResponse(data, 'Material deleted'));
+  });
+
+  static linkProgramToCourse = asyncHandler(async (req, res) => {
+    const { programId } = req.body;
+    if (!programId) throw createValidationError('Program ID is required');
+    const data = await TrainingService.linkProgramToCourse(req.params.id, programId);
+    res.json(successResponse(data, 'Program linked to course'));
+  });
+
+  static unlinkProgramFromCourse = asyncHandler(async (req, res) => {
+    const data = await TrainingService.unlinkProgramFromCourse(req.params.id, req.params.programId);
+    res.json(successResponse(data, 'Program unlinked from course'));
+  });
+
+  static updateCourseAssessmentConfig = asyncHandler(async (req, res) => {
+    const data = await TrainingService.updateCourseAssessmentConfig(req.params.id, req.body);
+    res.json(successResponse(data, 'Assessment configuration updated'));
+  });
+
+  static updateCourseCertificationConfig = asyncHandler(async (req, res) => {
+    const data = await TrainingService.updateCourseCertificationConfig(req.params.id, req.body);
+    res.json(successResponse(data, 'Certification configuration updated'));
   });
 
   /* ──────── Trainers ──────── */
@@ -305,6 +432,38 @@ export class TrainingController {
     const data = await TrainingService.revokeCertification(req.params.id);
     if (!data) throw createNotFoundError('Certification not found');
     res.json(successResponse(data, 'Certification revoked successfully'));
+  });
+
+  static downloadCertificatePdf = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const cert = await TrainingService.getCertificationById(id);
+    if (!cert) throw createNotFoundError('Certification not found');
+
+    const empName = [cert.employee?.firstName, cert.employee?.lastName].filter(Boolean).join(' ') || cert.employee?.name || cert.employee?.email || 'Employee';
+    const courseTitle = cert.course?.title || 'Training';
+    const programName = cert.program?.name || '';
+    const certNumber = cert.certificateNumber || 'CERT';
+    const issueDate = cert.issueDate ? new Date(cert.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const completionDate = cert.completionDate ? new Date(cert.completionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : issueDate;
+
+    const doc = TrainingService.generateCertificatePdfDoc({
+      employeeName: empName,
+      courseName: courseTitle,
+      programName,
+      certificateNumber: certNumber,
+      issueDate,
+      completionDate
+    });
+
+    const sanitizedEmp = empName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const sanitizedCourse = courseTitle.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Certificate_${sanitizedEmp}_${sanitizedCourse}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    doc.pipe(res);
+    doc.end();
   });
 
   /* ──────── Feedback ──────── */

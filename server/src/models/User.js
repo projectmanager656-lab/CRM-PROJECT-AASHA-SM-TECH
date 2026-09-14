@@ -1,6 +1,8 @@
 import bcryptjs from 'bcryptjs';
 import mongoose from 'mongoose';
 
+const standardDepartmentNames = ['HR', 'Finance', 'Business Development', 'Digital Marketing', 'Video Editor', 'Tech'];
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -33,8 +35,23 @@ const userSchema = new mongoose.Schema(
     department: {
       type: String,
       trim: true,
-      enum: ['', 'HR', 'Finance', 'Business Development', 'Digital Marketing', 'Video Editor', 'Tech'],
       default: '',
+      validate: {
+        validator: async function (value) {
+          if (!value) return true;
+          if (standardDepartmentNames.includes(value)) return true;
+          try {
+            const dept = await mongoose.model('Department').findOne({
+              name: { $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+              status: 'Active',
+            });
+            return !!dept;
+          } catch (e) {
+            return true;
+          }
+        },
+        message: (props) => `${props.value} is not a recognized official or active department in Department Master`,
+      },
     },
     location: { type: String, trim: true, default: '' },
     emergencyContact: { type: String, trim: true, default: '' },
@@ -62,8 +79,27 @@ const userSchema = new mongoose.Schema(
     },
     employmentStatus: {
       type: String,
-      enum: ['Active', 'Probation', 'Notice Period', 'Exited', 'Terminated'],
+      enum: ['Active', 'Probation', 'On Leave', 'Notice Period', 'Inactive', 'Exited', 'Terminated'],
       default: 'Active',
+    },
+    accessStatus: {
+      type: String,
+      enum: ['Active', 'Restricted', 'Revoked'],
+      default: 'Active',
+    },
+    restrictedModules: {
+      type: [String],
+      default: [],
+    },
+    customPermissions: {
+      type: Map,
+      of: Object,
+      default: {},
+    },
+    lastAccessChange: {
+      action: { type: String, default: '' },
+      date: { type: Date, default: null },
+      performedByName: { type: String, default: '' },
     },
     exitDate: {
       type: Date,
@@ -103,6 +139,10 @@ const userSchema = new mongoose.Schema(
       joiningDate: { type: String, default: '' },
       employmentType: { type: String, default: 'Full Time' },
       reportingManager: { type: String, default: '' },
+      workLocation: { type: String, default: '' },
+      probationEndDate: { type: String, default: '' },
+      confirmationDate: { type: String, default: '' },
+      noticePeriodDays: { type: Number, default: 30 },
     },
     bankDetails: {
       accountHolderName: { type: String, default: '' },
@@ -119,6 +159,43 @@ const userSchema = new mongoose.Schema(
       currency: { type: String, default: 'INR' },
       effectiveDate: { type: Date, default: null },
     },
+
+    // ── Employee Lifecycle History ──
+    lifecycleHistory: [
+      {
+        changeType: {
+          type: String,
+          enum: [
+            'Joining',
+            'Transfer',
+            'Promotion',
+            'Designation Change',
+            'Status Change',
+            'Manager Change',
+            'Location Change',
+            'Other',
+          ],
+          default: 'Other',
+        },
+        action: { type: String, required: true, trim: true },
+        previousDepartment: { type: String, default: '' },
+        newDepartment: { type: String, default: '' },
+        previousDesignation: { type: String, default: '' },
+        newDesignation: { type: String, default: '' },
+        previousManager: { type: String, default: '' },
+        newManager: { type: String, default: '' },
+        previousStatus: { type: String, default: '' },
+        newStatus: { type: String, default: '' },
+        previousLocation: { type: String, default: '' },
+        newLocation: { type: String, default: '' },
+        effectiveDate: { type: Date, default: Date.now },
+        reason: { type: String, default: '' },
+        remarks: { type: String, default: '' },
+        performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        performedByName: { type: String, default: 'HR Manager' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
 
     // ── Password-reset OTP fields (new – do not touch existing records) ──
     passwordResetOtpHash: { type: String, default: null, select: false },
