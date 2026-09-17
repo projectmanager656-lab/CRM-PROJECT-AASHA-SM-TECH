@@ -71,7 +71,12 @@ router.get('/progress', TrainingController.getProgress);
 
 // Assessments
 router.get('/assessments', TrainingController.getAssessments);
+router.get('/assessments/submissions', TrainingController.getAssessmentSubmissions);
+router.get('/assessments/:id', TrainingController.getAssessmentById);
 router.post('/assessments', TrainingController.createAssessment);
+router.post('/assessments/:id/assign', TrainingController.assignAssessment);
+router.post('/assessments/:id/publish', TrainingController.publishAssessment);
+router.post('/assessments/:id/evaluate', TrainingController.evaluateSubmission);
 router.put('/assessments/:id', TrainingController.updateAssessment);
 router.delete('/assessments/:id', TrainingController.deleteAssessment);
 

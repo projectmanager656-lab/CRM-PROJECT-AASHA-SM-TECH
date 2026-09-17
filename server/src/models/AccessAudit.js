@@ -18,25 +18,25 @@ const accessAuditSchema = new mongoose.Schema(
     permission: { type: String, default: '', trim: true },
     previousStatus: {
       type: String,
-      enum: ['Active', 'Restricted', 'Revoked', 'None', ''],
       default: 'Active',
     },
     newStatus: {
       type: String,
-      enum: ['Active', 'Restricted', 'Revoked'],
-      required: true,
+      default: 'Active',
     },
     action: {
       type: String,
-      enum: [
-        'Access Granted',
-        'Access Restricted',
-        'Access Revoked',
-        'Access Restored',
-        'All Access Revoked',
-      ],
       required: true,
+      trim: true,
     },
+    sensitiveCategory: { type: String, default: '', trim: true },
+    result: {
+      type: String,
+      enum: ['SUCCESS', 'DENIED', 'FAILED'],
+      default: 'SUCCESS',
+    },
+    ipAddress: { type: String, default: '', trim: true },
+    userAgent: { type: String, default: '', trim: true },
     reason: { type: String, default: '', trim: true },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,

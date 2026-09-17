@@ -967,3 +967,234 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   ONBOARDING & EMPLOYEE LIFECYCLE PROGRESSION STYLES
+   ========================================================================== */
+
+/* Checklist Progress Bar */
+.exit-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 130px;
+}
+
+.exit-progress-track {
+  width: 100%;
+  height: 7px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.exit-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ea580c, #f97316);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.exit-progress-fill.completed {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+.exit-progress-text {
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: #475569;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Onboarding Checklist Drawer & Items */
+.exit-checklist-category {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.exit-checklist-cat-header {
+  background: #f8fafc;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exit-checklist-cat-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.exit-checklist-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 0.75rem;
+  transition: background 0.15s ease;
+}
+
+.exit-checklist-item-row:last-child {
+  border-bottom: none;
+}
+
+.exit-checklist-item-row:hover {
+  background: #fcfcfd;
+}
+
+.exit-checklist-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.exit-checklist-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: #16a34a;
+}
+
+.exit-checklist-task-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.exit-checklist-task-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.exit-checklist-task-meta {
+  font-size: 0.725rem;
+  color: #64748b;
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 2px;
+}
+
+/* Horizontal Employee Lifecycle Stepper */
+.exit-lifecycle-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.exit-lifecycle-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  min-width: 85px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.15s ease;
+}
+
+.exit-lifecycle-step:hover {
+  transform: translateY(-2px);
+}
+
+.exit-lifecycle-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.exit-lifecycle-step.active .exit-lifecycle-circle {
+  border-color: #ea580c;
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.15);
+}
+
+.exit-lifecycle-step.completed .exit-lifecycle-circle {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.exit-lifecycle-step.skipped .exit-lifecycle-circle {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.exit-lifecycle-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.exit-lifecycle-step.active .exit-lifecycle-title {
+  color: #ea580c;
+}
+
+.exit-lifecycle-step.completed .exit-lifecycle-title {
+  color: #16a34a;
+}
+
+.exit-lifecycle-sub {
+  font-size: 0.675rem;
+  color: #94a3b8;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.exit-lifecycle-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.exit-lifecycle-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.exit-lifecycle-panel-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}

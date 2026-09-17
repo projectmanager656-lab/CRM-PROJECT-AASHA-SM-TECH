@@ -203,6 +203,30 @@ export const CalendarController = {
     Object.assign(event, data);
     await event.save();
 
+    // Two-way synchronization with Candidate interviews
+    if (event.candidate) {
+      try {
+        const candidate = await Candidate.findById(event.candidate);
+        if (candidate) {
+          const inv = (candidate.interviews || []).find(
+            (i) => (i.calendarEventId && String(i.calendarEventId) === String(event._id))
+          );
+          if (inv) {
+            if (data.startAt) {
+              inv.date = new Date(data.startAt);
+              inv.time = new Date(data.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            if (data.status) inv.status = data.status;
+            if (data.meetingLink !== undefined) inv.meetingLink = data.meetingLink;
+            if (data.location !== undefined) inv.location = data.location;
+            await candidate.save();
+          }
+        }
+      } catch (syncErr) {
+        console.error('Failed to sync calendar update to candidate interview:', syncErr);
+      }
+    }
+
     res.json(successResponse(await populate(CalendarEvent.findById(event._id)), 'Calendar event updated successfully'));
   }),
 
@@ -212,6 +236,12 @@ export const CalendarController = {
     }
 
     const event = await findAllowed(req.params.id, req.user);
+    if (event.candidate) {
+      await Candidate.updateOne(
+        { _id: event.candidate, 'interviews.calendarEventId': event._id },
+        { $set: { 'interviews.$.status': 'Cancelled' } }
+      ).catch(() => {});
+    }
     await event.deleteOne();
     res.json(successResponse({ id: req.params.id }, 'Calendar event deleted successfully'));
   }),

@@ -1182,3 +1182,192 @@
   }
 }
 
+/* ==========================================================================
+   INTERVIEWS MANAGEMENT STYLES
+   ========================================================================== */
+.rec-interviews-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Interviews Filter & Search Toolbar (Strict One-Row Layout) */
+.rec-interviews-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+}
+
+.rec-interviews-toolbar .rec-interviews-search {
+  flex: 1 1 auto;
+  min-width: 200px;
+  position: relative;
+}
+
+.rec-interviews-toolbar .rec-search-input {
+  width: 100%;
+  height: 38px;
+  line-height: 38px;
+  padding: 0 0.75rem 0 2.15rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.825rem;
+  background: #ffffff;
+  color: #1e293b;
+  box-sizing: border-box;
+}
+
+.rec-interviews-toolbar .rec-search-input:focus {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+}
+
+.rec-interviews-toolbar .rec-filter-select {
+  height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.825rem;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") no-repeat right 0.65rem center / 13px;
+  padding: 0 1.85rem 0 0.75rem;
+  appearance: none;
+  color: #334155;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.rec-interviews-toolbar .rec-filter-select:focus {
+  outline: none;
+  border-color: #ea580c;
+}
+
+.rec-interview-select-dept {
+  width: 155px;
+}
+
+.rec-interview-select-round {
+  width: 145px;
+}
+
+.rec-interview-select-status {
+  width: 130px;
+}
+
+.rec-interview-select-type {
+  width: 130px;
+}
+
+.rec-interview-select-date {
+  width: 120px;
+}
+
+@media (max-width: 1024px) {
+  .rec-interviews-toolbar {
+    flex-wrap: wrap;
+  }
+  .rec-interviews-toolbar .rec-interviews-search {
+    flex: 1 1 100%;
+  }
+}
+
+.rec-interviews-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rec-interview-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rec-interview-kpi-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+.rec-interview-kpi-card .rec-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-interview-kpi-card .rec-kpi-val {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
+}
+
+.rec-interview-kpi-card .rec-kpi-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-interview-kpi-card.today {
+  border-left: 3px solid #ea580c;
+}
+
+.rec-interview-kpi-card.scheduled {
+  border-left: 3px solid #0284c7;
+}
+
+.rec-interview-kpi-card.upcoming {
+  border-left: 3px solid #6366f1;
+}
+
+.rec-interview-kpi-card.completed {
+  border-left: 3px solid #16a34a;
+}
+
+.rec-interview-kpi-card.feedback {
+  border-left: 3px solid #d97706;
+}
+
+.rec-interview-kpi-card.cancelled {
+  border-left: 3px solid #dc2626;
+}
+
+@media (max-width: 1400px) {
+  .rec-interviews-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .rec-interviews-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .rec-interviews-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

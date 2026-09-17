@@ -40,6 +40,8 @@ router.post('/candidates/:id/assessment', authorizeHrOrAdmin, RecruitmentControl
 router.get('/candidates/:id/timeline', RecruitmentController.getTimeline);
 
 // 4. Interviews & Offers & Conversion
+router.get('/interviews/summary', RecruitmentController.interviewSummary);
+router.get('/interviews', RecruitmentController.listInterviews);
 router.post('/candidates/:id/interviews', authorizeHrOrAdmin, RecruitmentController.scheduleInterview);
 router.patch('/candidates/:candidateId/interviews/:interviewId', authorizeHrOrAdmin, RecruitmentController.updateInterview);
 router.post('/candidates/:id/offer', authorizeHrOrAdmin, RecruitmentController.createOffer);

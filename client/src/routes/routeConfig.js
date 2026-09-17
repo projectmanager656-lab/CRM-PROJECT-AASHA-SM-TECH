@@ -79,6 +79,7 @@ import Assets from '../pages/dashboard/UserDashboard/users/Assets/Assets';
 import HRReports from '../pages/dashboard/UserDashboard/users/Reports/HRReports';
 import ResignationExit from '../pages/dashboard/UserDashboard/users/ResignationExit/ResignationExit';
 import FullAndFinalSettlement from '../pages/dashboard/UserDashboard/users/FullAndFinalSettlement/FullAndFinalSettlement';
+import HRSupport from '../pages/dashboard/UserDashboard/users/HRSupport/HRSupport';
 import DigitalMarketingDashboard from '../pages/dashboard/UserDashboard/departments/DigitalMarketingDashboard';
 import VideoEditorDashboard from '../pages/dashboard/UserDashboard/departments/VideoEditorDashboard';
 import BusinessDevelopmentDashboard from '../pages/dashboard/UserDashboard/departments/BusinessDevelopmentDashboard';
@@ -142,7 +143,7 @@ const routeConfig = [
   { path: '/admin/register', component: AdminRegister, layout: BlankLayout },
   { path: '/super-admin/login', component: SuperAdminLogin, layout: BlankLayout },
   { path: '/unauthorized', component: Unauthorized, layout: BlankLayout },
-  { path: '/dashboard/hr', component: withProtected(HRDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/hr', component: withProtected(HRDashboard, ['employee', 'user', 'admin', 'super_admin']), layout: BlankLayout },
   { path: '/dashboard/finance', component: withProtected(FinanceDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/dashboard/business-development', component: withProtected(BusinessDevelopmentDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/dashboard/digital-marketing', component: withProtected(DigitalMarketingDashboard, ['employee', 'user']), layout: BlankLayout },
@@ -201,6 +202,7 @@ const routeConfig = [
   { path: '/user/training', component: withProtected(Training, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/assets', component: withProtected(Assets, ['employee', 'user', 'admin']), layout: BlankLayout },
   { path: '/user/reports', component: withProtected(HRReports, ['employee', 'user', 'admin']), layout: BlankLayout },
+  { path: '/user/hr-support', component: withProtected(HRSupport, ['employee', 'user', 'admin', 'super_admin']), layout: BlankLayout },
   { path: '/user/settings', component: withProtected(Settings, ['employee']), layout: BlankLayout },
   { path: '/user/inbox', component: withProtected(Inbox, ['employee', 'user']), layout: BlankLayout },
   { path: '/admin', component: withProtected(AdminDashboard, ['admin']), layout: BlankLayout },
@@ -221,6 +223,9 @@ const routeConfig = [
   { path: '/admin/invoices', component: withProtected(AdminInvoices, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/documents', component: withProtected(AdminDocuments, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/reports', component: withProtected(AdminReports, ['admin', 'super_admin']), layout: BlankLayout },
+  { path: '/admin/recruitment', component: withProtected(Recruitment, ['admin', 'super_admin']), layout: BlankLayout },
+  { path: '/admin/resignation-exit', component: withProtected(ResignationExit, ['admin', 'super_admin']), layout: BlankLayout },
+  { path: '/admin/hr-support', component: withProtected(HRSupport, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/notifications', component: withProtected(AdminNotifications, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/settings', component: withProtected(AdminSettings, ['admin', 'super_admin']), layout: BlankLayout },
   { path: '/admin/inbox', component: withProtected(Inbox, ['admin']), layout: BlankLayout },

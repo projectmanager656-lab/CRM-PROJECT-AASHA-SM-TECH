@@ -23,12 +23,14 @@ import { CompanySettingController } from '../controllers/CompanySettingControlle
 import performanceRoutes from './performance.routes.js';
 import recruitmentRoutes from './recruitment.routes.js';
 import resignationRoutes from './resignation.routes.js';
+import onboardingRoutes from './onboarding.routes.js';
 import assetRoutes from './asset.routes.js';
 import hrReportRoutes from './hrReport.routes.js';
 import trainingRoutes from './training.routes.js';
 import fullAndFinalSettlementRoutes from './fullAndFinalSettlement.routes.js';
 import accessManagementRoutes from './accessManagement.routes.js';
 import expenseRoutes from './expense.routes.js';
+import hrSupportRoutes from './hrSupport.routes.js';
 
 const router = Router();
 
@@ -52,11 +54,13 @@ router.use('/users', userRoutes);
 router.use('/performance', performanceRoutes);
 router.use('/recruitment', recruitmentRoutes);
 router.use('/resignation', resignationRoutes);
+router.use('/onboarding', onboardingRoutes);
 router.use('/assets', assetRoutes);
 router.use('/reports/hr', hrReportRoutes);
 router.use('/training', trainingRoutes);
 router.use('/full-and-final-settlements', fullAndFinalSettlementRoutes);
 router.use('/access-management', accessManagementRoutes);
+router.use('/hr-support', hrSupportRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/projects', ownedResourceRouters.projects);
 router.use('/leads', ownedResourceRouters.leads);

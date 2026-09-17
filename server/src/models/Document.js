@@ -2,11 +2,15 @@ import mongoose from 'mongoose';
 
 export const DOCUMENT_CATEGORIES = [
   'Identity Proof',
+  'Education Certificate',
+  'Employment',
+  'Payroll / Financial',
+  'Other HR',
+  // Legacy / Direct Category Support
   'Address Proof',
   'PAN Card',
   'Aadhaar / Government ID',
   'Passport',
-  'Education Certificate',
   'Experience Letter',
   'Offer Letter',
   'Appointment Letter',
@@ -20,8 +24,23 @@ export const DOCUMENT_CATEGORIES = [
   'Other',
 ];
 
+export const DOCUMENT_TYPES = {
+  'Identity Proof': ['Aadhaar Card', 'PAN Card', 'Passport', 'Driving Licence', 'Voter ID', 'Other ID Proof'],
+  'Education Certificate': ['10th Certificate', '12th Certificate', 'Degree Certificate', 'Diploma', 'Marksheet', 'Professional Certification'],
+  'Employment': ['Offer Letter', 'Appointment Letter', 'Employment Agreement', 'Joining Letter', 'Promotion Letter', 'Transfer Letter', 'Salary Revision Letter', 'Experience Letter', 'Relieving Letter'],
+  'Payroll / Financial': ['Payslip', 'Salary Documents', 'Tax Documents', 'Investment Declaration', 'Bank Proof'],
+  'Other HR': ['Medical Certificate', 'Insurance Document', 'Emergency Contact Form', 'Employee Form', 'Other'],
+};
+
 const documentSchema = new mongoose.Schema(
   {
+    documentId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      trim: true,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -36,7 +55,19 @@ const documentSchema = new mongoose.Schema(
     category: {
       type: String,
       enum: DOCUMENT_CATEGORIES,
-      default: 'Other',
+      default: 'Other HR',
+      index: true,
+    },
+    documentType: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
+    department: {
+      type: String,
+      trim: true,
+      default: '',
       index: true,
     },
     documentNumber: {
@@ -72,9 +103,18 @@ const documentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending', 'Verified', 'Rejected'],
-      default: 'Pending',
+      enum: ['Pending', 'Pending Verification', 'Under Review', 'Verified', 'Rejected', 'Re-upload Required'],
+      default: 'Pending Verification',
       index: true,
+    },
+    version: {
+      type: Number,
+      default: 1,
+    },
+    rootDocument: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Document',
+      default: null,
     },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -131,12 +171,36 @@ const documentSchema = new mongoose.Schema(
     isArchived: {
       type: Boolean,
       default: false,
+      index: true,
     },
+    history: [
+      {
+        action: { type: String, required: true },
+        performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        performedByName: { type: String, default: '' },
+        timestamp: { type: Date, default: Date.now },
+        details: { type: String, default: '' },
+        rejectionReason: { type: String, default: '' },
+        version: { type: Number, default: 1 },
+      },
+    ],
   },
   {
     timestamps: true,
   }
 );
+
+documentSchema.pre('save', function (next) {
+  if (!this.documentId) {
+    const year = new Date().getFullYear();
+    const random = Math.floor(100000 + Math.random() * 900000);
+    this.documentId = `DOC-${year}-${random}`;
+  }
+  if (!this.rootDocument) {
+    this.rootDocument = this._id;
+  }
+  next();
+});
 
 export const Document = mongoose.models.Document || mongoose.model('Document', documentSchema, 'documents');
 export default Document;

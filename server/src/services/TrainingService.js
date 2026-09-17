@@ -8,6 +8,8 @@ import {
   TrainingCertification, TrainingFeedback, TrainingCost
 } from '../models/Training.js';
 import PerformanceReview from '../models/PerformanceReview.js';
+import User from '../models/User.js';
+import Department from '../models/Department.js';
 
 /* ──────────────── PROGRAMS ──────────────── */
 const getPrograms = (q = {}) => {
@@ -766,12 +768,12 @@ const getAssignments = (q = {}) => {
   if (filter.search) {
     delete filter.search;
   }
-  return TrainingAssignment.find(filter).populate('program').populate('course').populate('employee', 'firstName lastName email department').sort({ createdAt: -1 });
+  return TrainingAssignment.find(filter).populate('program').populate('course').populate('employee', 'firstName lastName email department designation employeeId').sort({ createdAt: -1 });
 };
-const getAssignmentById = (id) => TrainingAssignment.findById(id).populate('program').populate('course').populate('employee', 'firstName lastName email department');
+const getAssignmentById = (id) => TrainingAssignment.findById(id).populate('program').populate('course').populate('employee', 'firstName lastName email department designation employeeId');
 const createAssignment = (data) => TrainingAssignment.create(data);
 const bulkCreateAssignments = (arr) => TrainingAssignment.insertMany(arr);
-const updateAssignment = (id, data) => TrainingAssignment.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('program').populate('course').populate('employee', 'firstName lastName email department');
+const updateAssignment = (id, data) => TrainingAssignment.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('program').populate('course').populate('employee', 'firstName lastName email department designation employeeId');
 const deleteAssignment = (id) => TrainingAssignment.findByIdAndDelete(id);
 
 const getAttendance = (q = {}) => TrainingAttendance.find(q).populate({ path: 'session', populate: [{ path: 'program' }, { path: 'course' }] }).populate('employee', 'firstName lastName email department personalInfo').sort({ date: -1 });
@@ -809,27 +811,442 @@ const updateAttendance = (id, data) => TrainingAttendance.findByIdAndUpdate(id, 
 const deleteAttendance = (id) => TrainingAttendance.findByIdAndDelete(id);
 
 /* ──────────────── ASSESSMENTS ──────────────── */
-const getAssessments = (q = {}) => TrainingAssessment.find(q).populate('program').populate('course').populate('employee', 'firstName lastName email department').sort({ assessmentDate: -1 });
-const createAssessment = (data) => {
-  // auto-calculate result
-  if (data.score !== undefined && data.passingScore !== undefined) {
-    data.result = data.score >= data.passingScore ? 'Pass' : 'Fail';
+const getAssessments = async (q = {}) => {
+  const filter = {};
+  if (q.course) filter.course = q.course;
+  if (q.program) filter.program = q.program;
+  if (q.status) filter.status = q.status;
+  if (q.assessmentType) filter.assessmentType = q.assessmentType;
+
+  if (q.result) {
+    filter.$or = [
+      { result: q.result },
+      { 'submissions.passFail': q.result }
+    ];
   }
-  return TrainingAssessment.create(data);
-};
-const updateAssessment = (id, data) => {
-  if (data.score !== undefined && data.passingScore !== undefined) {
-    data.result = data.score >= data.passingScore ? 'Pass' : 'Fail';
+
+  if (q.employee) {
+    const empMatch = [
+      { employee: q.employee },
+      { 'assignedEmployees.employee': q.employee },
+      { 'submissions.employee': q.employee }
+    ];
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, { $or: empMatch }];
+      delete filter.$or;
+    } else {
+      filter.$or = empMatch;
+    }
   }
-  return TrainingAssessment.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('program').populate('course').populate('employee', 'firstName lastName email department');
+
+  if (q.search) {
+    const sRegex = { $regex: q.search, $options: 'i' };
+    const searchCondition = [
+      { title: sRegex },
+      { name: sRegex },
+      { description: sRegex }
+    ];
+    if (filter.$or) {
+      filter.$and = (filter.$and || []).concat([{ $or: filter.$or }, { $or: searchCondition }]);
+      delete filter.$or;
+    } else if (filter.$and) {
+      filter.$and.push({ $or: searchCondition });
+    } else {
+      filter.$or = searchCondition;
+    }
+  }
+
+  return TrainingAssessment.find(filter)
+    .populate('program')
+    .populate('course')
+    .populate('employee', 'firstName lastName email department designation')
+    .populate('createdBy', 'firstName lastName email')
+    .populate('assignedEmployees.employee', 'firstName lastName email department designation')
+    .populate('assignedEmployees.assignedBy', 'firstName lastName email')
+    .populate('submissions.employee', 'firstName lastName email department designation')
+    .populate('submissions.evaluatedBy', 'firstName lastName email')
+    .sort({ createdAt: -1, assessmentDate: -1 });
 };
+
+const getAssessmentById = async (id) => {
+  return TrainingAssessment.findById(id)
+    .populate('program')
+    .populate('course')
+    .populate('employee', 'firstName lastName email department designation')
+    .populate('createdBy', 'firstName lastName email')
+    .populate('assignedEmployees.employee', 'firstName lastName email department designation')
+    .populate('assignedEmployees.assignedBy', 'firstName lastName email')
+    .populate('submissions.employee', 'firstName lastName email department designation')
+    .populate('submissions.evaluatedBy', 'firstName lastName email');
+};
+
+const createAssessment = async (data, createdBy = null) => {
+  if (data.name && !data.title) data.title = data.name;
+  if (data.title && !data.name) data.name = data.title;
+
+  if (createdBy && !data.createdBy) {
+    data.createdBy = createdBy;
+  }
+
+  if (Array.isArray(data.questions) && data.questions.length > 0) {
+    const qSum = data.questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+    if (!data.totalMarks && qSum > 0) {
+      data.totalMarks = qSum;
+    }
+    if (!data.maxScore && data.totalMarks) {
+      data.maxScore = data.totalMarks;
+    }
+  }
+
+  const passThreshold = data.passingMarks !== undefined ? data.passingMarks : data.passingScore;
+  if (data.score !== undefined && passThreshold !== undefined) {
+    data.result = Number(data.score) >= Number(passThreshold) ? 'Pass' : 'Fail';
+  }
+
+  if (!data.status) {
+    data.status = 'Draft';
+  }
+
+  const assessment = await TrainingAssessment.create(data);
+  return getAssessmentById(assessment._id);
+};
+
+const updateAssessment = async (id, data) => {
+  if (data.name && !data.title) data.title = data.name;
+  if (data.title && !data.name) data.name = data.title;
+
+  if (Array.isArray(data.questions) && data.questions.length > 0) {
+    const qSum = data.questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+    if (!data.totalMarks && qSum > 0) {
+      data.totalMarks = qSum;
+    }
+    if (!data.maxScore && data.totalMarks) {
+      data.maxScore = data.totalMarks;
+    }
+  }
+
+  const passThreshold = data.passingMarks !== undefined ? data.passingMarks : data.passingScore;
+  if (data.score !== undefined && passThreshold !== undefined) {
+    data.result = Number(data.score) >= Number(passThreshold) ? 'Pass' : 'Fail';
+  }
+
+  await TrainingAssessment.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  return getAssessmentById(id);
+};
+
 const deleteAssessment = (id) => TrainingAssessment.findByIdAndDelete(id);
+
+const assignAssessment = async (id, { employeeIds, departmentId, departmentName, courseParticipants, dueDate, assignedBy, notes }) => {
+  const assessment = await TrainingAssessment.findById(id);
+  if (!assessment) throw new Error('Assessment not found');
+
+  const targetEmployeeIds = new Set();
+
+  // 1. Explicit employee IDs
+  if (Array.isArray(employeeIds)) {
+    employeeIds.forEach(empId => {
+      if (empId) targetEmployeeIds.add(String(empId));
+    });
+  } else if (employeeIds) {
+    targetEmployeeIds.add(String(employeeIds));
+  }
+
+  // 2. Department
+  let deptNameToQuery = departmentName;
+  if (departmentId && !deptNameToQuery) {
+    const deptDoc = await Department.findById(departmentId);
+    if (deptDoc) deptNameToQuery = deptDoc.name;
+  }
+  if (deptNameToQuery) {
+    const deptUsers = await User.find({
+      department: { $regex: new RegExp(`^${deptNameToQuery}$`, 'i') },
+      status: { $ne: 'Terminated' }
+    }).select('_id');
+    deptUsers.forEach(u => targetEmployeeIds.add(String(u._id)));
+  }
+
+  // 3. Course participants
+  if (courseParticipants && assessment.course) {
+    const activeAssignments = await TrainingAssignment.find({ course: assessment.course }).distinct('employee');
+    activeAssignments.forEach(empId => {
+      if (empId) targetEmployeeIds.add(String(empId));
+    });
+  }
+
+  if (targetEmployeeIds.size === 0) {
+    throw new Error('No valid employees found to assign the assessment');
+  }
+
+  if (!assessment.assignedEmployees) {
+    assessment.assignedEmployees = [];
+  }
+
+  const existingEmpIds = new Set(assessment.assignedEmployees.map(a => String(a.employee)));
+
+  for (const empId of targetEmployeeIds) {
+    if (!existingEmpIds.has(empId)) {
+      assessment.assignedEmployees.push({
+        employee: empId,
+        assignedDate: new Date(),
+        dueDate: dueDate ? new Date(dueDate) : (assessment.endDate || null),
+        status: 'Assigned',
+        assignedBy: assignedBy || null,
+        notes: notes || ''
+      });
+    } else {
+      const item = assessment.assignedEmployees.find(a => String(a.employee) === empId);
+      if (item) {
+        if (dueDate) item.dueDate = new Date(dueDate);
+        if (notes) item.notes = notes;
+      }
+    }
+  }
+
+  if (assessment.status === 'Draft') {
+    assessment.status = 'Published';
+  }
+
+  await assessment.save();
+  return getAssessmentById(id);
+};
+
+const publishAssessment = async (id, { status } = {}) => {
+  const validStatuses = ['Draft', 'Published', 'Closed', 'Archived'];
+  const newStatus = status || 'Published';
+  if (!validStatuses.includes(newStatus)) {
+    throw new Error(`Invalid status: ${newStatus}`);
+  }
+  const assessment = await TrainingAssessment.findByIdAndUpdate(
+    id,
+    { status: newStatus },
+    { new: true, runValidators: true }
+  );
+  if (!assessment) throw new Error('Assessment not found');
+  return getAssessmentById(id);
+};
+
+const evaluateSubmission = async (id, payload = {}) => {
+  const {
+    submissionId,
+    employeeId,
+    score,
+    marksObtained,
+    passFail,
+    percentage,
+    remarks,
+    evaluatorId,
+    grade,
+    answers,
+    evaluationStatus
+  } = payload;
+
+  const assessment = await TrainingAssessment.findById(id);
+  if (!assessment) throw new Error('Assessment not found');
+
+  const totalPossibleMarks = assessment.totalMarks || assessment.maxScore || 100;
+  const passingScore = assessment.passingMarks || assessment.passingScore || 60;
+  const finalMarksObtained = Number(marksObtained !== undefined ? marksObtained : score) || 0;
+  const calculatedPercentage = Number(percentage !== undefined ? percentage : Math.round((finalMarksObtained / totalPossibleMarks) * 100));
+  const calculatedPassFail = passFail || (finalMarksObtained >= passingScore ? 'Pass' : 'Fail');
+  const finalStatus = evaluationStatus || 'Evaluated';
+
+  let foundSubmission = null;
+  if (!assessment.submissions) assessment.submissions = [];
+
+  if (submissionId) {
+    foundSubmission = assessment.submissions.id(submissionId);
+  }
+  if (!foundSubmission && employeeId) {
+    foundSubmission = assessment.submissions.find(s => String(s.employee) === String(employeeId));
+  }
+
+  if (foundSubmission) {
+    foundSubmission.marksObtained = finalMarksObtained;
+    foundSubmission.score = finalMarksObtained;
+    foundSubmission.percentage = calculatedPercentage;
+    foundSubmission.passFail = calculatedPassFail;
+    foundSubmission.remarks = remarks || foundSubmission.remarks || '';
+    foundSubmission.grade = grade || (calculatedPercentage >= 90 ? 'A+' : calculatedPercentage >= 80 ? 'A' : calculatedPercentage >= 70 ? 'B' : calculatedPercentage >= 60 ? 'C' : 'F');
+    foundSubmission.evaluationStatus = finalStatus;
+    foundSubmission.evaluatedBy = evaluatorId || foundSubmission.evaluatedBy;
+    foundSubmission.evaluatedAt = new Date();
+    if (Array.isArray(answers)) {
+      foundSubmission.answers = answers;
+    }
+  } else if (employeeId) {
+    const newSub = {
+      employee: employeeId,
+      submittedAt: new Date(),
+      status: 'Submitted',
+      evaluationStatus: finalStatus,
+      marksObtained: finalMarksObtained,
+      score: finalMarksObtained,
+      percentage: calculatedPercentage,
+      passFail: calculatedPassFail,
+      remarks: remarks || '',
+      grade: grade || (calculatedPercentage >= 90 ? 'A+' : calculatedPercentage >= 80 ? 'A' : calculatedPercentage >= 70 ? 'B' : calculatedPercentage >= 60 ? 'C' : 'F'),
+      evaluatedBy: evaluatorId || null,
+      evaluatedAt: new Date(),
+      attemptNumber: 1,
+      answers: Array.isArray(answers) ? answers : []
+    };
+    assessment.submissions.push(newSub);
+  }
+
+  if (assessment.assignedEmployees && employeeId) {
+    const assignedItem = assessment.assignedEmployees.find(a => String(a.employee) === String(employeeId));
+    if (assignedItem) {
+      assignedItem.status = finalStatus === 'Evaluated' ? 'Completed' : 'Submitted';
+    }
+  }
+
+  if (assessment.employee && String(assessment.employee) === String(employeeId)) {
+    assessment.score = finalMarksObtained;
+    assessment.result = calculatedPassFail;
+    assessment.remarks = remarks || assessment.remarks;
+    assessment.evaluatedBy = evaluatorId;
+  }
+
+  await assessment.save();
+  return getAssessmentById(id);
+};
+
+const getAssessmentSubmissions = async (q = {}) => {
+  const filter = {};
+  if (q.course) filter.course = q.course;
+  if (q.program) filter.program = q.program;
+  if (q.assessmentId) filter._id = q.assessmentId;
+
+  const assessments = await TrainingAssessment.find(filter)
+    .populate('program', 'name programCode')
+    .populate('course', 'title courseCode')
+    .populate('employee', 'firstName lastName email department designation')
+    .populate('assignedEmployees.employee', 'firstName lastName email department designation')
+    .populate('submissions.employee', 'firstName lastName email department designation')
+    .populate('submissions.evaluatedBy', 'firstName lastName email')
+    .sort({ createdAt: -1 });
+
+  const allSubmissions = [];
+
+  for (const asmt of assessments) {
+    if (Array.isArray(asmt.submissions) && asmt.submissions.length > 0) {
+      for (const sub of asmt.submissions) {
+        allSubmissions.push({
+          _id: sub._id,
+          assessmentId: asmt._id,
+          assessmentName: asmt.title || asmt.name || 'Assessment',
+          assessmentType: asmt.assessmentType || 'Quiz',
+          totalMarks: asmt.totalMarks || asmt.maxScore || 100,
+          passingMarks: asmt.passingMarks || asmt.passingScore || 60,
+          program: asmt.program,
+          course: asmt.course,
+          employee: sub.employee,
+          submittedAt: sub.submittedAt,
+          submissionDate: sub.submittedAt,
+          score: sub.score,
+          marksObtained: sub.marksObtained,
+          percentage: sub.percentage,
+          passFail: sub.passFail,
+          result: sub.passFail,
+          grade: sub.grade,
+          remarks: sub.remarks,
+          evaluator: sub.evaluatedBy,
+          evaluatedBy: sub.evaluatedBy,
+          evaluatedAt: sub.evaluatedAt,
+          evaluationStatus: sub.evaluationStatus || 'Pending',
+          attemptNumber: sub.attemptNumber || 1,
+          answers: sub.answers
+        });
+      }
+    } else if (asmt.employee && asmt.score !== undefined) {
+      allSubmissions.push({
+        _id: asmt._id,
+        assessmentId: asmt._id,
+        assessmentName: asmt.title || asmt.name || 'Assessment',
+        assessmentType: asmt.assessmentType || 'General',
+        totalMarks: asmt.totalMarks || asmt.maxScore || 100,
+        passingMarks: asmt.passingMarks || asmt.passingScore || 60,
+        program: asmt.program,
+        course: asmt.course,
+        employee: asmt.employee,
+        submittedAt: asmt.assessmentDate || asmt.createdAt,
+        submissionDate: asmt.assessmentDate || asmt.createdAt,
+        score: asmt.score,
+        marksObtained: asmt.score,
+        percentage: Math.round(((asmt.score || 0) / (asmt.maxScore || 100)) * 100),
+        passFail: asmt.result || (asmt.score >= (asmt.passingScore || 60) ? 'Pass' : 'Fail'),
+        result: asmt.result || (asmt.score >= (asmt.passingScore || 60) ? 'Pass' : 'Fail'),
+        grade: asmt.grade || '',
+        remarks: asmt.remarks || '',
+        evaluator: asmt.evaluatedBy,
+        evaluatedBy: asmt.evaluatedBy,
+        evaluatedAt: asmt.updatedAt,
+        evaluationStatus: 'Evaluated',
+        attemptNumber: asmt.attempts || 1,
+        answers: []
+      });
+    }
+
+    if (q.includeAssigned && Array.isArray(asmt.assignedEmployees)) {
+      for (const assigned of asmt.assignedEmployees) {
+        const hasSub = asmt.submissions?.some(s => String(s.employee?._id || s.employee) === String(assigned.employee?._id || assigned.employee));
+        if (!hasSub) {
+          allSubmissions.push({
+            _id: `assigned_${assigned._id}`,
+            assessmentId: asmt._id,
+            assessmentName: asmt.title || asmt.name || 'Assessment',
+            assessmentType: asmt.assessmentType || 'Quiz',
+            totalMarks: asmt.totalMarks || asmt.maxScore || 100,
+            passingMarks: asmt.passingMarks || asmt.passingScore || 60,
+            program: asmt.program,
+            course: asmt.course,
+            employee: assigned.employee,
+            submittedAt: null,
+            submissionDate: null,
+            score: null,
+            marksObtained: null,
+            percentage: null,
+            passFail: 'Pending',
+            result: 'Pending',
+            grade: '-',
+            remarks: assigned.notes || '',
+            evaluator: null,
+            evaluatedBy: null,
+            evaluatedAt: null,
+            evaluationStatus: 'Pending Submission',
+            attemptNumber: 0,
+            answers: []
+          });
+        }
+      }
+    }
+  }
+
+  return allSubmissions.filter(item => {
+    if (q.employee && String(item.employee?._id || item.employee) !== String(q.employee)) return false;
+    if (q.department) {
+      const empDept = item.employee?.department || '';
+      if (!empDept.toLowerCase().includes(q.department.toLowerCase())) return false;
+    }
+    if (q.evaluationStatus && item.evaluationStatus !== q.evaluationStatus) return false;
+    if (q.passFail && item.passFail !== q.passFail) return false;
+    if (q.result && item.result !== q.result) return false;
+    if (q.search) {
+      const s = q.search.toLowerCase();
+      const empName = `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`.toLowerCase();
+      const asmtName = (item.assessmentName || '').toLowerCase();
+      const courseName = (item.course?.title || '').toLowerCase();
+      if (!empName.includes(s) && !asmtName.includes(s) && !courseName.includes(s)) return false;
+    }
+    return true;
+  });
+};
 
 /* ──────────────── CERTIFICATIONS ──────────────── */
 const getCertifications = (q = {}) => TrainingCertification.find(q).populate('program').populate('course').populate('employee', 'firstName lastName email department').sort({ issueDate: -1 });
 const getCertificationById = (id) => TrainingCertification.findById(id).populate('program').populate('course').populate('employee', 'firstName lastName email department').populate('issuedBy', 'firstName lastName email');
 const createCertification = (data) => TrainingCertification.create(data);
-const updateCertification = (id, data) => TrainingCertification.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('program').populate('course').populate('employee', 'firstName lastName email department');
+const updateCertification = (id, data) => TrainingCertification.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('program').populate('course').populate('employee', 'firstName lastName email department').populate('issuedBy', 'firstName lastName email');
 const deleteCertification = (id) => TrainingCertification.findByIdAndDelete(id);
 
 const generateCertification = async ({ employee, course, program, assignment, issuedBy }) => {
@@ -1379,7 +1796,7 @@ export const TrainingService = {
   getSessions, getSessionById, createSession, updateSession, deleteSession,
   getAssignments, getAssignmentById, createAssignment, bulkCreateAssignments, updateAssignment, deleteAssignment,
   getAttendance, createAttendance, bulkCreateAttendance, updateAttendance, deleteAttendance,
-  getAssessments, createAssessment, updateAssessment, deleteAssessment,
+  getAssessments, getAssessmentById, createAssessment, updateAssessment, deleteAssessment, assignAssessment, publishAssessment, evaluateSubmission, getAssessmentSubmissions,
   getCertifications, getCertificationById, createCertification, updateCertification, deleteCertification, generateCertification, revokeCertification, generateCertificatePdfDoc,
   getFeedback, createFeedback, updateFeedback, deleteFeedback,
   getCosts, createCost, updateCost, deleteCost,

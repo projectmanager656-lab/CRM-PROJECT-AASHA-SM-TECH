@@ -48,9 +48,54 @@ export default function ResignationExit() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // 8 Workflow Tabs: 'requests' | 'notice' | 'offboarding' | 'clearance' | 'interview' | 'settlement' | 'history' | 'access'
-  const [activeTab, setActiveTab] = useState('requests');
+  // 9 Workflow Tabs: 'onboarding' | 'requests' | 'notice' | 'offboarding' | 'clearance' | 'interview' | 'settlement' | 'history' | 'access'
+  const [activeTab, setActiveTab] = useState('onboarding');
   const [accessSearch, setAccessSearch] = useState('');
+
+  // ── Onboarding System State (DYNAMIC & ATLAS BACKED) ─────────────────
+  const [onboardingList, setOnboardingList] = useState([]);
+  const [onboardingSummary, setOnboardingSummary] = useState({
+    total: 0,
+    scheduled: 0,
+    inProgress: 0,
+    docsPending: 0,
+    assetsPending: 0,
+    accessPending: 0,
+    completed: 0,
+    joiningThisWeek: 0,
+  });
+  const [eligibleEmployees, setEligibleEmployees] = useState([]);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [onboardingSearch, setOnboardingSearch] = useState('');
+  const [onboardingDeptFilter, setOnboardingDeptFilter] = useState('All');
+  const [onboardingStatusFilter, setOnboardingStatusFilter] = useState('All');
+  const [showStartOnboardingModal, setShowStartOnboardingModal] = useState(false);
+  const [showOnboardingDrawer, setShowOnboardingDrawer] = useState(false);
+  const [selectedOnboarding, setSelectedOnboarding] = useState(null);
+  const [onboardingDetailData, setOnboardingDetailData] = useState(null);
+  const [onboardingInnerTab, setOnboardingInnerTab] = useState('checklist');
+  const [checklistUpdateLoading, setChecklistUpdateLoading] = useState(false);
+  const [startOnboardingForm, setStartOnboardingForm] = useState({
+    employeeId: '',
+    candidateId: '',
+    joiningDate: new Date().toISOString().slice(0, 10),
+    employmentType: 'Full Time',
+    designation: '',
+    department: 'Tech',
+    reportingManager: '',
+    workLocation: 'Head Office / Hybrid',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelation: 'Spouse',
+    notes: '',
+  });
+
+  // ── Employee Lifecycle Details Modal State ───────────────────────────
+  const [showLifecycleModal, setShowLifecycleModal] = useState(false);
+  const [lifecycleRecord, setLifecycleRecord] = useState(null);
+  const [lifecycleActiveStageIndex, setLifecycleActiveStageIndex] = useState(0);
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
+  const [lifecycleDetailData, setLifecycleDetailData] = useState(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -200,9 +245,193 @@ export default function ResignationExit() {
     }
   }, []);
 
+  const loadOnboardingData = useCallback(async () => {
+    setOnboardingLoading(true);
+    try {
+      const params = {};
+      if (onboardingDeptFilter !== 'All') params.department = onboardingDeptFilter;
+      if (onboardingStatusFilter !== 'All') params.status = onboardingStatusFilter;
+      if (onboardingSearch && onboardingSearch.trim()) params.search = onboardingSearch.trim();
+
+      const [listRes, sumRes] = await Promise.all([
+        apiClient.get('/onboarding', { params }),
+        apiClient.get('/onboarding/summary').catch(() => ({ data: { data: {} } })),
+      ]);
+      setOnboardingList(listRes.data?.data || []);
+      if (sumRes.data?.data) {
+        setOnboardingSummary(sumRes.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load onboarding data:', err);
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }, [onboardingDeptFilter, onboardingStatusFilter, onboardingSearch]);
+
+  const loadEligibleEmployees = async () => {
+    try {
+      const res = await apiClient.get('/onboarding/eligible-employees');
+      setEligibleEmployees(res.data?.data?.all || []);
+    } catch (err) {
+      console.error('Failed to load eligible employees:', err);
+    }
+  };
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadOnboardingData();
+  }, [loadData, loadOnboardingData]);
+
+  useEffect(() => {
+    if (activeTab === 'onboarding') {
+      loadOnboardingData();
+    }
+  }, [activeTab, loadOnboardingData]);
+
+  const handleOpenStartOnboarding = async () => {
+    await loadEligibleEmployees();
+    setStartOnboardingForm({
+      employeeId: '',
+      candidateId: '',
+      joiningDate: new Date().toISOString().slice(0, 10),
+      employmentType: 'Full Time',
+      designation: '',
+      department: 'Tech',
+      reportingManager: '',
+      workLocation: 'Head Office / Hybrid',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      emergencyContactRelation: 'Spouse',
+      notes: '',
+    });
+    setShowStartOnboardingModal(true);
+  };
+
+  const handleCreateOnboarding = async (e) => {
+    e.preventDefault();
+    if (!startOnboardingForm.employeeId && !startOnboardingForm.candidateId) {
+      setError('Please select an employee or candidate to onboard.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiClient.post('/onboarding', {
+        employeeId: startOnboardingForm.employeeId || undefined,
+        candidateId: startOnboardingForm.candidateId || undefined,
+        joiningDate: startOnboardingForm.joiningDate,
+        employmentType: startOnboardingForm.employmentType,
+        designation: startOnboardingForm.designation,
+        department: startOnboardingForm.department,
+        reportingManager: startOnboardingForm.reportingManager,
+        workLocation: startOnboardingForm.workLocation,
+        emergencyContact: {
+          name: startOnboardingForm.emergencyContactName,
+          phone: startOnboardingForm.emergencyContactPhone,
+          relation: startOnboardingForm.emergencyContactRelation,
+        },
+        notes: startOnboardingForm.notes,
+      });
+      setShowStartOnboardingModal(false);
+      setSuccess('Employee onboarding profile created with 17-item checklist!');
+      await loadOnboardingData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to initialize onboarding.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenOnboardingDetail = async (record) => {
+    setSelectedOnboarding(record);
+    setOnboardingInnerTab('checklist');
+    setShowOnboardingDrawer(true);
+    try {
+      const res = await apiClient.get(`/onboarding/${record._id}`);
+      setOnboardingDetailData(res.data?.data || null);
+    } catch (err) {
+      console.error('Failed to load onboarding detail:', err);
+    }
+  };
+
+  const handleToggleChecklistItem = async (itemId, currentStatus) => {
+    if (!selectedOnboarding) return;
+    const nextStatus = currentStatus === 'Completed' ? 'Pending' : currentStatus === 'In Progress' ? 'Completed' : 'Completed';
+    setChecklistUpdateLoading(true);
+    try {
+      const res = await apiClient.patch(`/onboarding/${selectedOnboarding._id}/checklist/${itemId}`, {
+        status: nextStatus,
+        completedAt: nextStatus === 'Completed' ? new Date() : undefined,
+      });
+      if (res.data?.data) {
+        setSelectedOnboarding(res.data.data);
+        const detailRes = await apiClient.get(`/onboarding/${selectedOnboarding._id}`);
+        setOnboardingDetailData(detailRes.data?.data || null);
+        loadOnboardingData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update checklist item.');
+    } finally {
+      setChecklistUpdateLoading(false);
+    }
+  };
+
+  const handleCompleteOnboarding = async (onboardingId) => {
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiClient.post(`/onboarding/${onboardingId}/complete`);
+      setSuccess('Onboarding completed successfully! Employee status updated to Active.');
+      setShowOnboardingDrawer(false);
+      await loadOnboardingData();
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to complete onboarding.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenLifecycle = async (record) => {
+    setLifecycleRecord(record);
+    setShowLifecycleModal(true);
+    setLifecycleLoading(true);
+    setLifecycleDetailData(null);
+    try {
+      const empId = record.employee?._id || record.employeeId?._id || record.user?._id || record.userId?._id || record.userId || record._id;
+      const [uRes, onbRes, resRes] = await Promise.all([
+        apiClient.get(`/users/${empId}`).catch(() => null),
+        apiClient.get('/onboarding', { params: { employeeId: empId } }).catch(() => null),
+        apiClient.get('/resignation', { params: { search: record.employee?.email || record.user?.email || '' } }).catch(() => null),
+      ]);
+      const userObj = uRes?.data?.data || record.employee || record.user || {};
+      const onbObj = onbRes?.data?.data?.[0] || null;
+      const resObj = resRes?.data?.data?.[0] || (record.resignationDate ? record : null);
+
+      let activeIndex = 1;
+      if (onbObj && onbObj.status !== 'Completed') {
+        activeIndex = 0;
+      } else if (resObj) {
+        if (resObj.status === 'Completed') activeIndex = 8;
+        else if (resObj.clearance?.finance?.settlementStatus === 'Completed') activeIndex = 7;
+        else if (resObj.exitInterview?.status === 'Completed') activeIndex = 6;
+        else if (resObj.status === 'Exit Clearance') activeIndex = 5;
+        else if (resObj.status === 'Offboarding') activeIndex = 4;
+        else if (resObj.status === 'Approved' || resObj.noticeStatus === 'Active') activeIndex = 3;
+        else if (['Submitted', 'Under Review'].includes(resObj.status)) activeIndex = 2;
+      }
+      setLifecycleActiveStageIndex(activeIndex);
+      setLifecycleDetailData({
+        user: userObj,
+        onboarding: onbObj,
+        resignation: resObj,
+      });
+    } catch (err) {
+      console.error('Failed to load lifecycle:', err);
+    } finally {
+      setLifecycleLoading(false);
+    }
+  };
 
   // Load comprehensive offboarding details for Central Offboarding View
   const loadOffboardingDetails = async (recordId, targetTab = null) => {
@@ -261,7 +490,7 @@ export default function ResignationExit() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
-    if (tabParam && ['requests', 'notice', 'offboarding', 'clearance', 'interview', 'settlement', 'history', 'access'].includes(tabParam)) {
+    if (tabParam && ['onboarding', 'requests', 'notice', 'offboarding', 'clearance', 'interview', 'settlement', 'history', 'access'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
     const searchParam = params.get('search');
@@ -699,6 +928,21 @@ export default function ResignationExit() {
           <div className="exit-header-actions">
             {isHrOrAdmin ? (
               <>
+                {/* Onboarding Start Button */}
+                <button
+                  type="button"
+                  className="exit-primary-btn"
+                  onClick={handleOpenStartOnboarding}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '15px', height: '15px' }}>
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" y1="8" x2="19" y2="14" />
+                    <line x1="22" y1="11" x2="16" y2="11" />
+                  </svg>
+                  Start Onboarding
+                </button>
+
                 {/* STRICTLY PRESERVED: EXISTING TERMINATION BUTTON */}
                 <button
                   type="button"
@@ -730,47 +974,94 @@ export default function ResignationExit() {
           </div>
         </div>
 
-        {/* Dynamic 6-Card KPI Strip (100% Desktop Fit - One Row) */}
-        <div className="exit-kpi-grid">
-          <div className="exit-kpi-card accent">
-            <span className="exit-kpi-label">Pending Requests</span>
-            <strong className="exit-kpi-value">{summary.pendingResignations}</strong>
-            <span className="exit-kpi-subtext">Awaiting HR Review</span>
+        {/* Dynamic Contextual KPI Strip */}
+        {activeTab === 'onboarding' ? (
+          <div className="exit-kpi-grid" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+            <div className="exit-kpi-card accent">
+              <span className="exit-kpi-label">Total Onboarding</span>
+              <strong className="exit-kpi-value">{onboardingSummary.total || onboardingList.length}</strong>
+              <span className="exit-kpi-subtext">All Initialized</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">In Progress</span>
+              <strong className="exit-kpi-value" style={{ color: '#0284C7' }}>{onboardingSummary.inProgress || 0}</strong>
+              <span className="exit-kpi-subtext">Checklist Active</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Joining This Week</span>
+              <strong className="exit-kpi-value" style={{ color: '#EA580C' }}>{onboardingSummary.joiningThisWeek || 0}</strong>
+              <span className="exit-kpi-subtext">Immediate Joiners</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Docs Pending</span>
+              <strong className="exit-kpi-value" style={{ color: '#D97706' }}>{onboardingSummary.docsPending || 0}</strong>
+              <span className="exit-kpi-subtext">Verification Awaited</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Assets Pending</span>
+              <strong className="exit-kpi-value" style={{ color: '#7C3AED' }}>{onboardingSummary.assetsPending || 0}</strong>
+              <span className="exit-kpi-subtext">IT Allocation</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Access Pending</span>
+              <strong className="exit-kpi-value" style={{ color: '#DC2626' }}>{onboardingSummary.accessPending || 0}</strong>
+              <span className="exit-kpi-subtext">Credentials Setup</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Completed</span>
+              <strong className="exit-kpi-value" style={{ color: '#16A34A' }}>{onboardingSummary.completed || 0}</strong>
+              <span className="exit-kpi-subtext">Activated Employees</span>
+            </div>
           </div>
-          <div className="exit-kpi-card">
-            <span className="exit-kpi-label">Notice Period</span>
-            <strong className="exit-kpi-value">{summary.servingNotice}</strong>
-            <span className="exit-kpi-subtext">Active Notice Period</span>
+        ) : (
+          <div className="exit-kpi-grid">
+            <div className="exit-kpi-card accent">
+              <span className="exit-kpi-label">Pending Requests</span>
+              <strong className="exit-kpi-value">{summary.pendingResignations}</strong>
+              <span className="exit-kpi-subtext">Awaiting HR Review</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Notice Period</span>
+              <strong className="exit-kpi-value">{summary.servingNotice}</strong>
+              <span className="exit-kpi-subtext">Active Notice Period</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Offboarding</span>
+              <strong className="exit-kpi-value">{summary.activeOffboarding}</strong>
+              <span className="exit-kpi-subtext">In Active Transition</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Pending Clearance</span>
+              <strong className="exit-kpi-value">{summary.pendingClearance}</strong>
+              <span className="exit-kpi-subtext">Dues &amp; Assets Check</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Exits This Month</span>
+              <strong className="exit-kpi-value">{summary.exitThisMonth}</strong>
+              <span className="exit-kpi-subtext">Scheduled Releases</span>
+            </div>
+            <div className="exit-kpi-card">
+              <span className="exit-kpi-label">Completed Exits</span>
+              <strong className="exit-kpi-value">{summary.exitCompleted}</strong>
+              <span className="exit-kpi-subtext">Archived Workforce</span>
+            </div>
           </div>
-          <div className="exit-kpi-card">
-            <span className="exit-kpi-label">Offboarding</span>
-            <strong className="exit-kpi-value">{summary.activeOffboarding}</strong>
-            <span className="exit-kpi-subtext">In Active Transition</span>
-          </div>
-          <div className="exit-kpi-card">
-            <span className="exit-kpi-label">Pending Clearance</span>
-            <strong className="exit-kpi-value">{summary.pendingClearance}</strong>
-            <span className="exit-kpi-subtext">Dues & Assets Check</span>
-          </div>
-          <div className="exit-kpi-card">
-            <span className="exit-kpi-label">Exits This Month</span>
-            <strong className="exit-kpi-value">{summary.exitThisMonth}</strong>
-            <span className="exit-kpi-subtext">Scheduled Releases</span>
-          </div>
-          <div className="exit-kpi-card">
-            <span className="exit-kpi-label">Completed Exits</span>
-            <strong className="exit-kpi-value">{summary.exitCompleted}</strong>
-            <span className="exit-kpi-subtext">Archived Workforce</span>
-          </div>
-        </div>
+        )}
 
         {/* Dynamic Alerts */}
         {error && <div className="exit-alert-error">{error}</div>}
         {success && <div className="exit-alert-success">{success}</div>}
 
-        {/* 7 Workflow Navigation Tabs (One Row) */}
+        {/* 9 Workflow Navigation Tabs (One Row) */}
         <div className="exit-nav-tabs-wrap">
           <div className="exit-nav-tabs">
+            <button
+              type="button"
+              className={`exit-tab-btn ${activeTab === 'onboarding' ? 'active' : ''}`}
+              onClick={() => handleTabChange('onboarding')}
+            >
+              Onboarding ({onboardingSummary.total || onboardingList.length})
+            </button>
             <button
               type="button"
               className={`exit-tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
@@ -829,6 +1120,161 @@ export default function ResignationExit() {
             </button>
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            TAB 0: ONBOARDING MANAGEMENT
+            ═══════════════════════════════════════════════════════════════ */}
+        {activeTab === 'onboarding' && (
+          <div>
+            <div className="exit-toolbar">
+              <div className="exit-search-wrap">
+                <svg className="exit-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search onboarding by employee, code, or designation..."
+                  className="exit-search-input"
+                  value={onboardingSearch}
+                  onChange={(e) => setOnboardingSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="exit-filter-group">
+                <label>Department:</label>
+                <select
+                  className="exit-filter-select"
+                  value={onboardingDeptFilter}
+                  onChange={(e) => setOnboardingDeptFilter(e.target.value)}
+                >
+                  <option value="All">All Departments</option>
+                  {OFFICIAL_DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="exit-filter-group">
+                <label>Status:</label>
+                <select
+                  className="exit-filter-select"
+                  value={onboardingStatusFilter}
+                  onChange={(e) => setOnboardingStatusFilter(e.target.value)}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="exit-table-card">
+              {onboardingLoading ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>Loading onboarding records...</div>
+              ) : onboardingList.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                  No onboarding records found. Click <strong>+ Start Onboarding</strong> to onboard a new employee or candidate.
+                </div>
+              ) : (
+                <div className="exit-table-wrap">
+                  <table className="exit-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Role &amp; Department</th>
+                        <th>Joining Date</th>
+                        <th>17-Item Checklist Progress</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {onboardingList.map((onb) => {
+                        const empName = onb.employee ? `${onb.employee.firstName || ''} ${onb.employee.lastName || ''}`.trim() || onb.employee.email : onb.candidate?.name || 'Employee';
+                        const empEmail = onb.employee?.email || onb.candidate?.email || '';
+                        const empCode = onb.employeeId || onb.employee?.jobDetails?.employeeId || '—';
+                        const totalTasks = onb.checklist?.length || 17;
+                        const completedTasks = onb.checklist?.filter((t) => t.status === 'Completed').length || 0;
+                        const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                        return (
+                          <tr key={onb._id}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                <div style={{
+                                  width: '34px', height: '34px', borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #DBEAFE, #93C5FD)',
+                                  color: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontWeight: 700, fontSize: '0.85rem'
+                                }}>
+                                  {(empName || 'E').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <strong>{empName}</strong>
+                                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>
+                                    {empCode} &bull; {empEmail}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div>{onb.designation || 'Associate'}</div>
+                              <span className="hr-emp-dept-pill">{onb.department || 'Tech'}</span>
+                            </td>
+                            <td>
+                              <div>{formatDate(onb.joiningDate)}</div>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{onb.employmentType || 'Full Time'}</span>
+                            </td>
+                            <td style={{ minWidth: '180px' }}>
+                              <div className="exit-progress-wrapper">
+                                <div className="exit-progress-text">
+                                  <span>{completedTasks} of {totalTasks} Tasks</span>
+                                  <span>{pct}%</span>
+                                </div>
+                                <div className="exit-progress-track">
+                                  <div
+                                    className={`exit-progress-fill ${pct === 100 ? 'completed' : ''}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`exit-badge ${onb.status === 'Completed' ? 'completed' : onb.status === 'In Progress' ? 'under_review' : 'submitted'}`}>
+                                {onb.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="exit-actions-wrap" style={{ gap: '0.35rem' }}>
+                                <button
+                                  type="button"
+                                  className="exit-btn-sm view"
+                                  onClick={() => handleOpenOnboardingDetail(onb)}
+                                >
+                                  Checklist &amp; Details
+                                </button>
+                                <button
+                                  type="button"
+                                  className="exit-btn-sm interview"
+                                  title="View Full Lifecycle Progression"
+                                  onClick={() => handleOpenLifecycle(onb)}
+                                >
+                                  Lifecycle
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             TAB 1: RESIGNATION REQUESTS
@@ -3196,6 +3642,597 @@ export default function ResignationExit() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Start Onboarding Modal */}
+        {showStartOnboardingModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowStartOnboardingModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
+              <div className="hr-modal-header">
+                <h3>Start Employee Onboarding</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowStartOnboardingModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleCreateOnboarding}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group full-width">
+                      <label>Select Employee or Converted Candidate *</label>
+                      <select
+                        required
+                        value={startOnboardingForm.employeeId || startOnboardingForm.candidateId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const selected = eligibleEmployees.find((x) => String(x._id) === String(val));
+                          if (selected?.type === 'Candidate') {
+                            setStartOnboardingForm({
+                              ...startOnboardingForm,
+                              candidateId: val,
+                              employeeId: '',
+                              designation: selected.designation || '',
+                              department: selected.department || 'Tech',
+                            });
+                          } else {
+                            setStartOnboardingForm({
+                              ...startOnboardingForm,
+                              employeeId: val,
+                              candidateId: '',
+                              designation: selected?.designation || '',
+                              department: selected?.department || 'Tech',
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">Select Candidate or Employee...</option>
+                        {eligibleEmployees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            [{emp.type}] {emp.name} — {emp.designation} ({emp.department})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Joining Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={startOnboardingForm.joiningDate}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, joiningDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Employment Type *</label>
+                      <select
+                        value={startOnboardingForm.employmentType}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, employmentType: e.target.value })}
+                      >
+                        <option value="Full Time">Full Time</option>
+                        <option value="Part Time">Part Time</option>
+                        <option value="Contract">Contract</option>
+                        <option value="Intern">Intern</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Official Designation *</label>
+                      <input
+                        type="text"
+                        required
+                        value={startOnboardingForm.designation}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, designation: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Department *</label>
+                      <select
+                        value={startOnboardingForm.department}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, department: e.target.value })}
+                      >
+                        {OFFICIAL_DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Reporting Manager</label>
+                      <input
+                        type="text"
+                        placeholder="Manager Name / Title"
+                        value={startOnboardingForm.reportingManager}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, reportingManager: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Work Location</label>
+                      <input
+                        type="text"
+                        value={startOnboardingForm.workLocation}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, workLocation: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Emergency Contact Name</label>
+                      <input
+                        type="text"
+                        placeholder="Contact Person"
+                        value={startOnboardingForm.emergencyContactName}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, emergencyContactName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Emergency Contact Phone</label>
+                      <input
+                        type="text"
+                        placeholder="+91 9876543210"
+                        value={startOnboardingForm.emergencyContactPhone}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, emergencyContactPhone: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Onboarding Notes</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Additional instructions, welcome kit status, or special equipment..."
+                        value={startOnboardingForm.notes}
+                        onChange={(e) => setStartOnboardingForm({ ...startOnboardingForm, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowStartOnboardingModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Initializing...' : 'Initialize Onboarding'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Comprehensive Onboarding Details & Checklist Drawer */}
+        {showOnboardingDrawer && selectedOnboarding && (
+          <div className="hr-modal-overlay" onClick={() => setShowOnboardingDrawer(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '820px' }}>
+              <div className="hr-modal-header">
+                <div>
+                  <h3 style={{ margin: 0 }}>
+                    Onboarding: {selectedOnboarding.employee?.firstName ? `${selectedOnboarding.employee.firstName} ${selectedOnboarding.employee.lastName || ''}` : selectedOnboarding.candidate?.name || selectedOnboarding.employeeId}
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    {selectedOnboarding.employeeId} &bull; {selectedOnboarding.designation} ({selectedOnboarding.department}) &bull; Joining: {formatDate(selectedOnboarding.joiningDate)}
+                  </span>
+                </div>
+                <button type="button" className="hr-modal-close" onClick={() => setShowOnboardingDrawer(false)}>&times;</button>
+              </div>
+
+              {/* Checklist Progress Overview */}
+              <div style={{ padding: '0.75rem 1.5rem', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                {(() => {
+                  const tasks = selectedOnboarding.checklist || [];
+                  const comp = tasks.filter((t) => t.status === 'Completed').length;
+                  const pct = tasks.length > 0 ? Math.round((comp / tasks.length) * 100) : 0;
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.825rem', fontWeight: 600 }}>
+                        <span>Overall Onboarding Progress</span>
+                        <span style={{ color: pct === 100 ? '#16A34A' : '#EA580C' }}>{comp} of {tasks.length} Completed ({pct}%)</span>
+                      </div>
+                      <div className="exit-progress-track" style={{ height: '8px' }}>
+                        <div className={`exit-progress-fill ${pct === 100 ? 'completed' : ''}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Sub-tabs */}
+              <div className="exit-detail-tabs" style={{ padding: '0 1.5rem', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+                <button
+                  type="button"
+                  className={`exit-detail-tab-btn ${onboardingInnerTab === 'checklist' ? 'active' : ''}`}
+                  onClick={() => setOnboardingInnerTab('checklist')}
+                >
+                  17-Item Checklist ({selectedOnboarding.checklist?.filter((t) => t.status === 'Completed').length || 0}/17)
+                </button>
+                <button
+                  type="button"
+                  className={`exit-detail-tab-btn ${onboardingInnerTab === 'documents' ? 'active' : ''}`}
+                  onClick={() => setOnboardingInnerTab('documents')}
+                >
+                  Documents ({onboardingDetailData?.documents?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  className={`exit-detail-tab-btn ${onboardingInnerTab === 'assets' ? 'active' : ''}`}
+                  onClick={() => setOnboardingInnerTab('assets')}
+                >
+                  Assets ({onboardingDetailData?.assets?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  className={`exit-detail-tab-btn ${onboardingInnerTab === 'access' ? 'active' : ''}`}
+                  onClick={() => setOnboardingInnerTab('access')}
+                >
+                  Access Status
+                </button>
+              </div>
+
+              <div className="hr-modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+                {/* INNER TAB 1: 17-ITEM CHECKLIST */}
+                {onboardingInnerTab === 'checklist' && (
+                  <div>
+                    {['Documentation', 'Finance', 'IT Setup', 'HR & Orientation'].map((cat) => {
+                      const catTasks = (selectedOnboarding.checklist || []).filter((t) => t.category === cat);
+                      if (catTasks.length === 0) return null;
+                      return (
+                        <div key={cat} className="exit-checklist-category">
+                          <div className="exit-checklist-cat-header">
+                            <h4>{cat === 'Documentation' ? '📄 Document Verification' : cat === 'Finance' ? '💰 Bank & Payroll Setup' : cat === 'IT Setup' ? '💻 IT Hardware & Workstation Setup' : '🤝 HR Induction & Culture'}</h4>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              {catTasks.filter((t) => t.status === 'Completed').length} / {catTasks.length} Completed
+                            </span>
+                          </div>
+                          <div>
+                            {catTasks.map((item) => {
+                              const isDone = item.status === 'Completed';
+                              return (
+                                <div key={item._id} className="exit-checklist-item-row">
+                                  <div className="exit-checklist-item-left">
+                                    <input
+                                      type="checkbox"
+                                      className="exit-checklist-checkbox"
+                                      checked={isDone}
+                                      disabled={checklistUpdateLoading}
+                                      onChange={() => handleToggleChecklistItem(item._id, item.status)}
+                                    />
+                                    <div className="exit-checklist-task-info">
+                                      <span className="exit-checklist-task-title" style={{ textDecoration: isDone ? 'line-through' : 'none', color: isDone ? '#64748b' : '#1e293b' }}>
+                                        {item.task}
+                                      </span>
+                                      <div className="exit-checklist-task-meta">
+                                        <span>Owner: <strong>{item.owner || 'HR'}</strong></span>
+                                        {item.dueDate && <span>&bull; Due: {formatDate(item.dueDate)}</span>}
+                                        {item.completionDate && <span style={{ color: '#16A34A' }}>&bull; Done: {formatDate(item.completionDate)}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      className={`exit-badge ${isDone ? 'completed' : item.status === 'In Progress' ? 'under_review' : 'submitted'}`}
+                                      style={{ border: 'none', cursor: 'pointer', padding: '4px 10px' }}
+                                      onClick={() => handleToggleChecklistItem(item._id, item.status)}
+                                    >
+                                      {item.status}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* INNER TAB 2: LIVE DOCUMENTS */}
+                {onboardingInnerTab === 'documents' && (
+                  <div>
+                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#0f172a' }}>Employee Document Records</h4>
+                    {(!onboardingDetailData?.documents || onboardingDetailData.documents.length === 0) ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', background: '#F8FAFC', borderRadius: '8px' }}>
+                        No uploaded documents found for this employee yet. Identity and contract files will show here automatically once uploaded.
+                      </div>
+                    ) : (
+                      <table className="exit-table">
+                        <thead>
+                          <tr>
+                            <th>Document Name</th>
+                            <th>Category</th>
+                            <th>Uploaded Date</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {onboardingDetailData.documents.map((doc) => (
+                            <tr key={doc._id}>
+                              <td><strong>{doc.name || doc.title || 'Document'}</strong></td>
+                              <td>{doc.category || 'General'}</td>
+                              <td>{formatDate(doc.createdAt)}</td>
+                              <td><span className="exit-badge completed">{doc.status || 'Verified'}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+
+                {/* INNER TAB 3: LIVE ASSETS */}
+                {onboardingInnerTab === 'assets' && (
+                  <div>
+                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#0f172a' }}>Allocated IT Assets</h4>
+                    {(!onboardingDetailData?.assets || onboardingDetailData.assets.length === 0) ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', background: '#F8FAFC', borderRadius: '8px' }}>
+                        No hardware assets currently allocated. Assigned laptops, access cards, and monitors will appear here automatically.
+                      </div>
+                    ) : (
+                      <table className="exit-table">
+                        <thead>
+                          <tr>
+                            <th>Asset Tag</th>
+                            <th>Model / Name</th>
+                            <th>Type</th>
+                            <th>Allocated Date</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {onboardingDetailData.assets.map((asset) => (
+                            <tr key={asset._id}>
+                              <td><strong>{asset.assetTag || asset.assetId || '—'}</strong></td>
+                              <td>{asset.model || asset.name}</td>
+                              <td>{asset.type || 'Hardware'}</td>
+                              <td>{formatDate(asset.allocationDate || asset.assignedAt)}</td>
+                              <td><span className="exit-badge approved">{asset.status || 'Allocated'}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+
+                {/* INNER TAB 4: ACCESS STATUS */}
+                {onboardingInnerTab === 'access' && (
+                  <div>
+                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#0f172a' }}>System Access &amp; Permissions</h4>
+                    <div style={{ background: '#F8FAFC', padding: '1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0', marginBottom: '1rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Account Status</span>
+                          <strong style={{ fontSize: '1rem', color: '#16A34A' }}>
+                            {onboardingDetailData?.user?.isActive ? 'Active User' : 'Pending Activation'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Employment Status</span>
+                          <strong style={{ fontSize: '1rem', color: '#0284C7' }}>
+                            {onboardingDetailData?.user?.employmentStatus || 'Onboarding'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Role</span>
+                          <strong style={{ fontSize: '1rem', color: '#0F172A' }}>
+                            {onboardingDetailData?.user?.role || 'Employee'}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="exit-secondary-btn"
+                      onClick={() => handleGoToAccessTab(selectedOnboarding.employee?.email || '')}
+                    >
+                      Manage System Credentials in Tab 8 ↗
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="hr-modal-footer">
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowOnboardingDrawer(false)}>
+                  Close
+                </button>
+                {selectedOnboarding.status !== 'Completed' && (
+                  <button
+                    type="button"
+                    className="hr-btn-primary"
+                    style={{ background: '#16A34A', borderColor: '#16A34A' }}
+                    disabled={submitting}
+                    onClick={() => handleCompleteOnboarding(selectedOnboarding._id)}
+                  >
+                    {submitting ? 'Activating...' : 'Complete Onboarding & Activate Employee'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Interactive Employee Lifecycle Details Modal */}
+        {showLifecycleModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowLifecycleModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '920px' }}>
+              <div className="hr-modal-header">
+                <div>
+                  <h3 style={{ margin: 0 }}>
+                    Employee Full Lifecycle Progression
+                  </h3>
+                  <span style={{ fontSize: '0.825rem', color: '#64748b' }}>
+                    {lifecycleDetailData?.user?.firstName ? `${lifecycleDetailData.user.firstName} ${lifecycleDetailData.user.lastName || ''}` : lifecycleRecord?.employee?.name || lifecycleRecord?.user?.email || 'Employee Profile'} &bull; {lifecycleDetailData?.user?.jobDetails?.employeeId || lifecycleRecord?.employeeId || 'ID'} &bull; {lifecycleDetailData?.user?.department || lifecycleRecord?.department || 'Tech'}
+                  </span>
+                </div>
+                <button type="button" className="hr-modal-close" onClick={() => setShowLifecycleModal(false)}>&times;</button>
+              </div>
+
+              <div className="hr-modal-body" style={{ padding: '1.25rem 1.5rem' }}>
+                {lifecycleLoading ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                    Loading employee lifecycle data...
+                  </div>
+                ) : (
+                  <div>
+                    {/* Horizontal 9-Stage Interactive Stepper */}
+                    <div className="exit-lifecycle-stepper">
+                      {[
+                        { title: '1. Onboarding', sub: 'Pre-Joining & Setup' },
+                        { title: '2. Active Employee', sub: 'Active Workforce' },
+                        { title: '3. Resignation', sub: 'Notice Intimation' },
+                        { title: '4. Notice Period', sub: 'Serving Tenure' },
+                        { title: '5. Offboarding', sub: 'Handover & KT' },
+                        { title: '6. Exit Clearance', sub: 'Dept Dues & Assets' },
+                        { title: '7. Exit Interview', sub: 'Feedback & Rehire' },
+                        { title: '8. Settlement', sub: 'F&F Settlement' },
+                        { title: '9. Exited', sub: 'Access Revoked' },
+                      ].map((st, idx) => {
+                        const isDone = idx < lifecycleActiveStageIndex;
+                        const isCurrent = idx === lifecycleActiveStageIndex;
+                        const cls = isCurrent ? 'active' : isDone ? 'completed' : 'pending';
+
+                        return (
+                          <div
+                            key={st.title}
+                            className={`exit-lifecycle-step ${cls}`}
+                            onClick={() => setLifecycleActiveStageIndex(idx)}
+                          >
+                            <div className="exit-lifecycle-circle">
+                              {isDone ? '✓' : idx + 1}
+                            </div>
+                            <span className="exit-lifecycle-title">{st.title}</span>
+                            <span className="exit-lifecycle-sub">{st.sub}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Stage Details Panel */}
+                    <div className="exit-lifecycle-panel">
+                      <div className="exit-lifecycle-panel-header">
+                        <h4>
+                          {[
+                            'Stage 1: Employee Onboarding & Verification',
+                            'Stage 2: Active Employee Service & Operations',
+                            'Stage 3: Resignation Submission & Review',
+                            'Stage 4: Notice Period Tracking & Transition',
+                            'Stage 5: Department Offboarding & Handover',
+                            'Stage 6: Multi-Department Exit Clearance',
+                            'Stage 7: Exit Interview Evaluation',
+                            'Stage 8: Full & Final Settlement Calculation',
+                            'Stage 9: Completed Exit & Access Revocation',
+                          ][lifecycleActiveStageIndex]}
+                        </h4>
+                        <span className={`exit-badge ${lifecycleActiveStageIndex <= 1 ? 'completed' : 'under_review'}`}>
+                          {lifecycleActiveStageIndex === 0 ? 'Onboarding' : lifecycleActiveStageIndex === 1 ? 'Active' : lifecycleActiveStageIndex === 8 ? 'Completed Exit' : 'In Transition'}
+                        </span>
+                      </div>
+
+                      {/* Stage 0: Onboarding */}
+                      {lifecycleActiveStageIndex === 0 && (
+                        <div>
+                          <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                            Onboarding establishes the employee identity, collects compliance documents, provisions IT equipment, and assigns initial induction workflows.
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', background: '#F8FAFC', padding: '1rem', borderRadius: '8px' }}>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Checklist Tasks</span>
+                              <div style={{ fontWeight: 700, color: '#0F172A' }}>
+                                {lifecycleDetailData?.onboarding?.checklist?.length || 17} Verification Items
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Status</span>
+                              <div style={{ fontWeight: 700, color: '#0284C7' }}>
+                                {lifecycleDetailData?.onboarding?.status || 'Active'}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Joining Date</span>
+                              <div style={{ fontWeight: 700, color: '#16A34A' }}>
+                                {formatDate(lifecycleDetailData?.onboarding?.joiningDate || lifecycleDetailData?.user?.jobDetails?.joiningDate)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stage 1: Active Employee */}
+                      {lifecycleActiveStageIndex === 1 && (
+                        <div>
+                          <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                            Active employee phase covers day-to-day operations, attendance management, performance evaluations, and active payroll.
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', background: '#F8FAFC', padding: '1rem', borderRadius: '8px' }}>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Employment Status</span>
+                              <div style={{ fontWeight: 700, color: '#16A34A' }}>
+                                {lifecycleDetailData?.user?.employmentStatus || 'Active'}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>System Access</span>
+                              <div style={{ fontWeight: 700, color: '#0284C7' }}>
+                                {lifecycleDetailData?.user?.isActive ? 'Granted & Enabled' : 'Restricted'}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Designation</span>
+                              <div style={{ fontWeight: 700, color: '#0F172A' }}>
+                                {lifecycleDetailData?.user?.designation || lifecycleDetailData?.user?.jobDetails?.designation || 'Associate'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stages 2-8: Exit Lifecycle breakdown */}
+                      {lifecycleActiveStageIndex >= 2 && (
+                        <div>
+                          <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                            {lifecycleActiveStageIndex === 2 && 'Formal resignation submitted with proposed last working day and business justification.'}
+                            {lifecycleActiveStageIndex === 3 && 'Employee serving notice period tenure with KT commitments and waiver tracking.'}
+                            {lifecycleActiveStageIndex === 4 && 'Operational handover, key project asset transfers, and knowledge transfer sign-off.'}
+                            {lifecycleActiveStageIndex === 5 && 'Inter-departmental clearance verifying IT assets, Finance dues, HR formalities, and Admin badges.'}
+                            {lifecycleActiveStageIndex === 6 && 'Exit interview capturing reasons for leaving, company feedback, and rehire eligibility.'}
+                            {lifecycleActiveStageIndex === 7 && 'Full & final settlement calculating gratuity, encashment, recovery deductions, and net payable.'}
+                            {lifecycleActiveStageIndex === 8 && 'Employee officially exited and archived with email/system access revoked.'}
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', background: '#F8FAFC', padding: '1rem', borderRadius: '8px' }}>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Exit Status</span>
+                              <div style={{ fontWeight: 700, color: '#EA580C' }}>
+                                {lifecycleDetailData?.resignation?.status || 'In Progress'}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Last Working Day</span>
+                              <div style={{ fontWeight: 700, color: '#0F172A' }}>
+                                {formatDate(lifecycleDetailData?.resignation?.approvedLastWorkingDay || lifecycleDetailData?.resignation?.proposedLastWorkingDay)}
+                              </div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Clearance / Settlement</span>
+                              <div style={{ fontWeight: 700, color: '#16A34A' }}>
+                                {lifecycleDetailData?.resignation?.clearance?.finance?.settlementStatus || 'Pending'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="hr-modal-footer">
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowLifecycleModal(false)}>
+                  Close Lifecycle View
+                </button>
+              </div>
             </div>
           </div>
         )}

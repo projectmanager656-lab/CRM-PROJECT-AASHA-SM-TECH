@@ -5,415 +5,525 @@ import apiClient from '../../../services/apiClient';
 import AdminLayout from './components/AdminLayout';
 import './Dashboard.css';
 
-const list = r => r.data.data || [];
-const name = p => p ? `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email : '—';
-const date = x => x ? new Date(x).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+/* ─── helpers ──────────────────────────────────────────────────────────── */
+const list = (r) => r?.data?.data || [];
+const formatDate = (val) =>
+  val
+    ? new Date(val).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
 
-/* ─── tiny SVG icons for feature cards ──────────────────────────────────── */
-const FEAT_ICONS = {
-  tasks: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-    </svg>
-  ),
-  board: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" />
-      <rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />
-    </svg>
-  ),
-  gantt: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  ),
-  timeline: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  ),
-  time: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  ),
-  budget: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" />
-      <line x1="8" y1="12" x2="16" y2="12" />
-    </svg>
-  ),
-  team: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  ),
-  report: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" />
-      <line x1="16" y1="17" x2="8" y2="17" />
-    </svg>
-  ),
-  leads: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
-    </svg>
-  )
-};
+const formatINR = (val) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(val || 0);
 
-/* ─── 8 feature card definitions ────────── */
-const ADMIN_FEATURE_CARDS = [
-  {
-    id: 'task-management',
-    icon: 'tasks',
-    title: 'Task Management',
-    desc: 'Organization tasks',
-    color: '#10B981',
-    bg: 'rgba(16,185,129,0.10)',
-    path: '/admin/tasks',
-  },
-  {
-    id: 'project-management',
-    icon: 'gantt',
-    title: 'Project Management',
-    desc: 'Organization projects',
-    color: '#3B82F6',
-    bg: 'rgba(59,130,246,0.10)',
-    path: '/admin/projects',
-  },
-  {
-    id: 'team-status',
-    icon: 'team',
-    title: 'Team Status',
-    desc: 'Managed employees',
-    color: '#EC4899',
-    bg: 'rgba(236,72,153,0.10)',
-    path: '/admin/employees', // The existing Employees component
-  },
-  {
-    id: 'time-attendance',
-    icon: 'time',
-    title: 'Time & Attendance',
-    desc: 'Employee working time',
-    color: '#F59E0B',
-    bg: 'rgba(245,158,11,0.10)',
-    path: '/admin/attendance',
-  },
-  {
-    id: 'leads-clients',
-    icon: 'leads',
-    title: 'Leads & Clients',
-    desc: 'CRM management',
-    color: '#7C3AED',
-    bg: 'rgba(124,58,237,0.10)',
-    path: '/admin/leads',
-  },
-  {
-    id: 'budget-actuals',
-    icon: 'budget',
-    title: 'Budget & Actuals',
-    desc: 'Invoices & financials',
-    color: '#059669',
-    bg: 'rgba(5,150,105,0.10)',
-    path: '/admin/invoices',
-  },
-  {
-    id: 'reports-analytics',
-    icon: 'report',
-    title: 'Reports & Analytics',
-    desc: 'Organization reporting',
-    color: '#0284C7',
-    bg: 'rgba(2,132,199,0.10)',
-    path: '/admin/reports',
-  },
-  {
-    id: 'daily-reports',
-    icon: 'board',
-    title: 'Daily Reports',
-    desc: 'Employee daily reports',
-    color: '#DC2626',
-    bg: 'rgba(220,38,38,0.10)',
-    path: '/admin/reports',
-  }
-];
+/* ─── 3-Slice Attendance Donut Chart ─────────────────────────────────────── */
+function AttendanceDonut({ present, onLeave, absent, total, hasRecords }) {
+  const R = 40;
+  const C = 2 * Math.PI * R;
 
-const ActionIcons = {
-  'Add Lead': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>,
-  'New Project': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
-  'Add Employee': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>,
-  'Create Invoice': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" /></svg>,
-  'Attendance': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
-  'Tasks': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
-  'Reports': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
-  'Send Email': <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-};
+  const validTotal = total > 0 ? total : 1;
+  const pPct = hasRecords ? (present / validTotal) * 100 : 0;
+  const lPct = hasRecords ? (onLeave / validTotal) * 100 : 0;
+  const aPct = hasRecords ? (absent / validTotal) * 100 : 0;
+
+  const slices = [
+    { color: '#10B981', pct: pPct }, // Present (Green)
+    { color: '#F59E0B', pct: lPct }, // On Leave (Amber)
+    { color: '#EF4444', pct: aPct }, // Absent (Red)
+  ];
+
+  let offset = 0;
+  const arcs = slices
+    .filter((s) => s.pct > 0)
+    .map((s) => {
+      const dash = (s.pct / 100) * C;
+      const arc = { ...s, dash, gap: C - dash, offset };
+      offset += dash;
+      return arc;
+    });
+
+  return (
+    <svg viewBox="0 0 100 100" className="admin-donut-svg">
+      <circle cx="50" cy="50" r={R} fill="none" stroke="#f1f5f9" strokeWidth="14" />
+      {hasRecords &&
+        arcs.map((arc, i) => (
+          <circle
+            key={i}
+            cx="50"
+            cy="50"
+            r={R}
+            fill="none"
+            stroke={arc.color}
+            strokeWidth="14"
+            strokeDasharray={`${arc.dash} ${arc.gap}`}
+            strokeDashoffset={-arc.offset}
+            strokeLinecap="round"
+          />
+        ))}
+    </svg>
+  );
+}
 
 export default function AdminDashboard() {
   const { user } = useContext(AppContext);
   const navigate = useNavigate();
-  const [d, setD] = useState({ leads: [], projects: [], tasks: [], invoices: [], attendance: [], leaves: [], announcements: [] });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [d, setD] = useState({
+    leads: [],
+    projects: [],
+    tasks: [],
+    invoices: [],
+    attendance: [],
+    leaves: [],
+    departments: [],
+    users: [],
+  });
 
   useEffect(() => {
     let on = true;
     Promise.all([
-      '/leads',
-      '/projects',
-      '/tasks',
-      '/invoices',
-      '/attendance',
-      '/leave-requests',
-      '/announcements?limit=4'
-    ].map(x => apiClient.get(x)))
-      .then(r => on && setD({
-        leads: list(r[0]),
-        projects: list(r[1]),
-        tasks: list(r[2]),
-        invoices: list(r[3]),
-        attendance: list(r[4]),
-        leaves: list(r[5]),
-        announcements: list(r[6])
-      }))
-      .catch(e => on && setError(e.response?.data?.message || 'Unable to load dashboard data.'))
-      .finally(() => on && setLoading(false));
-    return () => { on = false };
+      apiClient.get('/leads').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/projects').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/tasks').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/invoices').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/attendance').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/leave-requests').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/admin/departments').catch(() => apiClient.get('/departments')).catch(() => ({ data: { data: [] } })),
+      apiClient.get('/users').catch(() => ({ data: { data: [] } })),
+    ])
+      .then((res) => {
+        if (!on) return;
+        setD({
+          leads: list(res[0]),
+          projects: list(res[1]),
+          tasks: list(res[2]),
+          invoices: list(res[3]),
+          attendance: list(res[4]),
+          leaves: list(res[5]),
+          departments: list(res[6]),
+          users: list(res[7]),
+        });
+      })
+      .catch((e) => {
+        if (on) setError(e.response?.data?.message || 'Unable to load dashboard data.');
+      })
+      .finally(() => {
+        if (on) setLoading(false);
+      });
+
+    return () => {
+      on = false;
+    };
   }, []);
 
-  const pipeline = ['New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map((x, i) => ({
-    label: x === 'Converted' ? 'Converted / Won' : x,
-    count: d.leads.filter(y => y.status === x).length,
-    color: ['#4f46e5', '#2563eb', '#14b8a6', '#f59e0b', '#ef4444'][i]
-  }));
+  /* ─── Real Dynamic Calculations ─── */
+  // 1. Total Employees
+  const totalEmployeesCount = useMemo(() => {
+    const employees = (d.users || []).filter(
+      (u) => u.role === 'employee' && u.isActive !== false && u.employmentStatus !== 'Exited' && u.employmentStatus !== 'Terminated'
+    );
+    return employees.length || (d.users || []).filter((u) => u.role === 'employee').length || (d.users || []).length;
+  }, [d.users]);
 
-  const project = [
-    ['Active', 'In Progress', '#2563eb'],
-    ['Completed', 'Completed', '#16a34a'],
-    ['On Hold', 'On Hold', '#f59e0b'],
-    ['Cancelled', 'Cancelled', '#ef4444']
-  ].map(([s, label, color]) => ({
-    label,
-    count: d.projects.filter(x => x.status === s).length,
-    color
-  }));
+  // 2. Total Departments
+  const totalDepartmentsCount = useMemo(() => {
+    return (d.departments || []).length;
+  }, [d.departments]);
 
-  const attend = ['Present', 'Absent', 'Half Day'].map((label, i) => ({
-    label,
-    count: d.attendance.filter(x => x.status === label).length,
-    color: ['#16a34a', '#ef4444', '#f59e0b'][i]
-  }));
+  // 3. Attendance Counts
+  const presentCount = useMemo(() => {
+    return d.attendance.filter(
+      (a) => a.status === 'Present' || a.status === 'Late' || a.status === 'Half Day'
+    ).length;
+  }, [d.attendance]);
 
-  const donut = items => {
-    const t = items.reduce((a, x) => a + x.count, 0);
-    let n = 0;
+  const onLeaveCount = useMemo(() => {
+    return d.leaves.filter((l) => l.status === 'Approved').length;
+  }, [d.leaves]);
+
+  const absentCount = useMemo(() => {
+    return d.attendance.filter((a) => a.status === 'Absent').length;
+  }, [d.attendance]);
+
+  const hasAttendanceRecords = d.attendance.length > 0 || onLeaveCount > 0;
+
+  const validTotalEmployees = totalEmployeesCount > 0 ? totalEmployeesCount : 1;
+  const presentPct = hasAttendanceRecords
+    ? ((presentCount / validTotalEmployees) * 100).toFixed(2)
+    : '0.00';
+  const onLeavePct = hasAttendanceRecords
+    ? ((onLeaveCount / validTotalEmployees) * 100).toFixed(2)
+    : '0.00';
+  const absentPct = hasAttendanceRecords
+    ? ((absentCount / validTotalEmployees) * 100).toFixed(2)
+    : '0.00';
+
+  // 4. Projects Counts
+  const activeProjectsCount = useMemo(() => {
+    return d.projects.filter((p) => p.status === 'In Progress' || p.status === 'Active').length;
+  }, [d.projects]);
+
+  const projectStatusCounts = useMemo(() => {
     return {
-      t, style: {
-        background: t ? `conic-gradient(${items.map(x => { let a = n; n += x.count / t * 100; return `${x.color} ${a}% ${n}%` }).join(',')})` : '#e5e7eb'
-      }
+      inProgress: d.projects.filter((p) => p.status === 'In Progress' || p.status === 'Active').length,
+      completed: d.projects.filter((p) => p.status === 'Completed').length,
+      onHold: d.projects.filter((p) => p.status === 'On Hold').length,
+      cancelled: d.projects.filter((p) => p.status === 'Cancelled').length,
     };
-  };
-  const pd = donut(project), ad = donut(attend), pct = ad.t ? Math.round(attend[0].count / ad.t * 100) : 0;
+  }, [d.projects]);
 
-  const revenue = useMemo(() => {
-    const xs = Array.from({ length: 7 }, (_, i) => {
-      const q = new Date();
-      q.setDate(q.getDate() - 6 + i);
-      const k = q.toISOString().slice(0, 10);
-      return {
-        l: q.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
-        v: d.invoices.filter(x => String(x.issueDate || '').slice(0, 10) === k).reduce((a, x) => a + Number(x.amount || 0), 0)
-      }
-    });
-    return { xs, max: Math.max(...xs.map(x => x.v), 1) }
+  // 5. Tasks Counts
+  const pendingTasksCount = useMemo(() => {
+    return d.tasks.filter((t) => t.status !== 'Completed').length;
+  }, [d.tasks]);
+
+  // 6. Leads Counts
+  const activeLeadsCount = useMemo(() => {
+    return d.leads.filter((l) => l.status !== 'Converted' && l.status !== 'Lost').length;
+  }, [d.leads]);
+
+  // 7. Invoices & Revenue
+  const totalInvoiced = useMemo(() => {
+    return d.invoices.reduce((sum, inv) => sum + (Number(inv.amount || inv.total) || 0), 0);
   }, [d.invoices]);
 
-  const Card = ({ title, to, children }) => (
-    <article className="dashboard-card">
-      <div className="card-heading">
-        <h3>{title}</h3>
-        {to && <button onClick={() => navigate(to)}>View All</button>}
-      </div>
-      {children}
-    </article>
-  );
+  const totalPaid = useMemo(() => {
+    return d.invoices
+      .filter((inv) => inv.status === 'Paid')
+      .reduce((sum, inv) => sum + (Number(inv.amount || inv.total) || 0), 0);
+  }, [d.invoices]);
 
-  const Legend = ({ items, total }) => (
-    <div className="legend-list">
-      {items.map(x => (
-        <div key={x.label}>
-          <span><i style={{ background: x.color }} />{x.label}</span>
-          <b>{x.count}{total !== undefined && ` (${total ? Math.round(x.count / total * 100) : 0}%)`}</b>
-        </div>
-      ))}
-    </div>
-  );
+  const totalPendingInvoiced = Math.max(0, totalInvoiced - totalPaid);
 
-  const fullName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName || user?.email || 'Admin';
+
 
   return (
-    <AdminLayout pageTitle="">
-      <div className="admin-dashboard-page reference-dashboard">
+    <AdminLayout pageTitle="Admin Dashboard">
+      <div className="admin-dash-container">
         {error && <div className="admin-resource-message error">{error}</div>}
-        {loading ? <div className="dashboard-loading">Loading dashboard data…</div> : <>
 
-          {/* ══════════════════════════════════════════════════════════
-              NEW CONTENT — 8 Admin Main Feature Cards
-          ══════════════════════════════════════════════════════════ */}
-          <section className="ud-features-section">
-            <h3 className="ud-section-title">Main Features</h3>
-            <div className="ud-features-grid">
-              {ADMIN_FEATURE_CARDS.map((card) => {
-                let dynamicDesc = card.desc;
-                let dynamicTitle = card.title;
+        {/* ── Page Header matching HR Reference ── */}
+        <div className="admin-dash-header">
+          <div className="admin-dash-title-area">
+            <h2>Admin Overview &amp; Analytics</h2>
+            <p>Real-time organizational metrics, project delivery, sales pipeline, and resource tracking.</p>
+          </div>
+        </div>
 
-                // Real data injection for specific cards based on API results
-                if (card.id === 'task-management' && d.tasks) {
-                  const completed = d.tasks.filter(t => t.status === 'Completed').length;
-                  dynamicDesc = `${completed}/${d.tasks.length} Completed`;
-                }
-                if (card.id === 'project-management' && d.projects) {
-                  const active = d.projects.filter(p => p.status === 'In Progress').length;
-                  dynamicDesc = `${active} Active Projects`;
-                }
-                if (card.id === 'leads-clients' && d.leads) {
-                  dynamicDesc = `${d.leads.length} Active Leads`;
-                }
-                if (card.id === 'time-attendance' && d.attendance) {
-                  const present = d.attendance.filter(a => a.status === 'Present').length;
-                  dynamicDesc = `${present} Present Today`;
-                }
-                if (card.id === 'budget-actuals' && d.invoices) {
-                  dynamicDesc = `${d.invoices.length} Invoices`;
-                }
+        {loading ? (
+          <div className="admin-dashboard-loading">Loading organizational metrics…</div>
+        ) : (
+          <>
+            {/* ══════════════════════════════════════════════════════════
+                5 KPI STAT CARDS ROW (Exact HR Dashboard proportions)
+            ══════════════════════════════════════════════════════════ */}
+            <div className="admin-kpi-grid">
+              {/* 1. Total Employees (Blue) */}
+              <div className="admin-kpi-card blue" onClick={() => navigate('/admin/employees')}>
+                <div className="admin-kpi-icon-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <div className="admin-kpi-body">
+                  <span className="admin-kpi-title">TOTAL EMPLOYEES</span>
+                  <strong className="admin-kpi-value">{totalEmployeesCount}</strong>
+                </div>
+              </div>
 
-                return (
-                  <button key={card.id} type="button" className="ud-feature-card" onClick={() => navigate(card.path)} aria-label={dynamicTitle}>
-                    <div className="ud-feature-icon" style={{ background: card.bg, color: card.color }}>
-                      {FEAT_ICONS[card.icon]}
-                    </div>
-                    <div className="ud-feature-body">
-                      <strong className="ud-feature-title">{dynamicTitle}</strong>
-                      <span className="ud-feature-desc">{dynamicDesc}</span>
-                    </div>
-                  </button>
-                );
-              })}
+              {/* 2. Total Departments (Green) */}
+              <div className="admin-kpi-card green" onClick={() => navigate('/admin/departments')}>
+                <div className="admin-kpi-icon-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                </div>
+                <div className="admin-kpi-body">
+                  <span className="admin-kpi-title">TOTAL DEPARTMENTS</span>
+                  <strong className="admin-kpi-value">{totalDepartmentsCount}</strong>
+                </div>
+              </div>
+
+              {/* 3. Active Projects (Amber) */}
+              <div className="admin-kpi-card amber" onClick={() => navigate('/admin/projects')}>
+                <div className="admin-kpi-icon-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                </div>
+                <div className="admin-kpi-body">
+                  <span className="admin-kpi-title">ACTIVE PROJECTS</span>
+                  <strong className="admin-kpi-value">{activeProjectsCount}</strong>
+                </div>
+              </div>
+
+              {/* 4. Pending Tasks (Purple) */}
+              <div className="admin-kpi-card purple" onClick={() => navigate('/admin/tasks')}>
+                <div className="admin-kpi-icon-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 11 12 14 22 4" />
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                  </svg>
+                </div>
+                <div className="admin-kpi-body">
+                  <span className="admin-kpi-title">PENDING TASKS</span>
+                  <strong className="admin-kpi-value">{pendingTasksCount}</strong>
+                </div>
+              </div>
+
+              {/* 5. Active Leads (Red/Rose) */}
+              <div className="admin-kpi-card red" onClick={() => navigate('/admin/leads')}>
+                <div className="admin-kpi-icon-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 20V10" />
+                    <path d="M18 20V4" />
+                    <path d="M6 20v-4" />
+                  </svg>
+                </div>
+                <div className="admin-kpi-body">
+                  <span className="admin-kpi-title">ACTIVE LEADS</span>
+                  <strong className="admin-kpi-value">{activeLeadsCount}</strong>
+                </div>
+              </div>
             </div>
-          </section>
 
-          <section className="dashboard-grid top-row">
-            <Card title="Sales Pipeline">
-              <div className="pipeline-content">
-                {d.leads.length ? <>
-                  <div className="funnel">
-                    {pipeline.map((x, i) => <span key={x.label} style={{ width: `${100 - i * 14}%`, background: x.color }} />)}
-                  </div>
-                  <Legend items={pipeline} total={d.leads.length} />
-                </> : <div className="empty-card">No lead data available.</div>}
-              </div>
-            </Card>
-            <Card title="Projects Overview">
-              <div className="donut-content">
-                <div className="donut" style={pd.style}>
-                  <div><b>{pd.t}</b><small>Total Projects</small></div>
+            {/* ══════════════════════════════════════════════════════════
+                ROW 1: Attendance Overview (Donut) + Task Management (List)
+            ══════════════════════════════════════════════════════════ */}
+            <div className="admin-grid-row-2">
+              {/* Attendance Overview Card */}
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h3>Attendance Overview</h3>
+                  <button
+                    type="button"
+                    className="admin-card-action-link"
+                    onClick={() => navigate('/admin/attendance')}
+                  >
+                    View Details
+                  </button>
                 </div>
-                <Legend items={project} total={pd.t} />
-              </div>
-            </Card>
-            <Card title="Revenue Overview">
-              <div className="revenue-chart">
-                {revenue.xs.some(x => x.v) ? revenue.xs.map(x => (
-                  <div className="revenue-point" key={x.l}>
-                    <span title={`₹${x.v}`} style={{ height: `${Math.max(8, x.v / revenue.max * 100)}%` }} />
-                    <small>{x.l}</small>
+
+                <div className="admin-donut-wrapper">
+                  <div className="admin-donut-box">
+                    <AttendanceDonut
+                      present={presentCount}
+                      onLeave={onLeaveCount}
+                      absent={absentCount}
+                      total={totalEmployeesCount}
+                      hasRecords={hasAttendanceRecords}
+                    />
+                    <div className="admin-donut-center-info">
+                      <strong>{totalEmployeesCount}</strong>
+                      <span>Total</span>
+                    </div>
                   </div>
-                )) : <div className="empty-card">No invoice revenue available.</div>}
-              </div>
-            </Card>
-          </section>
-          <section className="dashboard-grid middle-row">
-            <Card title="My Tasks" to="/admin/tasks">
-              <div className="task-list">
-                {d.tasks.slice(0, 5).map(x => (
-                  <div key={x._id}>
-                    <i className={`task-check ${x.status === 'Completed' ? 'done' : ''}`} />
-                    <span><b>{x.title}</b><small>{x.description || 'No description'}</small></span>
-                    <em>{date(x.dueDate)}</em>
-                    <strong className={`priority ${String(x.priority).toLowerCase()}`}>{x.priority}</strong>
-                  </div>
-                ))}
-                {!d.tasks.length && <div className="empty-card">No tasks available.</div>}
-              </div>
-            </Card>
-            <Card title="Recent Projects" to="/admin/projects">
-              <div className="mini-table">
-                {d.projects.slice(0, 5).map(x => (
-                  <div key={x._id}>
-                    <b>{x.name}</b><span>—</span><span>{name(x.owner)}</span><em>{x.status}</em><i>—</i>
-                  </div>
-                ))}
-                {!d.projects.length && <div className="empty-card">No projects available.</div>}
-              </div>
-            </Card>
-            <Card title="Announcements" to="/admin/announcements">
-              <div className="announcement-list">
-                {d.announcements.map(x => (
-                  <div key={x._id}>
-                    <i className="announcement-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg></i>
-                    <span><b>{x.title}</b><small>{x.message}</small></span>
-                    <em>{date(x.createdAt)}</em>
-                  </div>
-                ))}
-                {!d.announcements.length && <div className="empty-card">No announcements yet.</div>}
-              </div>
-              <button className="create-announcement" onClick={() => navigate('/admin/announcements')}>＋ Create Announcement</button>
-            </Card>
-          </section>
-          <section className="dashboard-grid bottom-row">
-            <Card title="Attendance Overview" to="/admin/attendance">
-              <div className="donut-content">
-                <div className="donut attendance" style={ad.style}>
-                  <div><b>{pct}%</b><small>Present</small></div>
+
+                  <ul className="admin-donut-legend-list">
+                    <li className="admin-donut-legend-item">
+                      <div className="admin-donut-legend-left">
+                        <span className="admin-legend-dot" style={{ background: '#10B981' }} />
+                        <span>Present ({presentCount})</span>
+                      </div>
+                      <span className="admin-donut-legend-right">{presentPct}%</span>
+                    </li>
+
+                    <li className="admin-donut-legend-item">
+                      <div className="admin-donut-legend-left">
+                        <span className="admin-legend-dot" style={{ background: '#F59E0B' }} />
+                        <span>On Leave ({onLeaveCount})</span>
+                      </div>
+                      <span className="admin-donut-legend-right">{onLeavePct}%</span>
+                    </li>
+
+                    <li className="admin-donut-legend-item">
+                      <div className="admin-donut-legend-left">
+                        <span className="admin-legend-dot" style={{ background: '#EF4444' }} />
+                        <span>Absent ({absentCount})</span>
+                      </div>
+                      <span className="admin-donut-legend-right">{absentPct}%</span>
+                    </li>
+                  </ul>
                 </div>
-                <Legend items={attend} />
+
+                {!hasAttendanceRecords && (
+                  <div className="admin-empty-indicator">No attendance records for today</div>
+                )}
               </div>
-            </Card>
-            <Card title="Leave Requests" to="/admin/leave-requests">
-              <div className="leave-list">
-                {d.leaves.slice(0, 5).map(x => (
-                  <div key={x._id}>
-                    <b>{name(x.user)}</b><span>{x.type}</span><span>{date(x.startDate)} – {date(x.endDate)}</span><em className={String(x.status).toLowerCase()}>{x.status}</em>
+
+              {/* Task Management Card */}
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h3>Task Management &amp; Allocation</h3>
+                  <button
+                    type="button"
+                    className="admin-card-action-link"
+                    onClick={() => navigate('/admin/tasks')}
+                  >
+                    View All
+                  </button>
+                </div>
+
+                {d.tasks.length === 0 ? (
+                  <div className="admin-empty-card">No tasks allocated yet.</div>
+                ) : (
+                  <ul className="admin-task-list">
+                    {d.tasks.slice(0, 4).map((task) => {
+                      const prioClass = String(task.priority || 'medium').toLowerCase();
+                      return (
+                        <li key={task._id} className="admin-task-item">
+                          <div className="admin-task-left">
+                            <div className="admin-task-avatar">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="9 11 12 14 22 4" />
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="admin-task-name">{task.title}</span>
+                              <span className="admin-task-sub">
+                                {task.project?.name || task.description || 'Task Assignment'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="admin-task-right">
+                            <span className="admin-task-date">{formatDate(task.dueDate)}</span>
+                            <span className={`admin-pill ${prioClass}`}>
+                              {task.priority || 'Medium'}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════
+                ROW 2: Financial Summary + Projects Status
+            ══════════════════════════════════════════════════════════ */}
+            <div className="admin-grid-row-2">
+              {/* Financial & Revenue Summary */}
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h3>Financial Summary</h3>
+                  <button
+                    type="button"
+                    className="admin-card-action-link"
+                    onClick={() => navigate('/admin/invoices')}
+                  >
+                    View Invoices
+                  </button>
+                </div>
+
+                <div className="admin-payroll-summary-content">
+                  <span className="admin-payroll-cost-label">Total Invoiced Value</span>
+                  <div className="admin-payroll-cost-value">{formatINR(totalInvoiced)}</div>
+
+                  <div className="admin-payroll-meta-grid">
+                    <div className="admin-payroll-meta-col">
+                      <span>Paid Revenue</span>
+                      <strong style={{ color: '#059669' }}>{formatINR(totalPaid)}</strong>
+                    </div>
+                    <div className="admin-payroll-meta-col">
+                      <span>Pending Due</span>
+                      <strong style={{ color: '#d97706' }}>{formatINR(totalPendingInvoiced)}</strong>
+                    </div>
                   </div>
-                ))}
-                {!d.leaves.length && <div className="empty-card">No leave requests.</div>}
+                </div>
               </div>
-            </Card>
-            <Card title="Quick Actions">
-              <div className="quick-actions">
-                {
-                  [
-                    ['Add Lead', '/admin/leads'],
-                    ['New Project', '/admin/projects'],
-                    ['Add Employee', '/admin/employees'],
-                    ['Create Invoice', '/admin/payroll'],
-                    ['Attendance', '/admin/attendance'],
-                    ['Tasks', '/admin/tasks'],
-                    ['Reports', '/admin/reports'],
-                    ['Send Email', '/admin/notifications']
-                  ].map(x => (
-                    <button key={x[0]} onClick={() => navigate(x[1])}>
-                      <i>{ActionIcons[x[0]]}</i><span>{x[0]}</span>
-                    </button>
-                  ))
-                }
+
+              {/* Projects Status & Distribution */}
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h3>Projects Status</h3>
+                  <button
+                    type="button"
+                    className="admin-card-action-link"
+                    onClick={() => navigate('/admin/projects')}
+                  >
+                    View Report
+                  </button>
+                </div>
+
+                <div className="admin-project-dist-container">
+                  <div className="admin-dist-row">
+                    <div className="admin-dist-label">
+                      <span>In Progress</span>
+                      <strong>{projectStatusCounts.inProgress}</strong>
+                    </div>
+                    <div className="admin-dist-bar-track">
+                      <div
+                        className="admin-dist-bar-fill blue"
+                        style={{
+                          width: `${d.projects.length ? (projectStatusCounts.inProgress / d.projects.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-dist-row">
+                    <div className="admin-dist-label">
+                      <span>Completed</span>
+                      <strong>{projectStatusCounts.completed}</strong>
+                    </div>
+                    <div className="admin-dist-bar-track">
+                      <div
+                        className="admin-dist-bar-fill green"
+                        style={{
+                          width: `${d.projects.length ? (projectStatusCounts.completed / d.projects.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-dist-row">
+                    <div className="admin-dist-label">
+                      <span>On Hold</span>
+                      <strong>{projectStatusCounts.onHold}</strong>
+                    </div>
+                    <div className="admin-dist-bar-track">
+                      <div
+                        className="admin-dist-bar-fill amber"
+                        style={{
+                          width: `${d.projects.length ? (projectStatusCounts.onHold / d.projects.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-dist-row">
+                    <div className="admin-dist-label">
+                      <span>Cancelled</span>
+                      <strong>{projectStatusCounts.cancelled}</strong>
+                    </div>
+                    <div className="admin-dist-bar-track">
+                      <div
+                        className="admin-dist-bar-fill red"
+                        style={{
+                          width: `${d.projects.length ? (projectStatusCounts.cancelled / d.projects.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </Card>
-          </section>
-        </>}
+            </div>
+          </>
+        )}
       </div>
     </AdminLayout>
   );

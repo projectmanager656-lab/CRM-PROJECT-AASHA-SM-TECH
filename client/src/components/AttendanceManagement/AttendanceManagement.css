@@ -1,161 +1,568 @@
-.attendance-summary {
-  margin-bottom: 1rem;
-}
+/* ==========================================================================
+   ATTENDANCE MANAGEMENT — REFINED ENTERPRISE UI STYLES
+   ========================================================================== */
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.8rem;
-  padding: 1rem;
-}
-
-.summary-grid div {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0.85rem 0.7rem;
-  text-align: center;
-}
-
-.summary-grid span {
-  display: block;
-  color: #64748b;
-  font-size: 0.7rem;
-  margin-bottom: 0.3rem;
-}
-
-.summary-grid strong {
-  color: #111827;
-  font-size: 1.3rem;
-}
-
-.attendance-table {
-  overflow-x: auto;
-}
-
-.attendance-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.attendance-table th,
-.attendance-table td {
-  padding: 0.9rem 0.8rem;
-  border-bottom: 1px solid #e2e8f0;
-  text-align: left;
-}
-
-.attendance-table th {
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.att-status-select {
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  border: none;
-  appearance: none;
-  outline: none;
-  cursor: pointer;
-}
-
-.att-status-select.present { background: rgba(16,185,129,0.12); color: #047857; }
-.att-status-select.absent { background: rgba(239,68,68,0.12); color: #b91c1c; }
-.att-status-select.late { background: rgba(245,158,11,0.12); color: #b45309; }
-.att-status-select.half-day { background: rgba(148,163,184,0.12); color: #475569; }
-
-.att-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
+/* Top Page Header */
 .att-page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.25rem !important;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 1rem;
   width: 100%;
 }
 
 .att-header-left {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
 }
 
 .att-page-title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #0f172a;
   line-height: 1.2;
 }
 
-.att-toolbar {
+.att-header-actions {
   display: flex;
-  gap: 0.65rem;
   align-items: center;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  flex: 1;
 }
 
-.att-overview-panel {
-  margin-bottom: 1.15rem !important;
-}
-
-.att-overview-panel h3 {
-  margin: 0 0 0.35rem 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.att-btn {
-  padding: 0 1rem;
-  border-radius: 6px;
+.att-type-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #334155;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  background: white;
-  cursor: pointer;
-  font-weight: 500;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  height: 38px;
+  box-sizing: border-box;
+  transition: all 0.18s ease;
 }
 
-.att-btn-primary {
+.att-type-toggle:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.att-type-label {
+  font-weight: 600;
+  font-size: 0.825rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.att-type-select {
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  font-size: 0.825rem;
+  color: #ea580c;
+  background: #ffffff;
+  outline: none;
+  cursor: pointer;
+  height: 28px;
+  box-sizing: border-box;
+  transition: border-color 0.18s ease;
+}
+
+.att-type-select:hover,
+.att-type-select:focus {
+  border-color: #ea580c;
+}
+
+.att-btn-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.15rem;
+  height: 38px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 8px;
+  cursor: pointer;
   background: #ea580c !important;
   color: white !important;
-  border-color: #ea580c !important;
+  border: 1px solid #ea580c !important;
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2);
+  transition: all 0.18s ease;
+  box-sizing: border-box;
 }
 
-.att-btn-primary:hover {
+.att-btn-mark:hover {
   background: #c2410c !important;
   border-color: #c2410c !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.3);
 }
 
-.att-btn-sm {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  background: white;
+/* ==========================================================================
+   2. KPI OVERVIEW PANEL & CARDS (Clean Minimal Treatment - No Red Shading)
+   ========================================================================== */
+.att-overview-panel {
+  margin-bottom: 1.25rem !important;
+  width: 100%;
+}
+
+.att-overview-title {
+  margin: 0 0 0.75rem 0 !important;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+}
+
+.att-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 1rem !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.att-kpi-grid.training-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 1200px) {
+  .att-kpi-grid.training-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .att-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .att-kpi-grid,
+  .att-kpi-grid.training-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Individual KPI Card */
+.att-kpi-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 0.85rem 1.15rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.85rem !important;
+  min-height: 86px !important;
+  max-height: 96px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: hidden !important;
+  user-select: none !important;
+}
+
+.att-kpi-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Left Accent Borders */
+.att-kpi-card.green { border-left: 4px solid #10b981 !important; }
+.att-kpi-card.amber { border-left: 4px solid #f59e0b !important; }
+.att-kpi-card.red { border-left: 4px solid #ef4444 !important; }
+.att-kpi-card.blue { border-left: 4px solid #3b82f6 !important; }
+.att-kpi-card.purple { border-left: 4px solid #8b5cf6 !important; }
+
+/* KPI Icon Wrapper - Minimal, Neutral, Clean (NO red circular shade or blob) */
+.att-kpi-icon-wrap {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.att-kpi-icon-wrap svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Distinct icon stroke colors without any heavy/colored circular background blobs */
+.att-kpi-card.green .att-kpi-icon-wrap {
+  color: #16a34a !important;
+}
+
+.att-kpi-card.amber .att-kpi-icon-wrap {
+  color: #d97706 !important;
+}
+
+.att-kpi-card.red .att-kpi-icon-wrap {
+  color: #dc2626 !important;
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.att-kpi-card.blue .att-kpi-icon-wrap {
+  color: #2563eb !important;
+}
+
+.att-kpi-card.purple .att-kpi-icon-wrap {
+  color: #7c3aed !important;
+}
+
+/* KPI Card Body */
+.att-kpi-body {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+}
+
+.att-kpi-label {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: #64748b !important;
+  margin: 0 0 0.25rem 0 !important;
+  line-height: 1.2 !important;
+}
+
+.att-kpi-value {
+  font-size: 1.55rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+  margin: 0 !important;
+}
+
+/* ==========================================================================
+   3. FILTER / SEARCH BAR (Full Width Flow - No Empty Gap)
+   ========================================================================== */
+.att-filter-bar {
+  display: flex !important;
+  gap: 0.75rem !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  margin-bottom: 1.25rem !important;
+  padding: 0.65rem 0.85rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  box-sizing: border-box !important;
+}
+
+/* Filter inputs consistent heights & smooth focus */
+.att-input,
+.att-select-input,
+.att-search-input,
+.att-date-input {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  font-size: 0.875rem;
+  vertical-align: middle;
+  padding: 0 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  background-color: #ffffff;
+  color: #1e293b;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.att-input:focus,
+.att-select-input:focus,
+.att-search-input:focus,
+.att-date-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+
+/* Search input takes the flexible remaining width */
+.att-search-input {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 200px !important;
+  max-width: none !important;
+}
+
+/* Dropdowns & Date have sensible fixed/medium widths */
+.att-select-input {
+  flex: 0 0 160px !important;
+  width: 160px !important;
+  min-width: 140px !important;
   cursor: pointer;
-  font-size: 0.75rem;
 }
 
-.att-btn-danger {
-  color: #ef4444;
-  border-color: #fca5a5;
+.att-date-input {
+  flex: 0 0 150px !important;
+  width: 150px !important;
+  min-width: 140px !important;
+}
+
+@media (max-width: 768px) {
+  .att-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .att-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.65rem;
+  }
+  .att-filter-bar {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .att-search-input {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+  .att-select-input,
+  .att-date-input {
+    flex: 1 1 calc(50% - 0.25rem) !important;
+    width: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .att-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .att-type-toggle,
+  .att-btn-mark {
+    width: 100%;
+    justify-content: center;
+  }
+  .att-select-input,
+  .att-date-input {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* ==========================================================================
+   4. ATTENDANCE TABLE (Optimized Widths & Right-Aligned Actions)
+   ========================================================================== */
+.attendance-table {
+  width: 100% !important;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+.attendance-table table {
+  width: 100% !important;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Employee Attendance Column Distribution (6 Columns - Total 100%) */
+.attendance-table table th:nth-child(1),
+.attendance-table table td:nth-child(1) {
+  width: 28%;
+}
+
+.attendance-table table th:nth-child(2),
+.attendance-table table td:nth-child(2) {
+  width: 15%;
+}
+
+.attendance-table table th:nth-child(3),
+.attendance-table table td:nth-child(3) {
+  width: 14%;
+}
+
+.attendance-table table th:nth-child(4),
+.attendance-table table td:nth-child(4) {
+  width: 14%;
+}
+
+.attendance-table table th:nth-child(5),
+.attendance-table table td:nth-child(5) {
+  width: 14%;
+}
+
+.attendance-table table th:nth-child(6),
+.attendance-table table td:nth-child(6),
+.attendance-table th.att-th-actions,
+.attendance-table td.att-td-actions {
+  width: 15%;
+  text-align: right !important;
+  padding-right: 1.25rem !important;
+}
+
+/* Training Attendance Column Distribution (8 Columns - Total 100%) */
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(1),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(1) { width: 22%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(2),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(2) { width: 16%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(3),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(3) { width: 13%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(4),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(4) { width: 11%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(5),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(5) { width: 10%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(6),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(6) { width: 10%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(7),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(7) { width: 9%; }
+.att-management-page .attendance-table table:has(th:nth-child(7)) th:nth-child(8),
+.att-management-page .attendance-table table:has(th:nth-child(7)) td:nth-child(8) { width: 9%; text-align: right !important; }
+
+.attendance-table th,
+.attendance-table td {
+  padding: 0.85rem 1rem !important;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.attendance-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.attendance-table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.attendance-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Actions Cell Alignment */
+.att-actions {
+  display: inline-flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  width: 100% !important;
+}
+
+/* Buttons */
+.att-btn-sm {
+  padding: 0.3rem 0.65rem !important;
+  border-radius: 6px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  cursor: pointer !important;
+  font-size: 0.775rem !important;
+  font-weight: 500 !important;
+  transition: all 0.18s ease !important;
+}
+
+.att-btn-sm:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.att-btn-sm.att-btn-danger {
+  color: #dc2626 !important;
+  border-color: #fecaca !important;
+  background: #fef2f2 !important;
+}
+
+.att-btn-sm.att-btn-danger:hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+}
+
+/* Status Pill Dropdowns */
+.att-status-select {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.725rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  transition: all 0.18s ease;
+}
+
+.att-status-select.present {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.att-status-select.absent {
   background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
 }
 
+.att-status-select.late {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.att-status-select.half-day {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.att-status-select.leave {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.att-status-select.excused {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+/* ==========================================================================
+   5. MODAL DIALOGS
+   ========================================================================== */
 .att-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,7 +575,7 @@
   border-radius: 8px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .att-modal h3 {
@@ -205,126 +612,6 @@
   margin-top: 1.5rem;
 }
 
-@media (max-width: 760px) {
-  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* Height consistency across toolbar controls */
-.att-input,
-.att-select-input,
-.att-search-input,
-.att-date-input,
-.att-btn {
-  height: 38px !important;
-  box-sizing: border-box !important;
-  font-size: 0.875rem;
-  vertical-align: middle;
-}
-
-.att-input,
-.att-select-input,
-.att-search-input,
-.att-date-input {
-  padding: 0 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  outline: none;
-  background-color: #ffffff;
-  color: #1e293b;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.att-input:focus,
-.att-select-input:focus,
-.att-search-input:focus,
-.att-date-input:focus {
-  border-color: #ea580c;
-  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
-}
-
-/* Width for Search Input ~240px (220px to 260px) */
-.att-search-input {
-  width: 240px !important;
-  min-width: 220px;
-  max-width: 260px;
-}
-
-.att-select-input {
-  min-width: 130px;
-  cursor: pointer;
-}
-
-.att-date-input {
-  width: 140px;
-}
-
-/* Far right placement for Mark Attendance button */
-.att-btn-mark {
-  margin-left: auto !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 1.25rem;
-  font-weight: 600;
-  white-space: nowrap;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-@media (max-width: 900px) {
-  .att-search-input {
-    width: 200px !important;
-    min-width: 180px;
-  }
-}
-
-@media (max-width: 768px) {
-  .att-toolbar {
-    width: 100%;
-  }
-  .att-search-input {
-    width: 100% !important;
-    max-width: 100%;
-  }
-  .att-btn-mark {
-    margin-left: 0 !important;
-    width: 100%;
-  }
-}
-
-.att-type-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: #334155;
-  background: #f1f5f9;
-  padding: 0 0.75rem;
-  border-radius: 8px;
-  height: 38px;
-  box-sizing: border-box;
-}
-
-.att-type-label {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: #475569;
-}
-
-.att-type-select {
-  padding: 0 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  font-weight: 700;
-  color: #ea580c;
-  background: #ffffff;
-  outline: none;
-  cursor: pointer;
-  height: 28px;
-  box-sizing: border-box;
-}
-
 .att-modal.large {
   max-width: 850px;
   max-height: 90vh;
@@ -350,9 +637,4 @@
   color: #475569;
   font-size: 0.725rem;
   text-transform: uppercase;
-}
-
-.att-status-select.excused {
-  background: rgba(99,102,241,0.12);
-  color: #4338ca;
 }

@@ -456,10 +456,13 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
   ───────────────────────────────────────────────────────────── */
   const content = (
     <div className="admin-page att-management-page">
-      {/* Top Page Header with Attendance Type Switch */}
+      {/* Top Page Header */}
       <div className="admin-page-header att-page-header">
         <div className="att-header-left">
           <h2 className="att-page-title">{title}</h2>
+        </div>
+
+        <div className="att-header-actions">
           <div className="att-type-toggle">
             <span className="att-type-label">Attendance Type:</span>
             <select
@@ -471,147 +474,232 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
               <option value="Training">Training Attendance</option>
             </select>
           </div>
-        </div>
 
-        {/* Dynamic Toolbar Based on Mode */}
-        {attendanceType === 'Employee' ? (
-          <div className="att-toolbar">
-            <input
-              type="text"
-              placeholder="Search employee..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="att-input att-search-input"
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="att-input att-select-input"
-            >
-              <option value="All">All Status</option>
-              <option value="Present">Present</option>
-              <option value="Absent">Absent</option>
-              <option value="Late">Late</option>
-              <option value="Half Day">Half Day</option>
-            </select>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="att-input att-date-input"
-            />
+          {attendanceType === 'Employee' ? (
             <button className="att-btn att-btn-primary att-btn-mark" onClick={() => openModal()}>
               + Mark Attendance
             </button>
-          </div>
-        ) : (
-          <div className="att-toolbar">
-            <select
-              value={selectedTraining}
-              onChange={(e) => {
-                setSelectedTraining(e.target.value);
-                setSelectedSession('All');
-              }}
-              className="att-input att-select-input"
-            >
-              <option value="All">All Trainings</option>
-              {trainingPrograms.map((p) => (
-                <option key={p._id} value={p._id}>{p.name}</option>
-              ))}
-            </select>
-
-            <select
-              value={selectedSession}
-              onChange={(e) => setSelectedSession(e.target.value)}
-              className="att-input att-select-input"
-            >
-              <option value="All">All Sessions</option>
-              {availableSessions.map((s) => (
-                <option key={s._id} value={s._id}>{s.sessionTitle}</option>
-              ))}
-            </select>
-
-            <select
-              value={trainingStatusFilter}
-              onChange={(e) => setTrainingStatusFilter(e.target.value)}
-              className="att-input att-select-input"
-            >
-              <option value="All">All Status</option>
-              <option value="Present">Present</option>
-              <option value="Late">Late</option>
-              <option value="Absent">Absent</option>
-              <option value="Half Day">Half Day</option>
-              <option value="Leave">Leave</option>
-              <option value="Excused">Excused</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="Search trainee..."
-              value={trainingSearchQuery}
-              onChange={(e) => setTrainingSearchQuery(e.target.value)}
-              className="att-input att-search-input"
-            />
-
+          ) : (
             <button className="att-btn att-btn-primary att-btn-mark" onClick={() => openTrainingModal()}>
               + Mark Training Attendance
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {error && !showModal && !showTrainingModal && (
         <div className="admin-resource-message error" style={{ marginBottom: '1rem' }}>{error}</div>
       )}
-      
-      {/* Dynamic Summary Cards (KPIs) */}
+
+      {/* 2. Dynamic Summary Cards (KPIs) — Placed BEFORE Search/Filters */}
       {attendanceType === 'Employee' ? (
-        <div className="admin-overview-panel att-overview-panel">
-          <h3>Today's Time Summary</h3>
-          <div className="admin-overview-grid">
-            <div className="admin-overview-card success">
-              <span>Present</span>
-              <strong>{summary.present}</strong>
+        <div className="att-overview-panel">
+          <h3 className="att-overview-title">Today's Time Summary</h3>
+          <div className="att-kpi-grid">
+            <div className="att-kpi-card green">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Present</span>
+                <strong className="att-kpi-value">{summary.present}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card warning">
-              <span>Late</span>
-              <strong>{summary.late}</strong>
+
+            <div className="att-kpi-card amber">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Late</span>
+                <strong className="att-kpi-value">{summary.late}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card primary">
-              <span>Absent</span>
-              <strong>{summary.absent}</strong>
+
+            <div className="att-kpi-card red">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Absent</span>
+                <strong className="att-kpi-value">{summary.absent}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card info">
-              <span>Half Day / Leave</span>
-              <strong>{summary.leave}</strong>
+
+            <div className="att-kpi-card blue">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Half Day / Leave</span>
+                <strong className="att-kpi-value">{summary.leave}</strong>
+              </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="admin-overview-panel att-overview-panel">
-          <h3>Training Attendance Summary & KPIs</h3>
-          <div className="admin-overview-grid">
-            <div className="admin-overview-card info">
-              <span>Total Trainees</span>
-              <strong>{trainingSummary.totalTrainees}</strong>
+        <div className="att-overview-panel">
+          <h3 className="att-overview-title">Training Attendance Summary & KPIs</h3>
+          <div className="att-kpi-grid training-grid">
+            <div className="att-kpi-card blue">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Total Trainees</span>
+                <strong className="att-kpi-value">{trainingSummary.totalTrainees}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card success">
-              <span>Present</span>
-              <strong>{trainingSummary.present}</strong>
+
+            <div className="att-kpi-card green">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Present</span>
+                <strong className="att-kpi-value">{trainingSummary.present}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card warning">
-              <span>Late</span>
-              <strong>{trainingSummary.late}</strong>
+
+            <div className="att-kpi-card amber">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Late</span>
+                <strong className="att-kpi-value">{trainingSummary.late}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card primary">
-              <span>Absent</span>
-              <strong>{trainingSummary.absent}</strong>
+
+            <div className="att-kpi-card red">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Absent</span>
+                <strong className="att-kpi-value">{trainingSummary.absent}</strong>
+              </div>
             </div>
-            <div className="admin-overview-card success" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-              <span>Attendance Rate</span>
-              <strong style={{ color: '#16a34a' }}>{trainingSummary.pct}%</strong>
+
+            <div className="att-kpi-card purple">
+              <div className="att-kpi-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+              </div>
+              <div className="att-kpi-body">
+                <span className="att-kpi-label">Attendance Rate</span>
+                <strong className="att-kpi-value">{trainingSummary.pct}%</strong>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 3. Search & Filter Bar — Placed AFTER KPI cards */}
+      {attendanceType === 'Employee' ? (
+        <div className="att-filter-bar">
+          <input
+            type="text"
+            placeholder="Search Employee..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="att-input att-search-input"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="att-input att-select-input"
+          >
+            <option value="All">All Status</option>
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+            <option value="Late">Late</option>
+            <option value="Half Day">Half Day</option>
+          </select>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="att-input att-date-input"
+          />
+        </div>
+      ) : (
+        <div className="att-filter-bar">
+          <select
+            value={selectedTraining}
+            onChange={(e) => {
+              setSelectedTraining(e.target.value);
+              setSelectedSession('All');
+            }}
+            className="att-input att-select-input"
+          >
+            <option value="All">All Trainings</option>
+            {trainingPrograms.map((p) => (
+              <option key={p._id} value={p._id}>{p.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedSession}
+            onChange={(e) => setSelectedSession(e.target.value)}
+            className="att-input att-select-input"
+          >
+            <option value="All">All Sessions</option>
+            {availableSessions.map((s) => (
+              <option key={s._id} value={s._id}>{s.sessionTitle}</option>
+            ))}
+          </select>
+
+          <select
+            value={trainingStatusFilter}
+            onChange={(e) => setTrainingStatusFilter(e.target.value)}
+            className="att-input att-select-input"
+          >
+            <option value="All">All Status</option>
+            <option value="Present">Present</option>
+            <option value="Late">Late</option>
+            <option value="Absent">Absent</option>
+            <option value="Half Day">Half Day</option>
+            <option value="Leave">Leave</option>
+            <option value="Excused">Excused</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Search trainee..."
+            value={trainingSearchQuery}
+            onChange={(e) => setTrainingSearchQuery(e.target.value)}
+            className="att-input att-search-input"
+          />
         </div>
       )}
 
@@ -626,7 +714,7 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
                 <th>Check In</th>
                 <th>Check Out</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th className="att-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -651,7 +739,7 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
                         <option value="Half Day">Half Day</option>
                       </select>
                     </td>
-                    <td>
+                    <td className="att-td-actions">
                       <div className="att-actions">
                         <button className="att-btn-sm" onClick={() => openModal(record)}>Edit</button>
                         <button className="att-btn-sm att-btn-danger" onClick={() => handleDelete(record._id)}>Delete</button>
@@ -677,7 +765,7 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
                 <th>Check In</th>
                 <th>Check Out</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th className="att-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -711,7 +799,7 @@ export default function AttendanceManagement({ Layout, title = "Attendance Manag
                         <option value="Excused">Excused</option>
                       </select>
                     </td>
-                    <td>
+                    <td className="att-td-actions">
                       <div className="att-actions">
                         <button className="att-btn-sm" onClick={() => openTrainingModal(record)}>Edit</button>
                         <button className="att-btn-sm att-btn-danger" onClick={() => handleTrainingDelete(record._id)}>Delete</button>

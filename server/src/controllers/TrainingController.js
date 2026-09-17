@@ -362,16 +362,30 @@ export class TrainingController {
   static getAssessments = asyncHandler(async (req, res) => {
     const query = {};
     if (req.query.course) query.course = req.query.course;
+    if (req.query.program) query.program = req.query.program;
     if (req.query.employee) query.employee = req.query.employee;
     if (req.query.result) query.result = req.query.result;
+    if (req.query.status) query.status = req.query.status;
+    if (req.query.assessmentType) query.assessmentType = req.query.assessmentType;
+    if (req.query.search) query.search = req.query.search;
     const data = await TrainingService.getAssessments(query);
     res.json(successResponse(data, 'Assessments retrieved'));
   });
 
+  static getAssessmentById = asyncHandler(async (req, res) => {
+    const data = await TrainingService.getAssessmentById(req.params.id);
+    if (!data) throw createNotFoundError('Assessment not found');
+    res.json(successResponse(data, 'Assessment retrieved'));
+  });
+
   static createAssessment = asyncHandler(async (req, res) => {
-    const { course, employee, score } = req.body;
-    if (!course || !employee || score === undefined) throw createValidationError('Course, employee, and score are required');
-    const data = await TrainingService.createAssessment(req.body);
+    const { course, employee, score, name, title } = req.body;
+    if (!course) throw createValidationError('Course is required');
+    if (!name && !title && (!employee || score === undefined)) {
+      throw createValidationError('Assessment title or name is required');
+    }
+    const createdBy = req.user?.userId || req.user?._id || null;
+    const data = await TrainingService.createAssessment(req.body, createdBy);
     res.status(201).json(createdResponse(data, 'Assessment recorded'));
   });
 
@@ -385,6 +399,34 @@ export class TrainingController {
     const data = await TrainingService.deleteAssessment(req.params.id);
     if (!data) throw createNotFoundError('Assessment not found');
     res.json(successResponse(data, 'Assessment deleted'));
+  });
+
+  static assignAssessment = asyncHandler(async (req, res) => {
+    const assignedBy = req.user?.userId || req.user?._id || null;
+    const data = await TrainingService.assignAssessment(req.params.id, {
+      ...req.body,
+      assignedBy
+    });
+    res.json(successResponse(data, 'Assessment assigned successfully'));
+  });
+
+  static publishAssessment = asyncHandler(async (req, res) => {
+    const data = await TrainingService.publishAssessment(req.params.id, req.body);
+    res.json(successResponse(data, `Assessment status updated to ${data.status}`));
+  });
+
+  static evaluateSubmission = asyncHandler(async (req, res) => {
+    const evaluatorId = req.user?.userId || req.user?._id || null;
+    const data = await TrainingService.evaluateSubmission(req.params.id, {
+      ...req.body,
+      evaluatorId: req.body.evaluatorId || evaluatorId
+    });
+    res.json(successResponse(data, 'Assessment evaluated successfully'));
+  });
+
+  static getAssessmentSubmissions = asyncHandler(async (req, res) => {
+    const data = await TrainingService.getAssessmentSubmissions(req.query);
+    res.json(successResponse(data, 'Assessment submissions retrieved'));
   });
 
   /* ──────── Certifications ──────── */

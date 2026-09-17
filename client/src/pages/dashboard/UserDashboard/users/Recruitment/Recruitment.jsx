@@ -193,8 +193,38 @@ export default function Recruitment() {
   // ── Existing form states ─────────────────────────────────────────────
   const [jobForm, setJobForm] = useState({ title:'', department:'Tech', designation:'', openings:1, employmentType:'Full Time', location:'In-Office / Hybrid', experience:'1-3 Years', salaryRange:'Competitive', priority:'Medium', openingDate: new Date().toISOString().slice(0,10), closingDate:'', description:'', requirements:'', status:'Open' });
   const [candidateForm, setCandidateForm] = useState({ name:'', email:'', phone:'', location:'', appliedJob:'', appliedPosition:'', department:'Tech', experience:'1-2 Years', skills:'', education:'Graduate', currentCompany:'', noticePeriod:'30 Days', source:'Direct Application', notes:'' });
-  const [interviewForm, setInterviewForm] = useState({ round:'Technical Round 1', interviewer:'Tech Lead / HR', date: new Date().toISOString().slice(0,10), time:'11:00 AM', type:'Online Video', meetingLink:'', notes:'' });
-  const [feedbackForm, setFeedbackForm] = useState({ technicalSkills:4, communication:4, problemSolving:4, teamwork:4, overallRating:4, strengths:'', weaknesses:'', comments:'', recommendation:'Hire' });
+  // ── Interviews System State (DYNAMIC & ATLAS BACKED) ─────────────────
+  const [interviewsList, setInterviewsList] = useState([]);
+  const [interviewsLoading, setInterviewsLoading] = useState(false);
+  const [interviewsSummary, setInterviewsSummary] = useState({ total:0, scheduled:0, today:0, upcoming:0, completed:0, pendingFeedback:0, cancelled:0 });
+  const [interviewSearch, setInterviewSearch] = useState('');
+  const [interviewDeptFilter, setInterviewDeptFilter] = useState('All');
+  const [interviewRoundFilter, setInterviewRoundFilter] = useState('All');
+  const [interviewStatusFilter, setInterviewStatusFilter] = useState('All');
+  const [interviewTypeFilter, setInterviewTypeFilter] = useState('All');
+  const [interviewDateFilter, setInterviewDateFilter] = useState('All');
+
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showInterviewDetailModal, setShowInterviewDetailModal] = useState(false);
+  const [rescheduleForm, setRescheduleForm] = useState({ date: new Date().toISOString().slice(0,10), time: '11:00 AM', duration: 45, interviewer: 'Tech Lead / HR Manager', reason: '' });
+  const [cancelForm, setCancelForm] = useState({ reason: '' });
+  const [conflictWarning, setConflictWarning] = useState('');
+
+  const [interviewForm, setInterviewForm] = useState({
+    candidateId: '',
+    round: 'Technical Round 1',
+    interviewer: 'Tech Lead / HR',
+    assignedTo: '',
+    date: new Date().toISOString().slice(0,10),
+    time: '11:00 AM',
+    duration: 45,
+    type: 'Online Video',
+    meetingLink: '',
+    location: '',
+    notes: '',
+  });
+  const [feedbackForm, setFeedbackForm] = useState({ technicalSkills:4, communication:4, problemSolving:4, teamwork:4, overallRating:4, strengths:'', weaknesses:'', comments:'', recommendation:'Selected' });
 
   // ── Pipeline Board States (DYNAMIC & ATLAS BACKED) ───────────────────
   const [pipelineJobFilter, setPipelineJobFilter] = useState('All');
@@ -383,6 +413,37 @@ export default function Recruitment() {
       if (hrEmployees.length === 0) loadHrEmployees();
     }
   }, [activeTab, experienceStatusFilter, experienceDeptFilter, experienceSortDir]);
+
+  const loadInterviewsData = async () => {
+    setInterviewsLoading(true);
+    try {
+      const params = {};
+      if (interviewDeptFilter !== 'All') params.department = interviewDeptFilter;
+      if (interviewRoundFilter !== 'All') params.round = interviewRoundFilter;
+      if (interviewStatusFilter !== 'All') params.status = interviewStatusFilter;
+      if (interviewTypeFilter !== 'All') params.type = interviewTypeFilter;
+      if (interviewDateFilter !== 'All') params.date = interviewDateFilter;
+      if (interviewSearch && interviewSearch.trim()) params.search = interviewSearch.trim();
+
+      const [listRes, sumRes] = await Promise.all([
+        apiClient.get('/recruitment/interviews', { params }),
+        apiClient.get('/recruitment/interviews/summary').catch(() => ({ data: { data: {} } }))
+      ]);
+      setInterviewsList(listRes.data?.data || []);
+      if (sumRes.data?.data) setInterviewsSummary(sumRes.data.data);
+    } catch (err) {
+      console.error('Failed to load interviews:', err);
+    } finally {
+      setInterviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'interviews') {
+      loadInterviewsData();
+      if (hrEmployees.length === 0) loadHrEmployees();
+    }
+  }, [activeTab, interviewDeptFilter, interviewRoundFilter, interviewStatusFilter, interviewTypeFilter, interviewDateFilter, interviewSearch]);
 
   // ── Computed ─────────────────────────────────────────────────────────
   const filteredJobs = useMemo(() => jobs.filter((j) => {
@@ -778,38 +839,186 @@ export default function Recruitment() {
     catch { setError('Failed to reject.'); }
   };
 
-  const handleOpenSchedule = (c) => {
+  const handleOpenSchedule = (c = null) => {
     setSelectedCandidate(c);
-    setInterviewForm({ round:'Technical Round 1', interviewer:'Tech Lead / HR Manager', date:new Date().toISOString().slice(0,10), time:'11:00 AM', type:'Online Video', meetingLink:'https://meet.google.com/xyz-abcd-efg', notes:'' });
+    setConflictWarning('');
+    setInterviewForm({
+      candidateId: c?._id || '',
+      round: 'Technical Round 1',
+      interviewer: 'Tech Lead / HR Manager',
+      assignedTo: '',
+      date: new Date().toISOString().slice(0, 10),
+      time: '11:00 AM',
+      duration: 45,
+      type: 'Online Video',
+      meetingLink: 'https://meet.google.com/xyz-abcd-efg',
+      location: 'Head Office / Meeting Room 1',
+      notes: ''
+    });
     setShowInterviewModal(true);
   };
 
   const handleSaveInterview = async (e) => {
-    e.preventDefault(); if (!selectedCandidate) return; setSubmitting(true); setError('');
+    e.preventDefault();
+    const candId = selectedCandidate?._id || interviewForm.candidateId;
+    if (!candId) {
+      setError('Please select a candidate to schedule an interview.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    setConflictWarning('');
     try {
-      await apiClient.post('/recruitment/candidates/'+selectedCandidate._id+'/interviews', interviewForm);
-      setShowInterviewModal(false); setSuccess('Interview scheduled!'); await loadRecruitmentData();
-      const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
-      await loadTimeline(selectedCandidate._id);
-    } catch (err) { setError(err.response?.data?.message || 'Failed to schedule interview.'); }
-    finally { setSubmitting(false); }
+      await apiClient.post('/recruitment/candidates/' + candId + '/interviews', interviewForm);
+      setShowInterviewModal(false);
+      setSuccess('Interview scheduled & Calendar event synchronized!');
+      await Promise.all([loadRecruitmentData(), loadInterviewsData()]);
+      if (selectedCandidate?._id === candId) {
+        const u = await apiClient.get('/recruitment/candidates/' + candId);
+        setSelectedCandidate(u.data?.data);
+        await loadTimeline(candId);
+      }
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setConflictWarning(err.response?.data?.message || 'Schedule conflict detected for this time slot.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to schedule interview.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenReschedule = (inv) => {
+    setSelectedInterview(inv);
+    const cand = candidates.find((c) => String(c._id) === String(inv.candidateId || inv.candidate?._id)) || inv.candidate;
+    setSelectedCandidate(cand);
+    setConflictWarning('');
+    const rawDate = inv.date ? new Date(inv.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    setRescheduleForm({
+      date: rawDate,
+      time: inv.time || '11:00 AM',
+      duration: inv.duration || 45,
+      interviewer: inv.interviewer || 'Tech Lead / HR Manager',
+      reason: ''
+    });
+    setShowRescheduleModal(true);
+  };
+
+  const handleSaveReschedule = async (e) => {
+    e.preventDefault();
+    if (!selectedInterview) return;
+    const candId = selectedInterview.candidateId || selectedInterview.candidate?._id || selectedCandidate?._id;
+    if (!candId) return;
+    setSubmitting(true);
+    setError('');
+    setConflictWarning('');
+    try {
+      await apiClient.put(`/recruitment/candidates/${candId}/interviews/${selectedInterview._id}`, {
+        date: rescheduleForm.date,
+        time: rescheduleForm.time,
+        duration: rescheduleForm.duration,
+        interviewer: rescheduleForm.interviewer,
+        rescheduleReason: rescheduleForm.reason,
+        status: 'Rescheduled'
+      });
+      setShowRescheduleModal(false);
+      setSuccess('Interview rescheduled successfully & Calendar event updated.');
+      await Promise.all([loadRecruitmentData(), loadInterviewsData()]);
+      if (selectedCandidate?._id === candId) {
+        const u = await apiClient.get('/recruitment/candidates/' + candId);
+        setSelectedCandidate(u.data?.data);
+      }
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setConflictWarning(err.response?.data?.message || 'Calendar conflict detected for this time slot.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to reschedule interview.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenCancel = (inv) => {
+    setSelectedInterview(inv);
+    const cand = candidates.find((c) => String(c._id) === String(inv.candidateId || inv.candidate?._id)) || inv.candidate;
+    setSelectedCandidate(cand);
+    setCancelForm({ reason: '' });
+    setShowCancelModal(true);
+  };
+
+  const handleSaveCancel = async (e) => {
+    e.preventDefault();
+    if (!selectedInterview) return;
+    const candId = selectedInterview.candidateId || selectedInterview.candidate?._id || selectedCandidate?._id;
+    if (!candId) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiClient.put(`/recruitment/candidates/${candId}/interviews/${selectedInterview._id}`, {
+        status: 'Cancelled',
+        cancellationReason: cancelForm.reason || 'Cancelled by HR'
+      });
+      setShowCancelModal(false);
+      setSuccess('Interview cancelled & Calendar event marked Cancelled.');
+      await Promise.all([loadRecruitmentData(), loadInterviewsData()]);
+      if (selectedCandidate?._id === candId) {
+        const u = await apiClient.get('/recruitment/candidates/' + candId);
+        setSelectedCandidate(u.data?.data);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel interview.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenInterviewDetail = (inv) => {
+    setSelectedInterview(inv);
+    const cand = candidates.find((c) => String(c._id) === String(inv.candidateId || inv.candidate?._id)) || inv.candidate;
+    setSelectedCandidate(cand);
+    setShowInterviewDetailModal(true);
   };
 
   const handleOpenFeedback = (cand, inv) => {
-    setSelectedCandidate(cand); setSelectedInterview(inv);
-    setFeedbackForm({ technicalSkills:inv.feedback?.technicalSkills||4, communication:inv.feedback?.communication||4, problemSolving:inv.feedback?.problemSolving||4, teamwork:inv.feedback?.teamwork||4, overallRating:inv.feedback?.overallRating||4, strengths:inv.feedback?.strengths||'', weaknesses:inv.feedback?.weaknesses||'', comments:inv.feedback?.comments||'', recommendation:inv.feedback?.recommendation||'Hire' });
+    setSelectedCandidate(cand);
+    setSelectedInterview(inv);
+    setFeedbackForm({
+      technicalSkills: inv.feedback?.technicalSkills || 4,
+      communication: inv.feedback?.communication || 4,
+      problemSolving: inv.feedback?.problemSolving || 4,
+      teamwork: inv.feedback?.teamwork || 4,
+      overallRating: inv.feedback?.overallRating || 4,
+      strengths: inv.feedback?.strengths || '',
+      weaknesses: inv.feedback?.weaknesses || '',
+      comments: inv.feedback?.comments || '',
+      recommendation: inv.feedback?.recommendation || 'Selected'
+    });
     setShowFeedbackModal(true);
   };
 
   const handleSaveFeedback = async (e) => {
-    e.preventDefault(); if (!selectedCandidate||!selectedInterview) return; setSubmitting(true); setError('');
+    e.preventDefault();
+    if (!selectedCandidate || !selectedInterview) return;
+    setSubmitting(true);
+    setError('');
     try {
-      await apiClient.patch('/recruitment/candidates/'+selectedCandidate._id+'/interviews/'+selectedInterview._id, { feedback:feedbackForm, status:'Completed' });
-      setShowFeedbackModal(false); setSuccess('Feedback submitted!'); await loadRecruitmentData();
-      const u=await apiClient.get('/recruitment/candidates/'+selectedCandidate._id); setSelectedCandidate(u.data?.data);
+      await apiClient.put('/recruitment/candidates/' + selectedCandidate._id + '/interviews/' + selectedInterview._id, {
+        feedback: feedbackForm,
+        status: 'Completed'
+      });
+      setShowFeedbackModal(false);
+      setSuccess('Feedback submitted & Candidate Pipeline stage updated!');
+      await Promise.all([loadRecruitmentData(), loadInterviewsData()]);
+      const u = await apiClient.get('/recruitment/candidates/' + selectedCandidate._id);
+      setSelectedCandidate(u.data?.data);
       await loadTimeline(selectedCandidate._id);
-    } catch (err) { setError(err.response?.data?.message||'Failed to submit feedback.'); }
-    finally { setSubmitting(false); }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit feedback.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleConvertEmployee = async () => {
@@ -1818,11 +2027,291 @@ export default function Recruitment() {
 
         {/* TAB 4: INTERVIEWS */}
         {activeTab==='interviews' && (
-          <div className="rec-table-card">
-            {allInterviews.length===0?<div style={{padding:'3rem',textAlign:'center',color:'#64748b'}}>No interviews scheduled.</div>
-            :<div className="rec-table-wrap"><table className="rec-table"><thead><tr><th>Candidate</th><th>Position &amp; Dept</th><th>Interview Round</th><th>Interviewer</th><th>Date &amp; Time</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>{allInterviews.map(inv=><tr key={inv._id}><td><strong>{inv.candidateName}</strong><span style={{display:'block',fontSize:'0.75rem',color:'#64748b'}}>{inv.candidateEmail}</span></td><td><div>{inv.appliedPosition}</div><span className="hr-emp-dept-pill">{inv.department}</span></td><td><strong>{inv.round}</strong></td><td>{inv.interviewer}</td><td><div>{formatDate(inv.date)}</div><span style={{fontSize:'0.75rem',color:'#64748b'}}>{inv.time}</span></td><td>{inv.type}</td><td><span className={'rec-badge '+inv.status.toLowerCase()}>{inv.status}</span></td>
-            <td><div className="rec-actions-wrap">{inv.status!=='Completed'&&<button type="button" className="rec-btn-sm shortlist" onClick={()=>{const c=candidates.find(x=>x._id===inv.candidateId);handleOpenFeedback(c,inv);}}>Feedback</button>}{inv.feedback&&<span style={{fontSize:'0.8rem',fontWeight:'700',color:'#15803D'}}>&#9733; {inv.feedback.overallRating}/5</span>}</div></td></tr>)}</tbody></table></div>}
+          <div className="rec-interviews-container">
+            {/* Header & Action */}
+            <div className="rec-offer-header" style={{ marginBottom: '1.25rem' }}>
+              <div className="rec-offer-header-info">
+                <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: '#0f172a' }}>Recruitment Interviews Management</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Multi-round scheduling, calendar event two-way sync, conflict detection &amp; candidate pipeline advancement
+                </p>
+              </div>
+              <div className="rec-offer-header-actions">
+                <button type="button" className="rec-primary-btn" onClick={() => handleOpenSchedule(null)}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Schedule Interview
+                </button>
+              </div>
+            </div>
+
+            {/* 7 Dynamic KPI Summary Cards */}
+            <div className="rec-interviews-kpi-grid">
+              <div className="rec-interview-kpi-card">
+                <span className="rec-kpi-label">Total Interviews</span>
+                <strong className="rec-kpi-val">{interviewsSummary.total || allInterviews.length}</strong>
+                <span className="rec-kpi-sub">All Rounds Logged</span>
+              </div>
+              <div className="rec-interview-kpi-card scheduled">
+                <span className="rec-kpi-label">Scheduled</span>
+                <strong className="rec-kpi-val" style={{ color: '#0284C7' }}>{interviewsSummary.scheduled || 0}</strong>
+                <span className="rec-kpi-sub">Confirmed &amp; Active</span>
+              </div>
+              <div className="rec-interview-kpi-card today">
+                <span className="rec-kpi-label">Today's Interviews</span>
+                <strong className="rec-kpi-val" style={{ color: '#EA580C' }}>{interviewsSummary.today || 0}</strong>
+                <span className="rec-kpi-sub">Immediate Focus</span>
+              </div>
+              <div className="rec-interview-kpi-card upcoming">
+                <span className="rec-kpi-label">Upcoming</span>
+                <strong className="rec-kpi-val" style={{ color: '#6366F1' }}>{interviewsSummary.upcoming || 0}</strong>
+                <span className="rec-kpi-sub">Next 7 Days</span>
+              </div>
+              <div className="rec-interview-kpi-card completed">
+                <span className="rec-kpi-label">Completed</span>
+                <strong className="rec-kpi-val" style={{ color: '#16A34A' }}>{interviewsSummary.completed || 0}</strong>
+                <span className="rec-kpi-sub">Finished Sessions</span>
+              </div>
+              <div className="rec-interview-kpi-card feedback">
+                <span className="rec-kpi-label">Pending Feedback</span>
+                <strong className="rec-kpi-val" style={{ color: '#D97706' }}>{interviewsSummary.pendingFeedback || 0}</strong>
+                <span className="rec-kpi-sub">Awaiting Evaluation</span>
+              </div>
+              <div className="rec-interview-kpi-card cancelled">
+                <span className="rec-kpi-label">Cancelled</span>
+                <strong className="rec-kpi-val" style={{ color: '#DC2626' }}>{interviewsSummary.cancelled || 0}</strong>
+                <span className="rec-kpi-sub">Withdrawn / Cancelled</span>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar - Balanced One-Row Layout */}
+            <div className="rec-interviews-toolbar">
+              <div className="rec-search-wrap rec-interviews-search">
+                <svg className="rec-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search Candidate / Position..."
+                  className="rec-search-input"
+                  value={interviewSearch}
+                  onChange={(e) => setInterviewSearch(e.target.value)}
+                />
+              </div>
+
+              <select
+                className="rec-filter-select rec-interview-select-dept"
+                value={interviewDeptFilter}
+                onChange={(e) => setInterviewDeptFilter(e.target.value)}
+                title="Department Filter"
+              >
+                <option value="All">All Departments</option>
+                {OFFICIAL_DEPARTMENTS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+
+              <select
+                className="rec-filter-select rec-interview-select-round"
+                value={interviewRoundFilter}
+                onChange={(e) => setInterviewRoundFilter(e.target.value)}
+                title="Round Filter"
+              >
+                <option value="All">All Rounds</option>
+                <option value="Screening">Screening</option>
+                <option value="Technical Round 1">Technical Round 1</option>
+                <option value="Technical Round 2">Technical Round 2</option>
+                <option value="HR Round">HR Round</option>
+                <option value="Managerial Round">Managerial Round</option>
+                <option value="Final / HR Round">Final / HR Round</option>
+              </select>
+
+              <select
+                className="rec-filter-select rec-interview-select-status"
+                value={interviewStatusFilter}
+                onChange={(e) => setInterviewStatusFilter(e.target.value)}
+                title="Status Filter"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Rescheduled">Rescheduled</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+
+              <select
+                className="rec-filter-select rec-interview-select-type"
+                value={interviewTypeFilter}
+                onChange={(e) => setInterviewTypeFilter(e.target.value)}
+                title="Type Filter"
+              >
+                <option value="All">All Types</option>
+                <option value="Online Video">Online Video</option>
+                <option value="In-Person">In-Person</option>
+                <option value="Telephonic">Telephonic</option>
+              </select>
+
+              <select
+                className="rec-filter-select rec-interview-select-date"
+                value={interviewDateFilter}
+                onChange={(e) => setInterviewDateFilter(e.target.value)}
+                title="Date Filter"
+              >
+                <option value="All">All Dates</option>
+                <option value="today">Today</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="this_week">This Week</option>
+                <option value="past">Past</option>
+              </select>
+            </div>
+
+            {/* Interviews Table */}
+            <div className="rec-table-card">
+              {interviewsLoading ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>Loading interviews...</div>
+              ) : (interviewsList.length === 0 && allInterviews.length === 0) ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                  No interviews matching selected filters.
+                </div>
+              ) : (
+                <div className="rec-table-wrap">
+                  <table className="rec-table">
+                    <thead>
+                      <tr>
+                        <th>Candidate</th>
+                        <th>Position &amp; Dept</th>
+                        <th>Round &amp; Type</th>
+                        <th>Interviewer</th>
+                        <th>Date &amp; Time</th>
+                        <th>Sync Status</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(interviewsList.length > 0 ? interviewsList : allInterviews).map((inv) => {
+                        const candName = inv.candidate?.name || inv.candidateName || 'Candidate';
+                        const candEmail = inv.candidate?.email || inv.candidateEmail || '';
+                        const candPosition = inv.candidate?.appliedPosition || inv.appliedPosition || '—';
+                        const candDept = inv.candidate?.department || inv.department || 'Tech';
+                        const isCancelled = inv.status === 'Cancelled';
+                        const isCompleted = inv.status === 'Completed';
+
+                        return (
+                          <tr key={inv._id || inv.interviewId}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                <div style={{
+                                  width: '34px', height: '34px', borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #FFEDD5, #FDBA74)',
+                                  color: '#C2410C', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontWeight: 700, fontSize: '0.85rem'
+                                }}>
+                                  {(candName || 'C').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <strong>{candName}</strong>
+                                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>{candEmail}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div>{candPosition}</div>
+                              <span className="hr-emp-dept-pill">{candDept}</span>
+                            </td>
+                            <td>
+                              <strong>{inv.round}</strong>
+                              <span style={{
+                                display: 'block', fontSize: '0.75rem', color: inv.type === 'Online Video' ? '#0284C7' : '#475569',
+                                fontWeight: 500, marginTop: '2px'
+                              }}>
+                                {inv.type === 'Online Video' ? '📹 ' : '🏢 '}{inv.type || 'Online Video'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 600, color: '#1e293b' }}>{inv.interviewer || 'Tech Lead / HR'}</div>
+                              {inv.assignedTo && <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Assigned Employee</span>}
+                            </td>
+                            <td>
+                              <div>{formatDate(inv.date)}</div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <span>{inv.time || '11:00 AM'}</span>
+                                {inv.duration && <span style={{ color: '#0284C7', fontWeight: 600 }}>({inv.duration}m)</span>}
+                              </span>
+                            </td>
+                            <td>
+                              {inv.calendarEventId ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                                  padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 600
+                                }}>
+                                  ✓ Synced
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>—</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={'rec-badge ' + (inv.status || 'scheduled').toLowerCase()}>
+                                {inv.status || 'Scheduled'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="rec-actions-wrap" style={{ gap: '0.35rem' }}>
+                                <button
+                                  type="button"
+                                  className="rec-btn-sm view"
+                                  title="View Details"
+                                  onClick={() => handleOpenInterviewDetail(inv)}
+                                >
+                                  Details
+                                </button>
+                                {!isCancelled && (
+                                  <button
+                                    type="button"
+                                    className="rec-btn-sm interview"
+                                    title="Reschedule Interview"
+                                    onClick={() => handleOpenReschedule(inv)}
+                                  >
+                                    Reschedule
+                                  </button>
+                                )}
+                                {!isCancelled && (
+                                  <button
+                                    type="button"
+                                    className="rec-btn-sm shortlist"
+                                    title="Submit / View Feedback"
+                                    onClick={() => {
+                                      const c = candidates.find((x) => String(x._id) === String(inv.candidateId || inv.candidate?._id));
+                                      handleOpenFeedback(c || inv.candidate, inv);
+                                    }}
+                                  >
+                                    Feedback
+                                  </button>
+                                )}
+                                {!isCancelled && !isCompleted && (
+                                  <button
+                                    type="button"
+                                    className="rec-btn-sm reject"
+                                    title="Cancel Interview"
+                                    onClick={() => handleOpenCancel(inv)}
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -3068,40 +3557,528 @@ export default function Recruitment() {
         })()}
 
         {/* Schedule Interview Modal */}
-        {showInterviewModal&&selectedCandidate&&(
-          <div className="hr-modal-overlay" onClick={()=>setShowInterviewModal(false)}>
-            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'540px'}}>
-              <div className="hr-modal-header"><h3>Schedule Interview: {selectedCandidate.name}</h3><button type="button" className="hr-modal-close" onClick={()=>setShowInterviewModal(false)}>&times;</button></div>
-              <form onSubmit={handleSaveInterview}><div className="hr-modal-body"><div className="hr-form-grid">
-                <div className="hr-form-group full-width"><label>Interview Round *</label><input type="text" required value={interviewForm.round} onChange={e=>setInterviewForm({...interviewForm,round:e.target.value})}/></div>
-                <div className="hr-form-group"><label>Interviewer *</label><input type="text" required value={interviewForm.interviewer} onChange={e=>setInterviewForm({...interviewForm,interviewer:e.target.value})}/></div>
-                <div className="hr-form-group"><label>Type</label><select value={interviewForm.type} onChange={e=>setInterviewForm({...interviewForm,type:e.target.value})}><option>Online Video</option><option>In-Person</option><option>Telephonic</option></select></div>
-                <div className="hr-form-group"><label>Date *</label><input type="date" required value={interviewForm.date} onChange={e=>setInterviewForm({...interviewForm,date:e.target.value})}/></div>
-                <div className="hr-form-group"><label>Time</label><input type="text" placeholder="02:30 PM" value={interviewForm.time} onChange={e=>setInterviewForm({...interviewForm,time:e.target.value})}/></div>
-                <div className="hr-form-group full-width"><label>Meeting Link / Location</label><input type="text" value={interviewForm.meetingLink} onChange={e=>setInterviewForm({...interviewForm,meetingLink:e.target.value})}/></div>
-              </div></div>
-              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowInterviewModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Scheduling...':'Schedule Interview'}</button></div>
+        {showInterviewModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowInterviewModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <div className="hr-modal-header">
+                <h3>{selectedCandidate ? `Schedule Interview: ${selectedCandidate.name}` : 'Schedule New Interview'}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowInterviewModal(false)}>&times;</button>
+              </div>
+
+              {conflictWarning && (
+                <div style={{
+                  margin: '0 1.5rem', padding: '0.65rem 1rem', background: '#FEF3C7',
+                  border: '1px solid #F59E0B', color: '#B45309', borderRadius: '8px', fontSize: '0.85rem'
+                }}>
+                  ⚠️ <strong>Conflict Warning:</strong> {conflictWarning}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveInterview}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid">
+                    {!selectedCandidate && (
+                      <div className="hr-form-group full-width">
+                        <label>Candidate *</label>
+                        <select
+                          required
+                          value={interviewForm.candidateId}
+                          onChange={(e) => setInterviewForm({ ...interviewForm, candidateId: e.target.value })}
+                        >
+                          <option value="">Select Candidate...</option>
+                          {candidates.map((c) => (
+                            <option key={c._id} value={c._id}>
+                              {c.name} — {c.appliedPosition || 'Candidate'} ({c.department})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="hr-form-group">
+                      <label>Interview Round *</label>
+                      <select
+                        required
+                        value={interviewForm.round}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, round: e.target.value })}
+                      >
+                        <option>Screening</option>
+                        <option>Technical Round 1</option>
+                        <option>Technical Round 2</option>
+                        <option>HR Round</option>
+                        <option>Managerial Round</option>
+                        <option>Final / HR Round</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Type *</label>
+                      <select
+                        value={interviewForm.type}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, type: e.target.value })}
+                      >
+                        <option>Online Video</option>
+                        <option>In-Person</option>
+                        <option>Telephonic</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Interviewer / Assigned To *</label>
+                      <select
+                        value={interviewForm.assignedTo}
+                        onChange={(e) => {
+                          const emp = hrEmployees.find((x) => String(x._id) === String(e.target.value));
+                          setInterviewForm({
+                            ...interviewForm,
+                            assignedTo: e.target.value,
+                            interviewer: emp ? `${emp.name} (${emp.designation})` : interviewForm.interviewer,
+                          });
+                        }}
+                      >
+                        <option value="">Select Employee / Lead...</option>
+                        {hrEmployees.map((emp) => (
+                          <option key={emp._id} value={emp._id}>
+                            {emp.name} — {emp.designation} ({emp.department})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Custom Interviewer Label</label>
+                      <input
+                        type="text"
+                        required
+                        value={interviewForm.interviewer}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, interviewer: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={interviewForm.date}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Time *</label>
+                      <input
+                        type="text"
+                        placeholder="11:00 AM"
+                        required
+                        value={interviewForm.time}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, time: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Duration</label>
+                      <select
+                        value={interviewForm.duration}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, duration: Number(e.target.value) })}
+                      >
+                        <option value="15">15 Minutes</option>
+                        <option value="30">30 Minutes</option>
+                        <option value="45">45 Minutes</option>
+                        <option value="60">60 Minutes</option>
+                        <option value="90">90 Minutes</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Meeting Link / Conference Room</label>
+                      <input
+                        type="text"
+                        placeholder="https://meet.google.com/xyz or Room 204"
+                        value={interviewForm.meetingLink}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, meetingLink: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Preparation Notes / Assessment Focus</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Topics to evaluate, specific skills or questions..."
+                        value={interviewForm.notes}
+                        onChange={(e) => setInterviewForm({ ...interviewForm, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowInterviewModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Scheduling...' : 'Schedule Interview'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* Interview Feedback Modal */}
-        {showFeedbackModal&&selectedCandidate&&(
-          <div className="hr-modal-overlay" onClick={()=>setShowFeedbackModal(false)}>
-            <div className="hr-modal-card" onClick={e=>e.stopPropagation()} style={{maxWidth:'600px'}}>
-              <div className="hr-modal-header"><h3>Submit Interview Feedback</h3><button type="button" className="hr-modal-close" onClick={()=>setShowFeedbackModal(false)}>&times;</button></div>
-              <form onSubmit={handleSaveFeedback}><div className="hr-modal-body">
-                <div className="perf-rating-grid">
-                  {[{key:'technicalSkills',label:'Technical Competency'},{key:'communication',label:'Communication Skills'},{key:'problemSolving',label:'Problem Solving'},{key:'teamwork',label:'Cultural & Team Fit'},{key:'overallRating',label:'Overall Score'}].map(cat=><div key={cat.key} className="perf-rating-item"><div className="perf-rating-header"><span>{cat.label}</span><strong>{feedbackForm[cat.key]} / 5 &#9733;</strong></div><input type="range" min="1" max="5" step="1" className="perf-rating-slider" value={feedbackForm[cat.key]} onChange={e=>setFeedbackForm({...feedbackForm,[cat.key]:Number(e.target.value)})}/></div>)}
-                </div>
-                <div className="hr-form-grid">
-                  <div className="hr-form-group full-width"><label>Hiring Recommendation *</label><select required value={feedbackForm.recommendation} onChange={e=>setFeedbackForm({...feedbackForm,recommendation:e.target.value})}><option>Strong Hire</option><option>Hire</option><option>Hold</option><option>Reject</option></select></div>
-                  <div className="hr-form-group full-width"><label>Strengths &amp; Observations</label><textarea rows={2} value={feedbackForm.strengths} onChange={e=>setFeedbackForm({...feedbackForm,strengths:e.target.value})}/></div>
-                  <div className="hr-form-group full-width"><label>Evaluation Comments</label><textarea rows={2} value={feedbackForm.comments} onChange={e=>setFeedbackForm({...feedbackForm,comments:e.target.value})}/></div>
-                </div>
+        {/* Reschedule Interview Modal */}
+        {showRescheduleModal && selectedInterview && (
+          <div className="hr-modal-overlay" onClick={() => setShowRescheduleModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+              <div className="hr-modal-header">
+                <h3>Reschedule Interview: {selectedInterview.round}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowRescheduleModal(false)}>&times;</button>
               </div>
-              <div className="hr-modal-footer"><button type="button" className="hr-btn-secondary" onClick={()=>setShowFeedbackModal(false)}>Cancel</button><button type="submit" className="hr-btn-primary" disabled={submitting}>{submitting?'Submitting...':'Save Feedback'}</button></div>
+
+              {conflictWarning && (
+                <div style={{
+                  margin: '0 1.5rem', padding: '0.65rem 1rem', background: '#FEF3C7',
+                  border: '1px solid #F59E0B', color: '#B45309', borderRadius: '8px', fontSize: '0.85rem'
+                }}>
+                  ⚠️ <strong>Conflict Warning:</strong> {conflictWarning}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveReschedule}>
+                <div className="hr-modal-body">
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group">
+                      <label>New Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={rescheduleForm.date}
+                        onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>New Time *</label>
+                      <input
+                        type="text"
+                        placeholder="02:30 PM"
+                        required
+                        value={rescheduleForm.time}
+                        onChange={(e) => setRescheduleForm({ ...rescheduleForm, time: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Duration</label>
+                      <select
+                        value={rescheduleForm.duration}
+                        onChange={(e) => setRescheduleForm({ ...rescheduleForm, duration: Number(e.target.value) })}
+                      >
+                        <option value="30">30 Minutes</option>
+                        <option value="45">45 Minutes</option>
+                        <option value="60">60 Minutes</option>
+                        <option value="90">90 Minutes</option>
+                      </select>
+                    </div>
+
+                    <div className="hr-form-group">
+                      <label>Interviewer</label>
+                      <input
+                        type="text"
+                        required
+                        value={rescheduleForm.interviewer}
+                        onChange={(e) => setRescheduleForm({ ...rescheduleForm, interviewer: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="hr-form-group full-width">
+                      <label>Reschedule Reason *</label>
+                      <textarea
+                        rows={2}
+                        required
+                        placeholder="Candidate requested date change / Interviewer unavailable..."
+                        value={rescheduleForm.reason}
+                        onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowRescheduleModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Rescheduling...' : 'Confirm Reschedule'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Interview Modal */}
+        {showCancelModal && selectedInterview && (
+          <div className="hr-modal-overlay" onClick={() => setShowCancelModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+              <div className="hr-modal-header">
+                <h3 style={{ color: '#DC2626' }}>Cancel Interview</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowCancelModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveCancel}>
+                <div className="hr-modal-body">
+                  <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                    Are you sure you want to cancel the <strong>{selectedInterview.round}</strong> interview? This will mark the session as Cancelled and synchronize with the company calendar.
+                  </p>
+                  <div className="hr-form-group full-width">
+                    <label>Cancellation Reason *</label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Candidate withdrew application / Position closed / Rescheduled to later..."
+                      value={cancelForm.reason}
+                      onChange={(e) => setCancelForm({ reason: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowCancelModal(false)}>
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    className="hr-btn-primary"
+                    style={{ background: '#DC2626', borderColor: '#DC2626' }}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Cancelling...' : 'Confirm Cancellation'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Interview Details Modal */}
+        {showInterviewDetailModal && selectedInterview && (
+          <div className="hr-modal-overlay" onClick={() => setShowInterviewDetailModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+              <div className="hr-modal-header">
+                <h3>Interview Details: {selectedInterview.round}</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowInterviewDetailModal(false)}>&times;</button>
+              </div>
+
+              <div className="hr-modal-body" style={{ padding: '1.25rem 1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                  <div style={{ background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Candidate</span>
+                    <strong style={{ display: 'block', fontSize: '1rem', color: '#0F172A', marginTop: '2px' }}>
+                      {selectedCandidate?.name || selectedInterview.candidateName || 'Candidate'}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      {selectedCandidate?.email || selectedInterview.candidateEmail}
+                    </span>
+                  </div>
+
+                  <div style={{ background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Role &amp; Department</span>
+                    <strong style={{ display: 'block', fontSize: '1rem', color: '#0F172A', marginTop: '2px' }}>
+                      {selectedCandidate?.appliedPosition || selectedInterview.appliedPosition || 'Associate'}
+                    </strong>
+                    <span style={{ fontSize: '0.8rem', color: '#EA580C', fontWeight: 600 }}>
+                      {selectedCandidate?.department || selectedInterview.department || 'Tech'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  <div style={{ border: '1px solid #E2E8F0', padding: '0.65rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Date &amp; Time</span>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{formatDate(selectedInterview.date)}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#0284C7' }}>{selectedInterview.time} ({selectedInterview.duration || 45}m)</div>
+                  </div>
+                  <div style={{ border: '1px solid #E2E8F0', padding: '0.65rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Interviewer</span>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{selectedInterview.interviewer || 'Tech Lead'}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#16A34A' }}>Assigned Evaluator</div>
+                  </div>
+                  <div style={{ border: '1px solid #E2E8F0', padding: '0.65rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Status</span>
+                    <div>
+                      <span className={'rec-badge ' + (selectedInterview.status || 'scheduled').toLowerCase()}>
+                        {selectedInterview.status || 'Scheduled'}
+                      </span>
+                    </div>
+                    {selectedInterview.calendarEventId && (
+                      <span style={{ fontSize: '0.7rem', color: '#1D4ED8', fontWeight: 600 }}>✓ Calendar Synced</span>
+                    )}
+                  </div>
+                </div>
+
+                {selectedInterview.meetingLink && (
+                  <div style={{ marginBottom: '1.25rem', background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '0.75rem 1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: '#1E40AF', fontWeight: 600, display: 'block' }}>Meeting Link / Location:</span>
+                      <span style={{ fontSize: '0.85rem', color: '#1D4ED8', wordBreak: 'break-all' }}>{selectedInterview.meetingLink}</span>
+                    </div>
+                    <a
+                      href={selectedInterview.meetingLink.startsWith('http') ? selectedInterview.meetingLink : `https://${selectedInterview.meetingLink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rec-btn-sm shortlist"
+                      style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    >
+                      Join Meeting ↗
+                    </a>
+                  </div>
+                )}
+
+                {selectedInterview.feedback ? (
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <strong style={{ color: '#15803D', fontSize: '0.9rem' }}>Evaluation Feedback Summary</strong>
+                      <span style={{
+                        background: '#DCFCE7', color: '#15803D', padding: '3px 10px',
+                        borderRadius: '12px', fontWeight: 700, fontSize: '0.8rem'
+                      }}>
+                        Recommendation: {selectedInterview.feedback.recommendation || 'Hire'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+                      <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '6px', border: '1px solid #DCFCE7' }}>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Technical</span>
+                        <div style={{ fontWeight: 700, color: '#15803D' }}>{selectedInterview.feedback.technicalSkills} / 5 ★</div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '6px', border: '1px solid #DCFCE7' }}>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Communication</span>
+                        <div style={{ fontWeight: 700, color: '#15803D' }}>{selectedInterview.feedback.communication} / 5 ★</div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '6px', border: '1px solid #DCFCE7' }}>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Problem Solving</span>
+                        <div style={{ fontWeight: 700, color: '#15803D' }}>{selectedInterview.feedback.problemSolving} / 5 ★</div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '0.5rem', borderRadius: '6px', border: '1px solid #DCFCE7' }}>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Overall</span>
+                        <div style={{ fontWeight: 700, color: '#15803D' }}>{selectedInterview.feedback.overallRating} / 5 ★</div>
+                      </div>
+                    </div>
+
+                    {selectedInterview.feedback.comments && (
+                      <div style={{ fontSize: '0.825rem', color: '#166534', marginTop: '0.5rem' }}>
+                        <strong>Comments:</strong> {selectedInterview.feedback.comments}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: '0.75rem', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '0.8rem', color: '#B45309' }}>
+                    ⏳ Feedback has not yet been submitted for this interview round.
+                  </div>
+                )}
+
+                {selectedInterview.cancellationReason && (
+                  <div style={{ marginTop: '0.75rem', background: '#FEF2F2', border: '1px solid #FECACA', padding: '0.75rem', borderRadius: '6px', color: '#B91C1C', fontSize: '0.825rem' }}>
+                    <strong>Cancellation Reason:</strong> {selectedInterview.cancellationReason}
+                  </div>
+                )}
+              </div>
+
+              <div className="hr-modal-footer">
+                <button type="button" className="hr-btn-secondary" onClick={() => setShowInterviewDetailModal(false)}>
+                  Close
+                </button>
+                {selectedInterview.status !== 'Cancelled' && (
+                  <button
+                    type="button"
+                    className="hr-btn-primary"
+                    onClick={() => {
+                      setShowInterviewDetailModal(false);
+                      const c = candidates.find((x) => String(x._id) === String(selectedInterview.candidateId || selectedInterview.candidate?._id));
+                      handleOpenFeedback(c || selectedInterview.candidate, selectedInterview);
+                    }}
+                  >
+                    {selectedInterview.feedback ? 'Update Feedback' : 'Submit Feedback'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Interview Feedback Modal */}
+        {showFeedbackModal && (
+          <div className="hr-modal-overlay" onClick={() => setShowFeedbackModal(false)}>
+            <div className="hr-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+              <div className="hr-modal-header">
+                <h3>Submit Interview Feedback</h3>
+                <button type="button" className="hr-modal-close" onClick={() => setShowFeedbackModal(false)}>&times;</button>
+              </div>
+              <form onSubmit={handleSaveFeedback}>
+                <div className="hr-modal-body">
+                  <div className="perf-rating-grid">
+                    {[
+                      { key: 'technicalSkills', label: 'Technical Competency' },
+                      { key: 'communication', label: 'Communication Skills' },
+                      { key: 'problemSolving', label: 'Problem Solving' },
+                      { key: 'teamwork', label: 'Cultural & Team Fit' },
+                      { key: 'overallRating', label: 'Overall Score' },
+                    ].map((cat) => (
+                      <div key={cat.key} className="perf-rating-item">
+                        <div className="perf-rating-header">
+                          <span>{cat.label}</span>
+                          <strong>{feedbackForm[cat.key]} / 5 &#9733;</strong>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="5"
+                          step="1"
+                          className="perf-rating-slider"
+                          value={feedbackForm[cat.key]}
+                          onChange={(e) => setFeedbackForm({ ...feedbackForm, [cat.key]: Number(e.target.value) })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hr-form-grid">
+                    <div className="hr-form-group full-width">
+                      <label>Hiring Recommendation * (Automatically advances Candidate Pipeline Stage)</label>
+                      <select
+                        required
+                        value={feedbackForm.recommendation}
+                        onChange={(e) => setFeedbackForm({ ...feedbackForm, recommendation: e.target.value })}
+                      >
+                        <option value="Selected">Selected (Advance to Selection / Offer)</option>
+                        <option value="Next Round">Next Round (Move to subsequent evaluation round)</option>
+                        <option value="Hold">Hold (Keep on candidate waitlist)</option>
+                        <option value="Reject">Reject (Mark Candidate as Rejected)</option>
+                      </select>
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Strengths &amp; Observations</label>
+                      <textarea
+                        rows={2}
+                        value={feedbackForm.strengths}
+                        onChange={(e) => setFeedbackForm({ ...feedbackForm, strengths: e.target.value })}
+                      />
+                    </div>
+                    <div className="hr-form-group full-width">
+                      <label>Evaluation Comments</label>
+                      <textarea
+                        rows={2}
+                        value={feedbackForm.comments}
+                        onChange={(e) => setFeedbackForm({ ...feedbackForm, comments: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="hr-modal-footer">
+                  <button type="button" className="hr-btn-secondary" onClick={() => setShowFeedbackModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="hr-btn-primary" disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Save Feedback & Advance Stage'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

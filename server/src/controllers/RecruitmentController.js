@@ -3,6 +3,7 @@ import JobRequisition from '../models/JobRequisition.js';
 import Candidate from '../models/Candidate.js';
 import User from '../models/User.js';
 import Department from '../models/Department.js';
+import CalendarEvent from '../models/CalendarEvent.js';
 import { createForbiddenError, createNotFoundError, createValidationError } from '../utils/apiError.js';
 import { createdResponse, successResponse } from '../utils/apiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -757,43 +758,227 @@ export const RecruitmentController = {
   }),
 
   // ─── 4. INTERVIEW MANAGEMENT CONTROLLERS ─────────────────────────────────
+  interviewSummary: asyncHandler(async (_req, res) => {
+    const candidates = await Candidate.find({ 'interviews.0': { $exists: true } })
+      .select('interviews')
+      .lean();
+
+    const all = [];
+    candidates.forEach((c) => {
+      (c.interviews || []).forEach((inv) => all.push(inv));
+    });
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    const total = all.length;
+    const scheduled = all.filter((i) => i.status === 'Scheduled').length;
+    const today = all.filter((i) => {
+      if (!i.date) return false;
+      return new Date(i.date).toISOString().slice(0, 10) === todayStr;
+    }).length;
+    const upcoming = all.filter((i) => {
+      if (!i.date || ['Completed', 'Cancelled'].includes(i.status)) return false;
+      return new Date(i.date) >= now;
+    }).length;
+    const completed = all.filter((i) => i.status === 'Completed').length;
+    const pendingFeedback = all.filter(
+      (i) => (i.status === 'Scheduled' && new Date(i.date) <= now) || (i.status === 'Completed' && !i.feedback)
+    ).length;
+    const cancelled = all.filter((i) => i.status === 'Cancelled').length;
+
+    res.json(
+      successResponse(
+        { total, scheduled, today, upcoming, completed, pendingFeedback, cancelled },
+        'Interview summary calculated'
+      )
+    );
+  }),
+
+  listInterviews: asyncHandler(async (req, res) => {
+    const candidates = await Candidate.find({ 'interviews.0': { $exists: true } })
+      .populate('appliedJob', 'title department jobId')
+      .lean();
+
+    let list = [];
+    candidates.forEach((c) => {
+      (c.interviews || []).forEach((inv) => {
+        list.push({
+          ...inv,
+          candidateId: c._id,
+          candidateCode: c.candidateId,
+          candidateName: c.name,
+          candidateEmail: c.email,
+          candidatePhone: c.phone,
+          appliedPosition: c.appliedPosition,
+          department: c.department,
+          candidateStage: c.stage,
+          candidateStatus: c.status,
+        });
+      });
+    });
+
+    if (req.query.department && req.query.department !== 'All') {
+      list = list.filter((i) => i.department === req.query.department);
+    }
+    if (req.query.status && req.query.status !== 'All') {
+      list = list.filter((i) => i.status === req.query.status);
+    }
+    if (req.query.round && req.query.round !== 'All') {
+      list = list.filter((i) => i.round === req.query.round);
+    }
+    if (req.query.type && req.query.type !== 'All') {
+      list = list.filter((i) => i.type === req.query.type);
+    }
+    if (req.query.date) {
+      list = list.filter((i) => i.date && new Date(i.date).toISOString().slice(0, 10) === req.query.date);
+    }
+    if (req.query.search) {
+      const q = req.query.search.toLowerCase().trim();
+      list = list.filter(
+        (i) =>
+          (i.candidateName || '').toLowerCase().includes(q) ||
+          (i.candidateEmail || '').toLowerCase().includes(q) ||
+          (i.interviewer || '').toLowerCase().includes(q) ||
+          (i.appliedPosition || '').toLowerCase().includes(q)
+      );
+    }
+
+    list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    res.json(successResponse(list, 'Interviews list retrieved'));
+  }),
+
   scheduleInterview: asyncHandler(async (req, res) => {
     if (!isHrOrAdmin(req.user)) throw createForbiddenError('Access denied');
 
-    const { round, interviewer, interviewerId, date, time, type, meetingLink, notes } = req.body;
+    const {
+      round,
+      interviewer,
+      interviewerId,
+      date,
+      time,
+      duration = '45 Mins',
+      type = 'Online Video',
+      meetingLink = '',
+      location = '',
+      notes = '',
+      ignoreConflict = false,
+    } = req.body;
+
     if (!date) throw createValidationError('Interview date is required');
 
     const candidate = await Candidate.findById(req.params.id);
     if (!candidate) throw createNotFoundError('Candidate not found');
 
+    // Calculate event start and end times for calendar sync and conflict check
+    const d = new Date(date);
+    let hours = 11;
+    let minutes = 0;
+    if (time) {
+      const match = time.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+      if (match) {
+        hours = parseInt(match[1], 10);
+        minutes = parseInt(match[2], 10);
+        const ampm = match[3] ? match[3].toUpperCase() : '';
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+      }
+    }
+    const startAt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes, 0);
+    const durMatch = String(duration).match(/(\d+)/);
+    const durMins = durMatch ? parseInt(durMatch[1], 10) : 45;
+    const endAt = new Date(startAt.getTime() + durMins * 60000);
+
+    // Conflict detection against interviewer calendar
+    let conflictWarning = null;
+    if (interviewerId && mongoose.Types.ObjectId.isValid(interviewerId)) {
+      const conflict = await CalendarEvent.findOne({
+        assignedTo: interviewerId,
+        status: { $ne: 'Cancelled' },
+        startAt: { $lt: endAt },
+        endAt: { $gt: startAt },
+      }).lean();
+
+      if (conflict) {
+        conflictWarning = `Interviewer already has an overlapping event: "${conflict.title}"`;
+        if (!ignoreConflict) {
+          return res.status(409).json({
+            status: 'conflict',
+            message: conflictWarning,
+            conflict,
+          });
+        }
+      }
+    }
+
+    // Create synchronized CalendarEvent in MongoDB Atlas
+    let calendarEvent = null;
+    try {
+      calendarEvent = await CalendarEvent.create({
+        title: `Interview: ${candidate.name} - ${round || 'Round'}`,
+        description: notes || `Interview round ${round || '1'} with candidate ${candidate.name}`,
+        startAt,
+        endAt,
+        location: location || '',
+        meetingLink: meetingLink || '',
+        department: candidate.department || 'Tech',
+        type: 'Interview',
+        status: 'Scheduled',
+        assignedTo: interviewerId && mongoose.Types.ObjectId.isValid(interviewerId) ? interviewerId : req.user.userId,
+        participants: interviewerId && mongoose.Types.ObjectId.isValid(interviewerId) ? [interviewerId] : [],
+        createdBy: req.user.userId,
+        candidate: candidate._id,
+        candidateName: candidate.name,
+        candidateEmail: candidate.email,
+        candidatePhone: candidate.phone,
+        jobPosition: candidate.appliedPosition,
+        interviewRound: round || 'Technical Round 1',
+        interviewType: type || 'Online Video',
+        notes: notes || '',
+      });
+    } catch (calErr) {
+      console.error('Failed to create calendar event for interview:', calErr);
+    }
+
     candidate.interviews.push({
       round: round || 'Technical Round 1',
       interviewer: interviewer || 'HR / Tech Lead',
-      interviewerId: interviewerId || null,
+      interviewerId: interviewerId && mongoose.Types.ObjectId.isValid(interviewerId) ? interviewerId : null,
       date: new Date(date),
       time: time || '11:00 AM',
+      duration: duration || '45 Mins',
       type: type || 'Online Video',
       meetingLink: meetingLink || '',
+      location: location || '',
       notes: notes || '',
       status: 'Scheduled',
+      calendarEventId: calendarEvent ? calendarEvent._id : null,
     });
 
     const oldStage = candidate.stage || 'Shortlisted';
-    candidate.stage = 'Interview';
-    candidate.status = 'Interviewing';
+    if (['Applied', 'Screening', 'Shortlisted'].includes(oldStage)) {
+      candidate.stage = 'Interview';
+      candidate.status = 'Interviewing';
+    }
+
     candidate.history.push({
       fromStage: oldStage,
-      toStage: 'Interview',
-      stage: 'Interview',
+      toStage: candidate.stage,
+      stage: candidate.stage,
       changedBy: req.user.userId,
       changedByName: actorName(req.user),
       reason: `Scheduled ${round || 'Interview'}`,
-      notes: `Scheduled for ${new Date(date).toLocaleDateString()} at ${time || '11:00 AM'}`,
+      notes: `Scheduled for ${new Date(date).toLocaleDateString()} at ${time || '11:00 AM'} (${duration || '45 Mins'})`,
       updatedAt: new Date(),
     });
 
     await candidate.save();
-    res.status(201).json(createdResponse(candidate, 'Interview scheduled successfully'));
+    res.status(201).json(
+      createdResponse(
+        { candidate, calendarEvent, warning: conflictWarning },
+        'Interview scheduled and calendar synchronized successfully'
+      )
+    );
   }),
 
   updateInterview: asyncHandler(async (req, res) => {
@@ -806,16 +991,116 @@ export const RecruitmentController = {
     const interview = candidate.interviews.id(interviewId);
     if (!interview) throw createNotFoundError('Interview not found');
 
-    const { status, round, date, time, type, meetingLink, notes, feedback } = req.body;
+    const {
+      status,
+      round,
+      date,
+      time,
+      duration,
+      type,
+      meetingLink,
+      location,
+      notes,
+      feedback,
+      interviewer,
+      interviewerId,
+      cancellationReason,
+      action,
+    } = req.body;
 
-    if (status !== undefined) interview.status = status;
     if (round !== undefined) interview.round = round;
-    if (date !== undefined) interview.date = new Date(date);
-    if (time !== undefined) interview.time = time;
     if (type !== undefined) interview.type = type;
     if (meetingLink !== undefined) interview.meetingLink = meetingLink;
+    if (location !== undefined) interview.location = location;
     if (notes !== undefined) interview.notes = notes;
+    if (interviewer !== undefined) interview.interviewer = interviewer;
+    if (interviewerId !== undefined && mongoose.Types.ObjectId.isValid(interviewerId)) {
+      interview.interviewerId = interviewerId;
+    }
 
+    // 1. Reschedule Action
+    if (action === 'reschedule' || (date && time && status === 'Rescheduled')) {
+      interview.date = new Date(date);
+      interview.time = time;
+      if (duration) interview.duration = duration;
+      interview.status = 'Rescheduled';
+
+      // Update CalendarEvent
+      if (interview.calendarEventId) {
+        const d = new Date(interview.date);
+        let hours = 11;
+        let minutes = 0;
+        if (interview.time) {
+          const match = interview.time.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+          if (match) {
+            hours = parseInt(match[1], 10);
+            minutes = parseInt(match[2], 10);
+            const ampm = match[3] ? match[3].toUpperCase() : '';
+            if (ampm === 'PM' && hours < 12) hours += 12;
+            if (ampm === 'AM' && hours === 12) hours = 0;
+          }
+        }
+        const startAt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes, 0);
+        const durMatch = String(interview.duration || '45').match(/(\d+)/);
+        const durMins = durMatch ? parseInt(durMatch[1], 10) : 45;
+        const endAt = new Date(startAt.getTime() + durMins * 60000);
+
+        await CalendarEvent.findByIdAndUpdate(interview.calendarEventId, {
+          startAt,
+          endAt,
+          status: 'Rescheduled',
+          meetingLink: interview.meetingLink || '',
+          location: interview.location || '',
+          assignedTo: interview.interviewerId || req.user.userId,
+        }).catch(() => {});
+      }
+
+      candidate.history.push({
+        fromStage: candidate.stage,
+        toStage: candidate.stage,
+        stage: candidate.stage,
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: `Interview Rescheduled: ${interview.round}`,
+        notes: `New date: ${new Date(date).toLocaleDateString()} at ${time} (${notes || ''})`,
+        updatedAt: new Date(),
+      });
+    }
+
+    // 2. Cancel Action
+    if (action === 'cancel' || status === 'Cancelled') {
+      interview.status = 'Cancelled';
+      interview.cancellationReason = cancellationReason || notes || 'Cancelled by HR';
+      interview.cancelledBy = req.user.userId;
+      interview.cancelledAt = new Date();
+
+      if (interview.calendarEventId) {
+        await CalendarEvent.findByIdAndUpdate(interview.calendarEventId, {
+          status: 'Cancelled',
+        }).catch(() => {});
+      }
+
+      candidate.history.push({
+        fromStage: candidate.stage,
+        toStage: candidate.stage,
+        stage: candidate.stage,
+        changedBy: req.user.userId,
+        changedByName: actorName(req.user),
+        reason: `Interview Cancelled: ${interview.round}`,
+        notes: interview.cancellationReason,
+        updatedAt: new Date(),
+      });
+    }
+
+    // 3. Status explicit update (if not reschedule or cancel)
+    if (status !== undefined && !['Rescheduled', 'Cancelled'].includes(status)) {
+      interview.status = status;
+      if (interview.calendarEventId) {
+        await CalendarEvent.findByIdAndUpdate(interview.calendarEventId, { status }).catch(() => {});
+      }
+    }
+
+    // 4. Feedback Submission
     if (feedback) {
       interview.feedback = {
         technicalSkills: Number(feedback.technicalSkills) || 4,
@@ -831,9 +1116,16 @@ export const RecruitmentController = {
       };
       interview.status = 'Completed';
 
+      if (interview.calendarEventId) {
+        await CalendarEvent.findByIdAndUpdate(interview.calendarEventId, {
+          status: 'Completed',
+        }).catch(() => {});
+      }
+
       candidate.rating = Number(feedback.overallRating) || candidate.rating;
-      if (feedback.recommendation === 'Strong Hire' || feedback.recommendation === 'Hire') {
-        const prev = candidate.stage;
+
+      const prev = candidate.stage;
+      if (['Strong Hire', 'Hire', 'Selected'].includes(feedback.recommendation)) {
         candidate.stage = 'Selected';
         candidate.status = 'In Review';
         candidate.history.push({
@@ -846,12 +1138,25 @@ export const RecruitmentController = {
           notes: feedback.comments || 'Interview completed with positive recommendation',
           updatedAt: new Date(),
         });
+      } else if (feedback.recommendation === 'Next Round') {
+        const nextRoundStage = interview.round.includes('Technical') ? 'Technical Round' : 'Final / HR Round';
+        candidate.stage = nextRoundStage;
+        candidate.status = 'Interviewing';
+        candidate.history.push({
+          fromStage: prev,
+          toStage: nextRoundStage,
+          stage: nextRoundStage,
+          changedBy: req.user.userId,
+          changedByName: actorName(req.user),
+          reason: 'Interview Cleared: Next Round Recommended',
+          notes: feedback.comments || `Progressed from ${interview.round} to ${nextRoundStage}`,
+          updatedAt: new Date(),
+        });
       } else if (feedback.recommendation === 'Reject') {
-        const prev = candidate.stage;
         candidate.stage = 'Rejected';
         candidate.status = 'Rejected';
         candidate.rejection = {
-          reason: 'Interview failed',
+          reason: 'Interview evaluation not met',
           notes: feedback.comments || '',
           rejectedBy: req.user.userId,
           rejectedByName: actorName(req.user),
@@ -867,11 +1172,24 @@ export const RecruitmentController = {
           notes: feedback.comments || 'Candidate rejected following interview feedback',
           updatedAt: new Date(),
         });
+      } else if (feedback.recommendation === 'Hold') {
+        candidate.stage = 'On Hold';
+        candidate.status = 'On Hold';
+        candidate.history.push({
+          fromStage: prev,
+          toStage: 'On Hold',
+          stage: 'On Hold',
+          changedBy: req.user.userId,
+          changedByName: actorName(req.user),
+          reason: 'Interview Recommendation: On Hold',
+          notes: feedback.comments || 'Candidate placed on hold pending further review',
+          updatedAt: new Date(),
+        });
       }
     }
 
     await candidate.save();
-    res.json(successResponse(candidate, 'Interview record updated'));
+    res.json(successResponse(candidate, 'Interview record updated and synchronized'));
   }),
 
   // ─── 5. OFFER MANAGEMENT & EMPLOYEE CONVERSION ────────────────────────────

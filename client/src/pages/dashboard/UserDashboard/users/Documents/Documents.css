@@ -2,7 +2,9 @@
 
 .doc-container {
   padding: 1.5rem;
-  max-width: 1440px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   margin: 0 auto;
   min-height: calc(100vh - 80px);
   color: #0f172a;
@@ -1211,6 +1213,717 @@
   margin: 0;
 }
 
+/* ─── Employee Repository Folder Cards ─── */
+.doc-repo-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.doc-repo-cat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-repo-cat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.doc-repo-cat-header h4 {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.doc-repo-cat-count {
+  font-size: 0.725rem;
+  color: #64748b;
+}
+
+.doc-mini-btn {
+  background: #fff7ed;
+  border: 1px solid #ffedd5;
+  color: #ea580c;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doc-mini-btn:hover {
+  background: #ea580c;
+  color: #ffffff;
+}
+
+.doc-cat-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.825rem;
+  font-style: italic;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.doc-repo-file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.doc-repo-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  gap: 0.75rem;
+}
+
+.doc-repo-file-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.doc-repo-file-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.doc-repo-file-title {
+  display: block;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-repo-file-sub {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* ─── Missing Documents Tab ─── */
+.doc-missing-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.doc-missing-header-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.doc-missing-header-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.doc-missing-header-card p {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+.doc-missing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.doc-missing-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.doc-missing-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.doc-missing-card-top h4 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.doc-emp-meta-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.doc-compliance-pill {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.725rem;
+  font-weight: 700;
+}
+
+.doc-compliance-bar {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.doc-compliance-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.doc-missing-section h5 {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.doc-req-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doc-req-check-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.775rem;
+  gap: 0.5rem;
+}
+
+.doc-req-check-item.fulfilled {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.doc-req-check-item.missing {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.doc-check-icon {
+  font-weight: 800;
+  color: #16a34a;
+}
+
+.doc-cross-icon {
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.doc-fulfilled-status {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  margin-left: auto;
+}
+
+.doc-missing-tag {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.675rem;
+  font-weight: 700;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+/* ─── Document Categories Tab ─── */
+.doc-categories-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.doc-cat-guide-header {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.doc-cat-guide-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.doc-cat-guide-header p {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+.doc-cat-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.doc-catalog-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.doc-catalog-header {
+  margin-bottom: 1rem;
+}
+
+.doc-catalog-header h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.doc-catalog-pill {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.doc-catalog-types {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.doc-catalog-types li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.doc-catalog-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ea580c;
+  flex-shrink: 0;
+}
+
+.doc-catalog-footer {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* ─── Document Requirements Tab ─── */
+.doc-requirements-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.doc-req-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.doc-req-header-row h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.doc-req-header-row p {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+/* ─── Global History Tab ─── */
+.doc-history-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.doc-history-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.doc-history-header p {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+.doc-action-pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.doc-action-pill.upload,
+.doc-action-pill.create {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.doc-action-pill.verify {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.doc-action-pill.reject {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.doc-action-pill.replace {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.doc-action-pill.download {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.doc-action-pill.view {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.doc-action-pill.archive,
+.doc-action-pill.delete {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+/* ─── In-App Document Viewer Modal ─── */
+.doc-viewer-modal {
+  max-width: 1000px !important;
+  width: 92vw !important;
+  height: 90vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-viewer-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-viewer-sub {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.doc-viewer-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.doc-control-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.doc-control-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.doc-zoom-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  min-width: 45px;
+  text-align: center;
+}
+
+.doc-viewer-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #0f172a;
+  padding: 1rem;
+  min-height: 400px;
+}
+
+.doc-pdf-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 65vh;
+  border: none;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.doc-image-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+
+.doc-image-wrap img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.doc-generic-preview {
+  text-align: center;
+  color: #f8fafc;
+  padding: 2rem;
+}
+
+.doc-generic-preview h4 {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.doc-generic-preview p {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.doc-file-big-icon {
+  font-size: 3.5rem;
+}
+
+/* ─── File Upload Dropzone in Modals ─── */
+.doc-file-dropzone {
+  position: relative;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 1.25rem;
+  text-align: center;
+  transition: border-color 0.15s ease;
+}
+
+.doc-file-dropzone:hover {
+  border-color: #ea580c;
+}
+
+.doc-file-dropzone input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.doc-file-label {
+  font-size: 0.825rem;
+  color: #475569;
+  cursor: pointer;
+}
+
+.doc-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.doc-btn-sm.history {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.doc-btn-sm.history:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ─── Document Audit & Version Timeline Modal ─── */
+.doc-modal-body {
+  padding: 1.5rem;
+}
+
+.doc-history-summary {
+  display: flex;
+  gap: 1.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.doc-history-summary p {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #334155;
+}
+
+.doc-timeline-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.doc-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+
+.doc-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.doc-timeline-item {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+
+.doc-timeline-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ea580c;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #ea580c;
+  flex-shrink: 0;
+  margin-top: 2px;
+  z-index: 1;
+}
+
+.doc-timeline-content {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.doc-timeline-action {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: block;
+}
+
+.doc-timeline-user {
+  font-size: 0.725rem;
+  color: #64748b;
+  display: block;
+  margin: 0.15rem 0 0.4rem;
+}
+
+.doc-timeline-details {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.doc-timeline-rejection {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .doc-header-area {
@@ -1236,4 +1949,9 @@
   .doc-footer-right-actions button {
     flex: 1;
   }
+  .doc-viewer-modal {
+    width: 98vw !important;
+    height: 94vh !important;
+  }
 }
+

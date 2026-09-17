@@ -239,6 +239,14 @@ export const RBAC_MODULES = [
         description: 'Leave submission and approval workflow',
         actions: ['view', 'read', 'create', 'edit', 'delete', 'approve', 'manage'],
       }),
+      resource({
+        key: 'hr_support',
+        name: 'HR Support',
+        path: '/user/hr-support',
+        paths: ['/user/hr-support'],
+        description: 'Employee HR helpdesk and case management',
+        actions: ['view', 'read', 'create', 'edit', 'delete', 'assign', 'manage'],
+      }),
     ],
   }),
   defineModule({

@@ -115,6 +115,7 @@ body {
 
 #root :is(.rec-container,
   .hr-dash-container,
+  .admin-dash-container,
   .leave-container,
   .payroll-container,
   .perf-container,
@@ -137,6 +138,7 @@ body {
 /* ── 4. Unified Page Headers & Typography (Semantic H2) ── */
 #root :is(.rec-header,
   .hr-dash-header,
+  .admin-dash-header,
   .leave-header,
   .payroll-header-area,
   .perf-header,
@@ -158,6 +160,7 @@ body {
 
 #root :is(.rec-title-area h2,
   .hr-dash-title-area h2,
+  .admin-dash-title-area h2,
   .leave-title-area h2,
   .payroll-title-meta h2,
   .perf-title-area h2,
@@ -182,6 +185,7 @@ body {
 
 #root :is(.rec-title-area p,
   .hr-dash-title-area p,
+  .admin-dash-title-area p,
   .leave-title-area p,
   .payroll-title-meta p,
   .perf-title-area p,
@@ -214,6 +218,7 @@ body {
 #root :is(.rec-offer-kpi-grid,
   .rec-kpi-grid,
   .hr-kpi-grid,
+  .admin-kpi-grid,
   .stats-grid,
   .leave-kpi-grid,
   .perf-stats-grid,
@@ -232,6 +237,7 @@ body {
 #root :is(.rec-offer-kpi-card,
   .rec-kpi-card,
   .hr-kpi-card,
+  .admin-kpi-card,
   .stat-card,
   .leave-kpi-card,
   .perf-stat-card,
@@ -258,6 +264,7 @@ body {
 #root :is(.rec-offer-kpi-card,
   .rec-kpi-card,
   .hr-kpi-card,
+  .admin-kpi-card,
   .stat-card,
   .leave-kpi-card,
   .perf-stat-card,
@@ -276,6 +283,7 @@ body {
 /* Card Icon Box */
 #root :is(.rec-kpi-card-icon,
   .hr-kpi-icon-wrap,
+  .admin-kpi-icon-wrap,
   .stat-icon-wrapper,
   .leave-kpi-icon-wrap,
   .hr-emp-stat-icon,
@@ -296,6 +304,7 @@ body {
 
 #root :is(.rec-kpi-card-icon svg,
   .hr-kpi-icon-wrap svg,
+  .admin-kpi-icon-wrap svg,
   .stat-icon-wrapper svg,
   .leave-kpi-icon-wrap svg,
   .hr-emp-stat-icon svg,
@@ -311,6 +320,7 @@ body {
 /* Card Title / Label */
 #root :is(.rec-kpi-card-label,
   .hr-kpi-title,
+  .admin-kpi-title,
   .stat-body span,
   .leave-kpi-card span,
   .hr-emp-stat-body span,
@@ -332,6 +342,7 @@ body {
 /* Card Value */
 #root :is(.rec-kpi-card-val,
   .hr-kpi-value,
+  .admin-kpi-value,
   .stat-body strong,
   .leave-kpi-card strong,
   .perf-stat-card strong,

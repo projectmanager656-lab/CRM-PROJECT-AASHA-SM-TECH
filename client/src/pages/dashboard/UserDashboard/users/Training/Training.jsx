@@ -9,18 +9,12 @@ const TABS = [
   { id: 'programs', label: 'Programs' },
   { id: 'courses', label: 'Courses' },
   { id: 'trainers', label: 'Trainers' },
-  { id: 'sessions', label: 'Schedule & Sessions' },
-  { id: 'assignments', label: 'Employee Assignments' },
+  { id: 'assignments', label: 'Assignments' },
   { id: 'progress', label: 'Progress Tracking' },
   { id: 'assessments', label: 'Assessments' },
   { id: 'certifications', label: 'Certifications' },
   { id: 'completion', label: 'Completion Records' },
-  { id: 'costs', label: 'Cost Management' },
-  { id: 'cost-reports', label: 'Cost Reports' },
 ];
-
-const ROW1_TABS = TABS.slice(0, 6);
-const ROW2_TABS = TABS.slice(6);
 
 const formatDate = (v) => {
   if (!v) return '—';
@@ -92,8 +86,6 @@ export default function Training() {
   const [certifications, setCertifications] = useState([]);
   const [feedback, setFeedback] = useState([]);
   const [completionData, setCompletionData] = useState([]);
-  const [costs, setCosts] = useState([]);
-  const [costReports, setCostReports] = useState({});
 
   // Skill Performance (100% Dynamic MongoDB Atlas Data)
   const [skillPerformance, setSkillPerformance] = useState([]);
@@ -108,7 +100,7 @@ export default function Training() {
   const [filterTrainer, setFilterTrainer] = useState('All');
 
   // Modals
-  const [showModal, setShowModal] = useState(null); // 'program' | 'course' | 'trainer' | 'session' | 'assignment' | 'attendance' | 'assessment' | 'certification' | 'feedback' | 'cost'
+  const [showModal, setShowModal] = useState(null); // 'program' | 'course' | 'trainer' | 'assignment' | 'attendance' | 'assessment' | 'certification' | 'feedback'
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
 
@@ -161,6 +153,100 @@ export default function Training() {
   const [courseFilterStatus, setCourseFilterStatus] = useState('All');
   const [courseFilterTrainer, setCourseFilterTrainer] = useState('All');
 
+  // ── Consolidated Employee Assignments & Assessments Management State ──
+  const [assignmentSubtab, setAssignmentSubtab] = useState('assignments'); // 'assignments' | 'assessments' | 'evaluations' | 'results'
+  const [viewingAssignment, setViewingAssignment] = useState(null);
+
+  // Filters for Consolidated Employee Assignments
+  const [asgnSearch, setAsgnSearch] = useState('');
+  const [asgnFilterProgram, setAsgnFilterProgram] = useState('All');
+  const [asgnFilterCourse, setAsgnFilterCourse] = useState('All');
+  const [asgnFilterDept, setAsgnFilterDept] = useState('All');
+  const [asgnFilterTrainingStatus, setAsgnFilterTrainingStatus] = useState('All');
+  const [asgnFilterAssessmentStatus, setAsgnFilterAssessmentStatus] = useState('All');
+  const [asgnFilterAssessmentResult, setAsgnFilterAssessmentResult] = useState('All');
+  const [asgnFilterCompletionStatus, setAsgnFilterCompletionStatus] = useState('All');
+
+  // ── Training Assessment HR Management State ──
+  const [assessmentSubtab, setAssessmentSubtab] = useState('assessments'); // 'assessments' | 'evaluations' | 'results'
+  const [assessmentSubmissions, setAssessmentSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  // Filters for Assessment Sub-module
+  const [asmtSearch, setAsmtSearch] = useState('');
+  const [asmtFilterProgram, setAsmtFilterProgram] = useState('All');
+  const [asmtFilterCourse, setAsmtFilterCourse] = useState('All');
+  const [asmtFilterDept, setAsmtFilterDept] = useState('All');
+  const [asmtFilterStatus, setAsmtFilterStatus] = useState('All');
+  const [asmtFilterType, setAsmtFilterType] = useState('All');
+  const [asmtFilterResult, setAsmtFilterResult] = useState('All');
+  const [asmtFilterEmployee, setAsmtFilterEmployee] = useState('All');
+
+  // Modals for Assessment HR Management
+  const [showAssessmentModal, setShowAssessmentModal] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState(null);
+  const [assessmentForm, setAssessmentForm] = useState({
+    name: '',
+    program: '',
+    course: '',
+    description: '',
+    instructions: '',
+    assessmentType: 'Quiz',
+    duration: 45,
+    totalMarks: 100,
+    passingMarks: 60,
+    startDate: '',
+    endDate: '',
+    status: 'Draft',
+    questions: []
+  });
+  const [savingAssessment, setSavingAssessment] = useState(false);
+  const [viewingAssessment, setViewingAssessment] = useState(null);
+
+  // Assign Assessment Modal
+  const [assigningAssessment, setAssigningAssessment] = useState(null);
+  const [assignForm, setAssignForm] = useState({
+    targetType: 'individual',
+    employeeId: '',
+    selectedEmployeeIds: [],
+    departmentId: '',
+    dueDate: '',
+    notes: ''
+  });
+  const [savingAssignment, setSavingAssignment] = useState(false);
+
+  // Evaluate Modal
+  const [evaluatingSubmission, setEvaluatingSubmission] = useState(null);
+  const [evaluateForm, setEvaluateForm] = useState({
+    marksObtained: 0,
+    totalMarks: 100,
+    passingMarks: 60,
+    percentage: 0,
+    passFail: 'Pass',
+    grade: 'A',
+    remarks: '',
+    evaluationStatus: 'Evaluated',
+    answers: []
+  });
+  const [savingEvaluation, setSavingEvaluation] = useState(false);
+
+  // Certification Edit State
+  const [showEditCertModal, setShowEditCertModal] = useState(false);
+  const [editingCert, setEditingCert] = useState(null);
+  const [editCertForm, setEditCertForm] = useState({
+    certificateNumber: '',
+    employee: '',
+    program: '',
+    course: '',
+    certificateType: 'Completion',
+    issueDate: '',
+    completionDate: '',
+    expiryDate: '',
+    finalScore: '',
+    status: 'Active'
+  });
+  const [savingCert, setSavingCert] = useState(false);
+
   const showToastMsg = (msg, type = 'success') => {
     setToast({ show: true, msg, type });
     setTimeout(() => setToast({ show: false, msg: '', type: 'success' }), 3500);
@@ -172,7 +258,10 @@ export default function Training() {
 
   // Lock background window scroll whenever any modal is opened, with scrollbar compensation to eliminate layout shift
   useEffect(() => {
-    const isAnyModalOpen = Boolean(showModal || showGenCertModal || previewCert || managingProgram || managingCourse);
+    const isAnyModalOpen = Boolean(
+      showModal || showGenCertModal || previewCert || managingProgram || managingCourse ||
+      showAssessmentModal || viewingAssessment || assigningAssessment || evaluatingSubmission || showEditCertModal || viewingAssignment
+    );
     if (isAnyModalOpen) {
       const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
       const originalOverflow = document.body.style.overflow;
@@ -187,7 +276,10 @@ export default function Training() {
         document.body.style.paddingRight = originalPaddingRight;
       };
     }
-  }, [showModal, showGenCertModal, previewCert, managingProgram, managingCourse]);
+  }, [
+    showModal, showGenCertModal, previewCert, managingProgram, managingCourse,
+    showAssessmentModal, viewingAssessment, assigningAssessment, evaluatingSubmission, showEditCertModal
+  ]);
 
   // Reset modal body scroll to top when changing manage tabs
   useEffect(() => {
@@ -250,9 +342,391 @@ export default function Training() {
       });
   };
 
+  // ── Training Assessment & Certification Action Handlers ──
+  const loadAssessmentData = () => {
+    setLoading(true);
+    setLoadingSubmissions(true);
+    Promise.all([
+      apiClient.get('/training/assessments'),
+      apiClient.get('/training/assessments/submissions?includeAssigned=true')
+    ])
+      .then(([asmtRes, subRes]) => {
+        setAssessments(asmtRes.data?.data || []);
+        setAssessmentSubmissions(subRes.data?.data || []);
+      })
+      .catch((err) => {
+        showToastMsg(err.response?.data?.message || 'Failed to load assessments', 'error');
+      })
+      .finally(() => {
+        setLoading(false);
+        setLoadingSubmissions(false);
+      });
+  };
+
+  const handleAddQuestion = () => {
+    const currentQuestions = assessmentForm.questions || [];
+    const newQ = {
+      questionText: '',
+      questionType: 'Multiple Choice',
+      marks: 10,
+      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: 'Option A',
+      explanation: '',
+      order: currentQuestions.length + 1
+    };
+    const updated = [...currentQuestions, newQ];
+    const newTotal = updated.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+    setAssessmentForm(prev => ({
+      ...prev,
+      questions: updated,
+      totalMarks: newTotal > 0 ? newTotal : prev.totalMarks
+    }));
+  };
+
+  const handleUpdateQuestion = (index, field, value) => {
+    setAssessmentForm(prev => {
+      const updated = [...(prev.questions || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      let newTotal = prev.totalMarks;
+      if (field === 'marks') {
+        newTotal = updated.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+      }
+      return {
+        ...prev,
+        questions: updated,
+        totalMarks: newTotal > 0 ? newTotal : prev.totalMarks
+      };
+    });
+  };
+
+  const handleRemoveQuestion = (index) => {
+    setAssessmentForm(prev => {
+      const updated = (prev.questions || []).filter((_, i) => i !== index);
+      const newTotal = updated.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
+      return {
+        ...prev,
+        questions: updated,
+        totalMarks: newTotal > 0 ? newTotal : prev.totalMarks
+      };
+    });
+  };
+
+  const handleMoveQuestion = (index, direction) => {
+    const questions = assessmentForm.questions || [];
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= questions.length) return;
+    const updated = [...questions];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(newIndex, 0, moved);
+    updated.forEach((q, i) => { q.order = i + 1; });
+    setAssessmentForm(prev => ({ ...prev, questions: updated }));
+  };
+
+  const handleAddOption = (qIndex) => {
+    const q = assessmentForm.questions?.[qIndex];
+    if (!q) return;
+    const opts = q.options || [];
+    const updatedOpts = [...opts, `Option ${String.fromCharCode(65 + opts.length)}`];
+    handleUpdateQuestion(qIndex, 'options', updatedOpts);
+  };
+
+  const handleUpdateOption = (qIndex, optIndex, val) => {
+    const q = assessmentForm.questions?.[qIndex];
+    if (!q) return;
+    const updatedOpts = [...(q.options || [])];
+    const oldVal = updatedOpts[optIndex];
+    updatedOpts[optIndex] = val;
+    let corr = q.correctAnswer;
+    if (corr === oldVal) corr = val;
+    setAssessmentForm(prev => {
+      const updatedQuestions = [...(prev.questions || [])];
+      updatedQuestions[qIndex] = { ...q, options: updatedOpts, correctAnswer: corr };
+      return { ...prev, questions: updatedQuestions };
+    });
+  };
+
+  const handleRemoveOption = (qIndex, optIndex) => {
+    const q = assessmentForm.questions?.[qIndex];
+    if (!q) return;
+    const updatedOpts = (q.options || []).filter((_, i) => i !== optIndex);
+    let corr = q.correctAnswer;
+    if (!updatedOpts.includes(corr)) {
+      corr = updatedOpts[0] || '';
+    }
+    setAssessmentForm(prev => {
+      const updatedQuestions = [...(prev.questions || [])];
+      updatedQuestions[qIndex] = { ...q, options: updatedOpts, correctAnswer: corr };
+      return { ...prev, questions: updatedQuestions };
+    });
+  };
+
+  const openCreateAssessmentModal = () => {
+    setEditingAssessment(null);
+    setAssessmentForm({
+      name: '',
+      program: programs[0]?._id || '',
+      course: courses[0]?._id || '',
+      description: '',
+      instructions: '',
+      assessmentType: 'Quiz',
+      duration: 45,
+      totalMarks: 100,
+      passingMarks: 60,
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      status: 'Draft',
+      questions: []
+    });
+    setShowAssessmentModal(true);
+  };
+
+  const openEditAssessmentModal = (asmt) => {
+    setEditingAssessment(asmt);
+    setAssessmentForm({
+      name: asmt.title || asmt.name || '',
+      program: asmt.program?._id || asmt.program || '',
+      course: asmt.course?._id || asmt.course || '',
+      description: asmt.description || '',
+      instructions: asmt.instructions || '',
+      assessmentType: asmt.assessmentType || 'Quiz',
+      duration: asmt.duration || 45,
+      totalMarks: asmt.totalMarks || asmt.maxScore || 100,
+      passingMarks: asmt.passingMarks || asmt.passingScore || 60,
+      startDate: asmt.startDate ? new Date(asmt.startDate).toISOString().slice(0, 10) : '',
+      endDate: asmt.endDate ? new Date(asmt.endDate).toISOString().slice(0, 10) : '',
+      status: asmt.status || 'Draft',
+      questions: Array.isArray(asmt.questions) && asmt.questions.length > 0
+        ? asmt.questions.map(q => ({
+            questionText: q.questionText || '',
+            questionType: q.questionType || 'Multiple Choice',
+            marks: q.marks !== undefined ? q.marks : 10,
+            options: Array.isArray(q.options) ? [...q.options] : ['Option A', 'Option B'],
+            correctAnswer: q.correctAnswer || '',
+            explanation: q.explanation || '',
+            order: q.order || 1
+          }))
+        : []
+    });
+    setShowAssessmentModal(true);
+  };
+
+  const handleSaveAssessment = async (e) => {
+    e.preventDefault();
+    if (!assessmentForm.name.trim()) {
+      return showToastMsg('Assessment Name is required', 'error');
+    }
+    if (!assessmentForm.course) {
+      return showToastMsg('Course selection is required', 'error');
+    }
+    setSavingAssessment(true);
+    try {
+      const payload = {
+        name: assessmentForm.name.trim(),
+        title: assessmentForm.name.trim(),
+        program: assessmentForm.program || null,
+        course: assessmentForm.course,
+        description: assessmentForm.description || '',
+        instructions: assessmentForm.instructions || '',
+        assessmentType: assessmentForm.assessmentType || 'Quiz',
+        duration: Number(assessmentForm.duration) || 30,
+        totalMarks: Number(assessmentForm.totalMarks) || 100,
+        maxScore: Number(assessmentForm.totalMarks) || 100,
+        passingMarks: Number(assessmentForm.passingMarks) || 60,
+        passingScore: Number(assessmentForm.passingMarks) || 60,
+        startDate: assessmentForm.startDate || null,
+        endDate: assessmentForm.endDate || null,
+        status: assessmentForm.status || 'Draft',
+        questions: assessmentForm.questions || []
+      };
+
+      if (editingAssessment) {
+        await apiClient.put(`/training/assessments/${editingAssessment._id}`, payload);
+        showToastMsg('Assessment updated successfully');
+      } else {
+        await apiClient.post('/training/assessments', payload);
+        showToastMsg('Assessment created successfully');
+      }
+      setShowAssessmentModal(false);
+      setEditingAssessment(null);
+      loadAssessmentData();
+      loadSkillPerformance();
+    } catch (err) {
+      showToastMsg(err.response?.data?.message || 'Failed to save assessment', 'error');
+    } finally {
+      setSavingAssessment(false);
+    }
+  };
+
+  const handleTogglePublish = async (asmt) => {
+    const newStatus = asmt.status === 'Published' ? 'Closed' : 'Published';
+    try {
+      await apiClient.post(`/training/assessments/${asmt._id}/publish`, { status: newStatus });
+      showToastMsg(`Assessment status updated to ${newStatus}`);
+      loadAssessmentData();
+    } catch (err) {
+      showToastMsg(err.response?.data?.message || 'Failed to update status', 'error');
+    }
+  };
+
+  const openAssignModal = (asmt) => {
+    setAssigningAssessment(asmt);
+    setAssignForm({
+      targetType: 'individual',
+      employeeId: '',
+      selectedEmployeeIds: [],
+      departmentId: departments[0]?._id || '',
+      dueDate: asmt.endDate ? new Date(asmt.endDate).toISOString().slice(0, 10) : '',
+      notes: ''
+    });
+  };
+
+  const handleSaveAssignment = async (e) => {
+    e.preventDefault();
+    if (!assigningAssessment) return;
+    setSavingAssignment(true);
+    try {
+      const payload = {
+        dueDate: assignForm.dueDate || undefined,
+        notes: assignForm.notes || ''
+      };
+      if (assignForm.targetType === 'individual') {
+        if (!assignForm.employeeId) return showToastMsg('Please select an employee', 'error');
+        payload.employeeIds = [assignForm.employeeId];
+      } else if (assignForm.targetType === 'multiple') {
+        if (!assignForm.selectedEmployeeIds || assignForm.selectedEmployeeIds.length === 0) {
+          return showToastMsg('Please select at least one employee', 'error');
+        }
+        payload.employeeIds = assignForm.selectedEmployeeIds;
+      } else if (assignForm.targetType === 'department') {
+        if (!assignForm.departmentId) return showToastMsg('Please select a department', 'error');
+        payload.departmentId = assignForm.departmentId;
+      } else if (assignForm.targetType === 'course') {
+        payload.courseParticipants = true;
+      }
+
+      await apiClient.post(`/training/assessments/${assigningAssessment._id}/assign`, payload);
+      showToastMsg('Assessment assigned successfully');
+      setAssigningAssessment(null);
+      loadAssessmentData();
+    } catch (err) {
+      showToastMsg(err.response?.data?.message || 'Failed to assign assessment', 'error');
+    } finally {
+      setSavingAssignment(false);
+    }
+  };
+
+  const openEvaluateModal = (sub) => {
+    setEvaluatingSubmission(sub);
+    const marks = sub.marksObtained !== null && sub.marksObtained !== undefined ? sub.marksObtained : (sub.score !== undefined && sub.score !== null ? sub.score : 0);
+    const total = sub.totalMarks || 100;
+    const passMark = sub.passingMarks || 60;
+    const pct = sub.percentage !== null && sub.percentage !== undefined ? sub.percentage : (total > 0 ? Math.round((marks / total) * 100) : 0);
+    const pf = sub.passFail && sub.passFail !== 'Pending' ? sub.passFail : (marks >= passMark ? 'Pass' : 'Fail');
+    const gr = sub.grade && sub.grade !== '-' ? sub.grade : (pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B' : pct >= 60 ? 'C' : 'F');
+
+    setEvaluateForm({
+      marksObtained: marks,
+      totalMarks: total,
+      passingMarks: passMark,
+      percentage: pct,
+      passFail: pf,
+      grade: gr,
+      remarks: sub.remarks || '',
+      evaluationStatus: sub.evaluationStatus === 'Pending Submission' || sub.evaluationStatus === 'Pending' ? 'Evaluated' : (sub.evaluationStatus || 'Evaluated'),
+      answers: Array.isArray(sub.answers) ? sub.answers.map(a => ({ ...a })) : []
+    });
+  };
+
+  const handleSaveEvaluation = async (e) => {
+    e.preventDefault();
+    if (!evaluatingSubmission) return;
+    setSavingEvaluation(true);
+    try {
+      const asmtId = evaluatingSubmission.assessmentId;
+      const subId = String(evaluatingSubmission._id).startsWith('assigned_') ? undefined : evaluatingSubmission._id;
+      const empId = evaluatingSubmission.employee?._id || evaluatingSubmission.employee;
+
+      const marks = Number(evaluateForm.marksObtained) || 0;
+      const total = Number(evaluateForm.totalMarks) || 100;
+      const pct = total > 0 ? Math.round((marks / total) * 100) : 0;
+
+      const payload = {
+        submissionId: subId,
+        employeeId: empId,
+        score: marks,
+        marksObtained: marks,
+        percentage: pct,
+        passFail: evaluateForm.passFail,
+        grade: evaluateForm.grade,
+        remarks: evaluateForm.remarks || '',
+        evaluationStatus: evaluateForm.evaluationStatus || 'Evaluated',
+        answers: evaluateForm.answers || []
+      };
+
+      await apiClient.post(`/training/assessments/${asmtId}/evaluate`, payload);
+      showToastMsg('Assessment evaluation recorded successfully');
+      setEvaluatingSubmission(null);
+      loadAssessmentData();
+      loadSkillPerformance();
+    } catch (err) {
+      showToastMsg(err.response?.data?.message || 'Failed to record evaluation', 'error');
+    } finally {
+      setSavingEvaluation(false);
+    }
+  };
+
+  const openEditCertModal = (cert) => {
+    setEditingCert(cert);
+    setEditCertForm({
+      certificateNumber: cert.certificateNumber || '',
+      employee: cert.employee?._id || cert.employee || '',
+      program: cert.program?._id || cert.program || '',
+      course: cert.course?._id || cert.course || '',
+      certificateType: cert.certificateType || 'Completion',
+      issueDate: cert.issueDate ? new Date(cert.issueDate).toISOString().slice(0, 10) : '',
+      completionDate: cert.completionDate ? new Date(cert.completionDate).toISOString().slice(0, 10) : '',
+      expiryDate: cert.expiryDate ? new Date(cert.expiryDate).toISOString().slice(0, 10) : '',
+      finalScore: cert.finalScore !== undefined && cert.finalScore !== null ? cert.finalScore : '',
+      status: cert.status || 'Active'
+    });
+    setShowEditCertModal(true);
+  };
+
+  const handleSaveCert = async (e) => {
+    e.preventDefault();
+    if (!editingCert) return;
+    setSavingCert(true);
+    try {
+      const payload = {
+        certificateNumber: editCertForm.certificateNumber.trim(),
+        employee: editCertForm.employee,
+        program: editCertForm.program || null,
+        course: editCertForm.course,
+        certificateType: editCertForm.certificateType,
+        status: editCertForm.status,
+        issueDate: editCertForm.issueDate || undefined,
+        completionDate: editCertForm.completionDate || undefined,
+        expiryDate: editCertForm.expiryDate || undefined,
+        finalScore: editCertForm.finalScore !== '' ? Number(editCertForm.finalScore) : null
+      };
+      await apiClient.put(`/training/certifications/${editingCert._id}`, payload);
+      showToastMsg('Certification updated successfully');
+      setShowEditCertModal(false);
+      setEditingCert(null);
+      loadTabData('certifications');
+    } catch (err) {
+      showToastMsg(err.response?.data?.message || 'Failed to update certification', 'error');
+    } finally {
+      setSavingCert(false);
+    }
+  };
+
   const loadTabData = (tab) => {
     setLoading(true);
     if (tab === 'overview') loadSkillPerformance();
+    if (tab === 'assessments' || tab === 'assignments') {
+      loadAssessmentData();
+    }
     let endpoint = `/training/${tab}`;
     if (tab === 'overview') endpoint = '/training/overview';
 
@@ -272,15 +746,20 @@ export default function Training() {
         else if (tab === 'courses') setCourses(d || []);
         else if (tab === 'trainers') setTrainers(d || []);
         else if (tab === 'sessions') setSessions(d || []);
-        else if (tab === 'assignments') setAssignments(d || []);
+        else if (tab === 'assignments') {
+          setAssignments(d || []);
+          apiClient.get('/training/certifications').then(cRes => setCertifications(cRes.data?.data || [])).catch(() => {});
+          apiClient.get('/training/progress').then(pRes => setProgressData(pRes.data?.data || [])).catch(() => {});
+        }
         else if (tab === 'attendance') setAttendance(d || []);
         else if (tab === 'progress') setProgressData(d || []);
-        else if (tab === 'assessments') setAssessments(d || []);
+        else if (tab === 'assessments') {
+          setAssessments(d || []);
+          apiClient.get('/training/assessments/submissions').then(sRes => setAssessmentSubmissions(sRes.data?.data || [])).catch(() => {});
+        }
         else if (tab === 'certifications') setCertifications(d || []);
         else if (tab === 'feedback') setFeedback(d || []);
         else if (tab === 'completion') setCompletionData(d || []);
-        else if (tab === 'costs') setCosts(d || []);
-        else if (tab === 'cost-reports') setCostReports(d || {});
       })
       .catch((err) => {
         showToastMsg(err.response?.data?.message || 'Failed to load data', 'error');
@@ -296,30 +775,7 @@ export default function Training() {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
 
-    // Session validation
-    if (showModal === 'session') {
-      if (formData.startTime && formData.endTime && formData.endTime <= formData.startTime) {
-        showToastMsg('End time cannot be before or equal to start time', 'error');
-        return;
-      }
-    }
 
-    // Cost validation
-    if (showModal === 'cost') {
-      if (!formData.title || !formData.title.trim()) {
-        showToastMsg('Please enter an expense title', 'error');
-        return;
-      }
-      const amt = Number(formData.amount || formData.totalCost || 0);
-      if (!amt || amt <= 0) {
-        showToastMsg('Please enter a valid cost amount greater than 0', 'error');
-        return;
-      }
-      if (!formData.dateIncurred) {
-        showToastMsg('Please select date incurred', 'error');
-        return;
-      }
-    }
 
     setLoading(true);
 
@@ -352,26 +808,7 @@ export default function Training() {
             payload.requiredSkills = payload.requiredSkills.split(',').map(s => s.trim()).filter(Boolean);
           }
         }
-        if (showModal === 'cost') {
-          const amt = Number(formData.amount || formData.totalCost || 0);
-          const cat = formData.category || 'Trainer Fee';
-          payload = {
-            ...formData,
-            title: formData.title.trim(),
-            totalCost: amt,
-            courseFee: cat === 'Course Fee' ? amt : 0,
-            trainerFee: cat === 'Trainer Fee' ? amt : 0,
-            venueCost: cat === 'Venue' ? amt : 0,
-            materialsCost: cat === 'Materials' ? amt : 0,
-            travelCost: cat === 'Certification' || cat === 'Travel' ? amt : 0,
-            otherCost: cat === 'Other' ? amt : 0,
-            dateIncurred: formData.dateIncurred,
-            notes: formData.notes || '',
-          };
-          if (!payload.program) delete payload.program;
-          if (!payload.course) delete payload.course;
-          if (!payload.session) delete payload.session;
-        }
+
         await apiClient.put(url, payload);
         showToastMsg('Updated successfully');
       } else {
@@ -400,26 +837,7 @@ export default function Training() {
         if (showModal === 'assignment' && selectedEmployees.length > 0) {
           payload.employees = selectedEmployees;
         }
-        if (showModal === 'cost') {
-          const amt = Number(formData.amount || formData.totalCost || 0);
-          const cat = formData.category || 'Trainer Fee';
-          payload = {
-            ...formData,
-            title: formData.title.trim(),
-            totalCost: amt,
-            courseFee: cat === 'Course Fee' ? amt : 0,
-            trainerFee: cat === 'Trainer Fee' ? amt : 0,
-            venueCost: cat === 'Venue' ? amt : 0,
-            materialsCost: cat === 'Materials' ? amt : 0,
-            travelCost: cat === 'Certification' || cat === 'Travel' ? amt : 0,
-            otherCost: cat === 'Other' ? amt : 0,
-            dateIncurred: formData.dateIncurred,
-            notes: formData.notes || '',
-          };
-          if (!payload.program) delete payload.program;
-          if (!payload.course) delete payload.course;
-          if (!payload.session) delete payload.session;
-        }
+
         await apiClient.post(url, payload);
         showToastMsg('Created successfully');
       }
@@ -524,16 +942,16 @@ export default function Training() {
     }
   };
 
-  // Revoke Certification Handler
+  // Deactivate / Revoke Certification Handler
   const handleRevokeCert = async (certId) => {
-    if (!window.confirm('Are you sure you want to revoke this certificate?')) return;
+    if (!window.confirm('Are you sure you want to deactivate this certificate?')) return;
     setLoading(true);
     try {
       await apiClient.post(`/training/certifications/${certId}/revoke`);
-      showToastMsg('Certificate revoked successfully');
+      showToastMsg('Certificate deactivated successfully');
       loadTabData('certifications');
     } catch (err) {
-      showToastMsg(err.response?.data?.message || 'Failed to revoke certificate', 'error');
+      showToastMsg(err.response?.data?.message || 'Failed to deactivate certificate', 'error');
     } finally {
       setLoading(false);
     }
@@ -601,12 +1019,23 @@ export default function Training() {
         description: '',
         status: 'Draft',
       });
-    } else if (type === 'cost') {
-      if (programs.length === 0) apiClient.get('/training/programs').then(res => setPrograms(res.data?.data || [])).catch(() => { });
-      if (courses.length === 0) apiClient.get('/training/courses').then(res => setCourses(res.data?.data || [])).catch(() => { });
+    } else if (type === 'attendance') {
+      if (sessions.length === 0) {
+        apiClient.get('/training/sessions').then(res => setSessions(res.data?.data || [])).catch(() => { });
+      }
       setFormData({
-        category: 'Trainer Fee',
-        dateIncurred: new Date().toISOString().slice(0, 10),
+        date: new Date().toISOString().slice(0, 10),
+        status: 'Present',
+      });
+    } else if (type === 'assignment') {
+      setSelectedEmployees([]);
+      setFormData({
+        program: programs[0]?._id || '',
+        course: courses[0]?._id || '',
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        startDate: new Date().toISOString().slice(0, 10),
+        isMandatory: true,
+        status: 'Assigned',
       });
     } else {
       setFormData({});
@@ -653,25 +1082,17 @@ export default function Training() {
         description: item.description || '',
         status: item.status || 'Draft',
       });
-    } else if (type === 'cost') {
-      if (programs.length === 0) apiClient.get('/training/programs').then(res => setPrograms(res.data?.data || [])).catch(() => { });
-      if (courses.length === 0) apiClient.get('/training/courses').then(res => setCourses(res.data?.data || [])).catch(() => { });
-      let category = 'Other';
-      if (item.trainerFee > 0) category = 'Trainer Fee';
-      else if (item.courseFee > 0) category = 'Course Fee';
-      else if (item.venueCost > 0) category = 'Venue';
-      else if (item.materialsCost > 0) category = 'Materials';
-      else if (item.travelCost > 0) category = 'Certification';
-
+    } else if (type === 'assignment') {
       setFormData({
         ...item,
         program: item.program?._id || item.program || '',
         course: item.course?._id || item.course || '',
-        title: item.title || '',
-        category,
-        amount: item.totalCost || 0,
-        dateIncurred: item.dateIncurred ? new Date(item.dateIncurred).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-        notes: item.notes || '',
+        employee: item.employee?._id || item.employee || '',
+        status: item.status || 'Assigned',
+        startDate: item.startDate ? String(item.startDate).slice(0, 10) : '',
+        dueDate: item.dueDate ? String(item.dueDate).slice(0, 10) : '',
+        completionDate: item.completionDate ? String(item.completionDate).slice(0, 10) : '',
+        isMandatory: item.isMandatory !== undefined ? item.isMandatory : true,
       });
     } else {
       setFormData({ ...item });
@@ -948,7 +1369,6 @@ export default function Training() {
   /* ──────────────── RENDER TAB CONTENTS ──────────────── */
 
   const renderOverview = () => {
-    const upcomingSessionsList = overview.upcomingSessions || [];
     const progData = overview.trainingProgress || {
       completedPct: overview.kpis?.completionRate || overview.completionRate || 0,
       inProgressPct: 0,
@@ -960,54 +1380,8 @@ export default function Training() {
 
     return (
       <div>
-        {/* Row 1: Upcoming Sessions | Training Progress */}
+        {/* Row 1: Training Progress | Recent Training Activity */}
         <div className="hrtm-overview-grid">
-          {/* Upcoming Sessions Widget */}
-          <div className="hrtm-card">
-            <div className="hrtm-card-header">
-              <h2 className="hrtm-section-heading">Upcoming Sessions</h2>
-              <button className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm" onClick={() => setActiveTab('sessions')}>View All</button>
-            </div>
-            <div className="hrtm-table-wrap">
-              <table className="hrtm-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '25%', minWidth: '170px' }}>Session & Date</th>
-                    <th style={{ width: '25%', minWidth: '170px' }}>Program / Course</th>
-                    <th style={{ width: '20%', minWidth: '130px' }}>Trainer</th>
-                    <th style={{ width: '10%', minWidth: '80px' }}>Enrolled</th>
-                    <th style={{ width: '10%', minWidth: '95px' }}>Status</th>
-                    <th style={{ width: '10%', minWidth: '100px', textAlign: 'center' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {upcomingSessionsList.length === 0 ? (
-                    <tr><td colSpan="6" className="hrtm-empty">No upcoming training sessions</td></tr>
-                  ) : (
-                    upcomingSessionsList.map(s => (
-                      <tr key={s._id}>
-                        <td>
-                          <span className="hrtm-primary-title">{s.sessionTitle}</span>
-                          <span className="hrtm-cell-subtext">{formatDate(s.sessionDate)} ({s.startTime || 'TBD'})</span>
-                        </td>
-                        <td>{s.program?.name} / {s.course?.title}</td>
-                        <td>{s.trainer ? (s.trainer.trainerType === 'Internal' ? getEmpName(s.trainer.employee) : s.trainer.name) : '—'}</td>
-                        <td><strong>{s.enrolledCount || 0}</strong></td>
-                        <td><span className={`hrtm-badge hrtm-badge-${(s.status || '').toLowerCase()}`}><span className="hrtm-badge-dot" />{s.status}</span></td>
-                        <td>
-                          <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                            <button type="button" className="hrtm-action-btn hrtm-action-btn-edit" title="Edit" onClick={() => openEditModal('session', s)}>✏️</button>
-                            <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" title="Cancel" onClick={() => handleDelete('session', s._id)}>🗑️</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
           {/* Training Progress Widget */}
           <div className="hrtm-card">
             <div className="hrtm-card-header">
@@ -1047,10 +1421,7 @@ export default function Training() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Row 2: Recent Training Activity | Top Performing Programs */}
-        <div className="hrtm-overview-grid">
           {/* Recent Training Activity */}
           <div className="hrtm-card">
             <div className="hrtm-card-header">
@@ -1084,45 +1455,45 @@ export default function Training() {
               </table>
             </div>
           </div>
+        </div>
 
-          {/* Top Performing Programs */}
-          <div className="hrtm-card">
-            <div className="hrtm-card-header">
-              <h2 className="hrtm-section-heading">Top Performing Programs</h2>
-              <button className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm" onClick={() => setActiveTab('programs')}>View All</button>
-            </div>
-            <div className="hrtm-table-wrap">
-              <table className="hrtm-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '35%', minWidth: '180px' }}>Program</th>
-                    <th style={{ width: '20%', minWidth: '110px' }}>Participants</th>
-                    <th style={{ width: '20%', minWidth: '110px' }}>Completion Rate</th>
-                    <th style={{ width: '25%', minWidth: '140px' }}>Progress</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPrograms.length === 0 ? (
-                    <tr><td colSpan="4" className="hrtm-empty">No performance data available</td></tr>
-                  ) : (
-                    topPrograms.map(tp => (
-                      <tr key={tp._id}>
-                        <td><span className="hrtm-primary-title">{tp.name}</span></td>
-                        <td><strong>{tp.participants}</strong> enrolled</td>
-                        <td><span className="hrtm-badge hrtm-badge-active">{tp.completionRate}%</span></td>
-                        <td>
-                          <div className="hrtm-progress-cell">
-                            <div className="hrtm-progress-bar">
-                              <div className="hrtm-progress-fill" style={{ width: `${tp.completionRate}%` }} />
-                            </div>
+        {/* Row 2: Top Performing Programs */}
+        <div className="hrtm-card" style={{ marginBottom: '1.25rem' }}>
+          <div className="hrtm-card-header">
+            <h2 className="hrtm-section-heading">Top Performing Programs</h2>
+            <button className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm" onClick={() => setActiveTab('programs')}>View All</button>
+          </div>
+          <div className="hrtm-table-wrap">
+            <table className="hrtm-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '35%', minWidth: '180px' }}>Program</th>
+                  <th style={{ width: '20%', minWidth: '110px' }}>Participants</th>
+                  <th style={{ width: '20%', minWidth: '110px' }}>Completion Rate</th>
+                  <th style={{ width: '25%', minWidth: '140px' }}>Progress</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topPrograms.length === 0 ? (
+                  <tr><td colSpan="4" className="hrtm-empty">No performance data available</td></tr>
+                ) : (
+                  topPrograms.map(tp => (
+                    <tr key={tp._id}>
+                      <td><span className="hrtm-primary-title">{tp.name}</span></td>
+                      <td><strong>{tp.participants}</strong> enrolled</td>
+                      <td><span className="hrtm-badge hrtm-badge-active">{tp.completionRate}%</span></td>
+                      <td>
+                        <div className="hrtm-progress-cell">
+                          <div className="hrtm-progress-bar">
+                            <div className="hrtm-progress-fill" style={{ width: `${tp.completionRate}%` }} />
                           </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1658,115 +2029,437 @@ export default function Training() {
     );
   };
 
-  const renderSessions = () => {
-    const list = sessions.filter(s => s.sessionTitle?.toLowerCase().includes(search.toLowerCase()));
-    return (
-      <div className="hrtm-card">
-        <div className="hrtm-card-header">
-          <div>
-            <h2 className="hrtm-section-heading">Training Sessions & Schedule</h2>
-            <span className="hrtm-section-subtext">{list.length} session{list.length === 1 ? '' : 's'} scheduled</span>
-          </div>
-          <button className="hrtm-btn hrtm-btn-primary hrtm-btn-sm" onClick={() => openCreateModal('session')}>+ Schedule Session</button>
-        </div>
-        <div className="hrtm-table-wrap">
-          <table className="hrtm-table">
-            <thead>
-              <tr>
-                <th style={{ width: '22%', minWidth: '200px' }}>Session Title</th>
-                <th style={{ width: '22%', minWidth: '200px' }}>Program / Course</th>
-                <th style={{ width: '14%', minWidth: '135px' }}>Trainer</th>
-                <th style={{ width: '18%', minWidth: '165px' }}>Date & Time</th>
-                <th style={{ width: '11%', minWidth: '120px' }}>Location</th>
-                <th style={{ width: '7%', minWidth: '95px' }}>Status</th>
-                <th style={{ width: '6%', minWidth: '130px', textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 ? (
-                <tr><td colSpan="7" className="hrtm-empty">No sessions scheduled</td></tr>
-              ) : list.map(s => (
-                <tr key={s._id}>
-                  <td>
-                    <span className="hrtm-primary-title">{s.sessionTitle}</span>
-                  </td>
-                  <td>
-                    <div className="hrtm-primary-cell">
-                      <span className="hrtm-primary-title" style={{ fontWeight: 500 }}>{s.program?.name || '—'}</span>
-                      {s.course?.title && <span className="hrtm-cell-subtext">Course: {s.course.title}</span>}
-                    </div>
-                  </td>
-                  <td>{s.trainer ? (s.trainer.trainerType === 'Internal' ? getEmpName(s.trainer.employee) : s.trainer.name) : '—'}</td>
-                  <td>
-                    <div style={{ whiteSpace: 'nowrap' }}>{formatDate(s.sessionDate)}</div>
-                    <span className="hrtm-cell-subtext">{s.startTime || 'TBD'} - {s.endTime || 'TBD'}</span>
-                  </td>
-                  <td>{s.location || '—'}</td>
-                  <td><span className={`hrtm-badge hrtm-badge-${(s.status || '').toLowerCase()}`}><span className="hrtm-badge-dot" />{s.status}</span></td>
-                  <td>
-                    <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                      <button type="button" className="hrtm-action-btn hrtm-action-btn-edit" onClick={() => openEditModal('session', s)} title="Edit Session">✏️ Edit</button>
-                      <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" onClick={() => handleDelete('session', s._id)} title="Delete Session">🗑️ Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+
+
+  /* ──────────────── CONSOLIDATED EMPLOYEE ASSIGNMENTS & ASSESSMENTS ──────────────── */
+
+  const getAssignmentAssessment = (assignment) => {
+    if (!assignment) return null;
+    const courseId = String(assignment.course?._id || assignment.course || '');
+    const progId = String(assignment.program?._id || assignment.program || '');
+    const empId = String(assignment.employee?._id || assignment.employee || '');
+
+    // Check if any assessment directly assigned this employee
+    let match = assessments.find(asmt => {
+      const asmtCourseId = String(asmt.course?._id || asmt.course || '');
+      const isAssigned = Array.isArray(asmt.assignedEmployees) && asmt.assignedEmployees.some(e => String(e._id || e) === empId);
+      return isAssigned && (!courseId || asmtCourseId === courseId);
+    });
+
+    // Otherwise match by course
+    if (!match && courseId) {
+      match = assessments.find(asmt => String(asmt.course?._id || asmt.course || '') === courseId);
+    }
+
+    // Otherwise match by program
+    if (!match && progId) {
+      match = assessments.find(asmt => String(asmt.program?._id || asmt.program || '') === progId);
+    }
+
+    return match || null;
+  };
+
+  const getAssignmentSubmission = (assignment, matchedAsmt) => {
+    if (!assignment) return null;
+    const empId = String(assignment.employee?._id || assignment.employee || '');
+    const courseId = String(assignment.course?._id || assignment.course || '');
+    const asmtId = matchedAsmt ? String(matchedAsmt._id) : null;
+
+    return assessmentSubmissions.find(sub => {
+      const subEmpId = String(sub.employee?._id || sub.employee || '');
+      if (subEmpId !== empId) return false;
+      if (asmtId && String(sub.assessmentId || sub.assessment?._id || sub.assessment) === asmtId) return true;
+      if (courseId && String(sub.course?._id || sub.course) === courseId) return true;
+      return false;
+    }) || null;
+  };
+
+  const getAssignmentCertification = (assignment) => {
+    if (!assignment) return null;
+    const empId = String(assignment.employee?._id || assignment.employee || '');
+    const courseId = String(assignment.course?._id || assignment.course || '');
+
+    return certifications.find(cert => {
+      const certEmpId = String(cert.employee?._id || cert.employee || '');
+      const certCourseId = String(cert.course?._id || cert.course || '');
+      return certEmpId === empId && (!courseId || certCourseId === courseId);
+    }) || null;
+  };
+
+  const getAssignmentProgress = (assignment) => {
+    if (!assignment) return null;
+    const empId = String(assignment.employee?._id || assignment.employee || '');
+    const courseId = String(assignment.course?._id || assignment.course || '');
+
+    return progressData.find(p => {
+      const pEmpId = String(p.employee?._id || p.employee || '');
+      const pCourseId = String(p.course?._id || p.course || '');
+      return pEmpId === empId && (!courseId || pCourseId === courseId);
+    }) || null;
   };
 
   const renderAssignments = () => {
-    const list = assignments.filter(a => getEmpName(a.employee)?.toLowerCase().includes(search.toLowerCase()));
+    // Dynamic KPI Calculations from Live MongoDB Atlas Data
+    const totalAssignments = assignments.length;
+    const inProgressAssignments = assignments.filter(a => a.status === 'In Progress' || a.status === 'Assigned' || a.status === 'Enrolled').length;
+    const completedAssignments = assignments.filter(a => a.status === 'Completed').length;
+    const overdueAssignments = assignments.filter(a => a.dueDate && new Date(a.dueDate) < new Date() && a.status !== 'Completed').length;
+    const pendingCompletionAssignments = assignments.filter(a => a.status !== 'Completed').length;
+
+    // Filtered list for Assignments
+    const qSearch = (asgnSearch || '').toLowerCase().trim();
+    const filteredAssignments = assignments.filter(a => {
+      const empName = getEmpName(a.employee).toLowerCase();
+      const empId = String(a.employee?.employeeId || a.employee?._id || '').toLowerCase();
+      const empEmail = String(a.employee?.email || '').toLowerCase();
+      const progName = (a.program?.name || '').toLowerCase();
+      const courseTitle = (a.course?.title || '').toLowerCase();
+
+      if (qSearch) {
+        const matches =
+          empName.includes(qSearch) ||
+          empId.includes(qSearch) ||
+          empEmail.includes(qSearch) ||
+          progName.includes(qSearch) ||
+          courseTitle.includes(qSearch);
+        if (!matches) return false;
+      }
+
+      if (asgnFilterProgram !== 'All' && String(a.program?._id || a.program) !== asgnFilterProgram) return false;
+      if (asgnFilterCourse !== 'All' && String(a.course?._id || a.course) !== asgnFilterCourse) return false;
+      if (asgnFilterDept !== 'All' && !(a.employee?.department || '').toLowerCase().includes(asgnFilterDept.toLowerCase())) return false;
+      if (asgnFilterTrainingStatus !== 'All' && a.status !== asgnFilterTrainingStatus) return false;
+
+      if (asgnFilterCompletionStatus !== 'All') {
+        const isCompleted = a.status === 'Completed';
+        if (asgnFilterCompletionStatus === 'Completed' && !isCompleted) return false;
+        if (asgnFilterCompletionStatus === 'In Progress' && isCompleted) return false;
+      }
+
+      return true;
+    });
+
     return (
       <div className="hrtm-card">
-        <div className="hrtm-card-header">
-          <div>
-            <h2 className="hrtm-section-heading">Employee Assignments</h2>
-            <span className="hrtm-section-subtext">{list.length} assignment{list.length === 1 ? '' : 's'} active</span>
+        {/* Dynamic KPIs */}
+        <div className="hrtm-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #2563eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Total Assignments</span>
+              <span style={{ fontSize: '1.1rem' }}>👥</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>
+              <AnimatedNumber value={totalAssignments} />
+            </div>
           </div>
-          <button className="hrtm-btn hrtm-btn-primary hrtm-btn-sm" onClick={() => openCreateModal('assignment')}>+ Assign Employee(s)</button>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #3b82f6' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>In Progress</span>
+              <span style={{ fontSize: '1.1rem' }}>⏳</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#2563eb', marginTop: '4px' }}>
+              <AnimatedNumber value={inProgressAssignments} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #10b981' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Completed</span>
+              <span style={{ fontSize: '1.1rem' }}>✅</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#059669', marginTop: '4px' }}>
+              <AnimatedNumber value={completedAssignments} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Overdue</span>
+              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626', marginTop: '4px' }}>
+              <AnimatedNumber value={overdueAssignments} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #8b5cf6' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Pending Completion</span>
+              <span style={{ fontSize: '1.1rem' }}>📋</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#7c3aed', marginTop: '4px' }}>
+              <AnimatedNumber value={pendingCompletionAssignments} />
+            </div>
+          </div>
         </div>
+
+        {/* Header with Title & Action Button */}
+        <div className="hrtm-card-header" style={{ flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <div>
+            <h2 className="hrtm-section-heading">Assignments</h2>
+            <span className="hrtm-section-subtext">Assign and manage training programs and courses to employees</span>
+          </div>
+          <button
+            type="button"
+            className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+            onClick={() => openCreateModal('assignment')}
+          >
+            + Assign Employee(s)
+          </button>
+        </div>
+
+        {/* Filter Toolbar */}
+        <div className="hrtm-filter-toolbar" style={{ marginBottom: '1rem' }}>
+          <div className="hrtm-filter-group" style={{ flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              className="hrtm-search"
+              placeholder="Search Employee, ID, Course, Program..."
+              value={asgnSearch}
+              onChange={e => setAsgnSearch(e.target.value)}
+              style={{ minWidth: '220px' }}
+            />
+            <div style={{ minWidth: '150px' }}>
+              <CustomSelect
+                options={[{ value: 'All', label: 'All Programs' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                value={asgnFilterProgram}
+                onChange={setAsgnFilterProgram}
+                placeholder="All Programs"
+              />
+            </div>
+            <div style={{ minWidth: '150px' }}>
+              <CustomSelect
+                options={[{ value: 'All', label: 'All Courses' }, ...courses.map(c => ({ value: c._id, label: c.title }))]}
+                value={asgnFilterCourse}
+                onChange={setAsgnFilterCourse}
+                placeholder="All Courses"
+              />
+            </div>
+            <div style={{ minWidth: '140px' }}>
+              <CustomSelect
+                options={[{ value: 'All', label: 'All Departments' }, ...departments.map(d => ({ value: d.name, label: d.name }))]}
+                value={asgnFilterDept}
+                onChange={setAsgnFilterDept}
+                placeholder="All Departments"
+              />
+            </div>
+            <div style={{ minWidth: '140px' }}>
+              <CustomSelect
+                options={[
+                  { value: 'All', label: 'All Training Statuses' },
+                  { value: 'Assigned', label: 'Assigned' },
+                  { value: 'In Progress', label: 'In Progress' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Overdue', label: 'Overdue' },
+                  { value: 'Cancelled', label: 'Cancelled' }
+                ]}
+                value={asgnFilterTrainingStatus}
+                onChange={setAsgnFilterTrainingStatus}
+                placeholder="Training Status"
+              />
+            </div>
+            <div style={{ minWidth: '140px' }}>
+              <CustomSelect
+                options={[
+                  { value: 'All', label: 'All Completion' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'In Progress', label: 'In Progress' }
+                ]}
+                value={asgnFilterCompletionStatus}
+                onChange={setAsgnFilterCompletionStatus}
+                placeholder="Completion Status"
+              />
+            </div>
+            {(asgnSearch || asgnFilterProgram !== 'All' || asgnFilterCourse !== 'All' || asgnFilterDept !== 'All' || asgnFilterTrainingStatus !== 'All' || asgnFilterCompletionStatus !== 'All') && (
+              <button
+                type="button"
+                className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                onClick={() => {
+                  setAsgnSearch('');
+                  setAsgnFilterProgram('All');
+                  setAsgnFilterCourse('All');
+                  setAsgnFilterDept('All');
+                  setAsgnFilterTrainingStatus('All');
+                  setAsgnFilterCompletionStatus('All');
+                }}
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Assignments Table */}
         <div className="hrtm-table-wrap">
           <table className="hrtm-table">
             <thead>
               <tr>
-                <th style={{ width: '20%', minWidth: '170px' }}>Employee</th>
-                <th style={{ width: '22%', minWidth: '180px' }}>Program</th>
-                <th style={{ width: '22%', minWidth: '180px' }}>Course</th>
-                <th style={{ width: '9%', minWidth: '90px' }}>Mandatory</th>
-                <th style={{ width: '11%', minWidth: '110px' }}>Due Date</th>
-                <th style={{ width: '8%', minWidth: '95px' }}>Status</th>
-                <th style={{ width: '8%', minWidth: '130px', textAlign: 'center' }}>Actions</th>
+                <th style={{ width: '16%', minWidth: '150px' }}>Employee</th>
+                <th style={{ width: '9%', minWidth: '95px' }}>Employee ID</th>
+                <th style={{ width: '10%', minWidth: '100px' }}>Department</th>
+                <th style={{ width: '11%', minWidth: '110px' }}>Designation</th>
+                <th style={{ width: '12%', minWidth: '120px' }}>Program</th>
+                <th style={{ width: '12%', minWidth: '120px' }}>Course</th>
+                <th style={{ width: '8%', minWidth: '85px' }}>Assigned</th>
+                <th style={{ width: '8%', minWidth: '85px' }}>Due Date</th>
+                <th style={{ width: '9%', minWidth: '95px' }}>Progress</th>
+                <th style={{ width: '8%', minWidth: '85px' }}>Training Status</th>
+                <th style={{ width: '8%', minWidth: '85px' }}>Completion</th>
+                <th style={{ width: '11%', minWidth: '160px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {list.length === 0 ? (
-                <tr><td colSpan="7" className="hrtm-empty">No employee assignments found</td></tr>
-              ) : list.map(a => (
-                <tr key={a._id}>
-                  <td>
-                    <span className="hrtm-primary-title">{getEmpName(a.employee)}</span>
-                  </td>
-                  <td>{a.program?.name || '—'}</td>
-                  <td>{a.course?.title || '—'}</td>
-                  <td>
-                    <span className={`hrtm-badge ${a.isMandatory ? 'hrtm-badge-internal' : ''}`} style={!a.isMandatory ? { background: '#f1f5f9', color: '#64748b' } : {}}>
-                      {a.isMandatory ? 'Yes' : 'No'}
-                    </span>
-                  </td>
-                  <td>{formatDate(a.dueDate)}</td>
-                  <td><span className={`hrtm-badge hrtm-badge-${(a.status || '').toLowerCase().replace(' ', '-')}`}><span className="hrtm-badge-dot" />{a.status}</span></td>
-                  <td>
-                    <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                      <button type="button" className="hrtm-action-btn hrtm-action-btn-edit" onClick={() => openEditModal('assignment', a)} title="Edit Assignment">✏️ Edit</button>
-                      <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" onClick={() => handleDelete('assignment', a._id)} title="Delete Assignment">🗑️ Delete</button>
-                    </div>
+              {filteredAssignments.length === 0 ? (
+                <tr>
+                  <td colSpan="12" className="hrtm-empty">
+                    No assignments found matching your filter criteria. Click "+ Assign Employee(s)" to create an assignment.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredAssignments.map(a => {
+                  const prog = getAssignmentProgress(a);
+                  const progressPct = a.progress !== undefined && a.progress !== null
+                    ? a.progress
+                    : (prog?.progressPercent !== undefined ? prog.progressPercent : (a.status === 'Completed' ? 100 : (a.status === 'In Progress' ? 50 : 0)));
+
+                  const empIdStr = a.employee?.employeeId || (a.employee?._id ? `EMP-${String(a.employee._id).slice(-6).toUpperCase()}` : 'EMP-001');
+                  const isOverdue = a.dueDate && new Date(a.dueDate) < new Date() && a.status !== 'Completed';
+
+                  return (
+                    <tr key={a._id}>
+                      {/* Employee */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}>
+                            {(a.employee?.firstName?.[0] || 'E').toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="hrtm-primary-title">{getEmpName(a.employee)}</span>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{a.employee?.email || '—'}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Employee ID */}
+                      <td>
+                        <span className="hrtm-code-badge">{empIdStr}</span>
+                      </td>
+
+                      {/* Department */}
+                      <td>
+                        <span className="hrtm-badge hrtm-badge-secondary" style={{ fontSize: '0.72rem' }}>
+                          {a.employee?.department || 'General'}
+                        </span>
+                      </td>
+
+                      {/* Designation */}
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: '#334155' }}>
+                          {a.employee?.designation || 'Staff / Specialist'}
+                        </span>
+                      </td>
+
+                      {/* Program */}
+                      <td>
+                        <span className="hrtm-primary-title" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                          {a.program?.name || 'General Program'}
+                        </span>
+                      </td>
+
+                      {/* Course */}
+                      <td>
+                        <span style={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 500 }}>
+                          {a.course?.title || '—'}
+                        </span>
+                      </td>
+
+                      {/* Assigned Date */}
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                          {formatDate(a.startDate || a.createdAt)}
+                        </span>
+                      </td>
+
+                      {/* Due Date */}
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: isOverdue ? '#dc2626' : '#64748b', fontWeight: isOverdue ? 600 : 400 }}>
+                          {formatDate(a.dueDate)}
+                        </span>
+                      </td>
+
+                      {/* Progress */}
+                      <td>
+                        <div className="hrtm-progress-cell" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div className="hrtm-progress-bar" style={{ width: '45px', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div className="hrtm-progress-fill" style={{ width: `${progressPct}%`, height: '100%', background: progressPct >= 100 ? '#10b981' : '#2563eb' }} />
+                          </div>
+                          <span style={{ fontSize: '0.73rem', fontWeight: 600, color: '#334155' }}>{progressPct}%</span>
+                        </div>
+                      </td>
+
+                      {/* Training Status */}
+                      <td>
+                        <span className={`hrtm-badge hrtm-badge-${(a.status || 'assigned').toLowerCase().replace(' ', '-')}`}>
+                          <span className="hrtm-badge-dot" />
+                          {a.status || 'Assigned'}
+                        </span>
+                      </td>
+
+                      {/* Completion Status */}
+                      <td>
+                        {a.status === 'Completed' ? (
+                          <span className="hrtm-badge hrtm-badge-completed" title={`Completed on ${formatDate(a.completionDate || a.updatedAt)}`}>
+                            <span className="hrtm-badge-dot" />Completed
+                          </span>
+                        ) : (
+                          <span className="hrtm-badge hrtm-badge-in-progress">
+                            <span className="hrtm-badge-dot" />In Progress
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td>
+                        <div className="hrtm-action-group" style={{ justifyContent: 'center', gap: '0.28rem' }}>
+                          <button
+                            type="button"
+                            className="hrtm-action-btn hrtm-action-btn-view"
+                            title="View Assignment Details"
+                            onClick={() => setViewingAssignment(a)}
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            className="hrtm-action-btn hrtm-action-btn-edit"
+                            title="Edit Assignment"
+                            onClick={() => openEditModal('assignment', a)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="hrtm-action-btn hrtm-action-btn-delete"
+                            title="Delete Assignment"
+                            onClick={() => handleDelete('assignment', a._id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -1868,52 +2561,591 @@ export default function Training() {
       </div>
     </div>
   );
+  /* ──────────────── ASSESSMENTS MANAGEMENT ──────────────── */
+  const renderAssessments = () => {
+    // Dynamic KPIs for Assessments from Live MongoDB Atlas Data
+    const totalAssessments = assessments.length;
+    const publishedAssessments = assessments.filter(a => a.status === 'Published').length;
+    const totalSubmissions = assessmentSubmissions.length;
+    const pendingEvaluations = assessmentSubmissions.filter(s => s.evaluationStatus === 'Pending' || s.evaluationStatus === 'Needs Review' || (s.submittedAt && s.evaluationStatus !== 'Evaluated')).length;
+    const passedSubmissions = assessmentSubmissions.filter(s => s.passFail === 'Pass').length;
+    const failedSubmissions = assessmentSubmissions.filter(s => s.passFail === 'Fail').length;
 
-  const renderAssessments = () => (
-    <div className="hrtm-card">
-      <div className="hrtm-card-header">
-        <div>
-          <h2 className="hrtm-section-heading">Training Assessments</h2>
-          <span className="hrtm-section-subtext">{assessments.length} assessment record{assessments.length === 1 ? '' : 's'}</span>
+    // Filtered Assessments for Subtab 1
+    const qAsmtSearch = asmtSearch.toLowerCase().trim();
+    const filteredAssessments = assessments.filter(asmt => {
+      const title = (asmt.title || asmt.name || '').toLowerCase();
+      const courseTitle = (asmt.course?.title || '').toLowerCase();
+      const progName = (asmt.program?.name || '').toLowerCase();
+      if (qAsmtSearch && !title.includes(qAsmtSearch) && !courseTitle.includes(qAsmtSearch) && !progName.includes(qAsmtSearch)) return false;
+      if (asmtFilterProgram !== 'All' && String(asmt.program?._id || asmt.program) !== asmtFilterProgram) return false;
+      if (asmtFilterCourse !== 'All' && String(asmt.course?._id || asmt.course) !== asmtFilterCourse) return false;
+      if (asmtFilterStatus !== 'All' && asmt.status !== asmtFilterStatus) return false;
+      if (asmtFilterType !== 'All' && asmt.assessmentType !== asmtFilterType) return false;
+      return true;
+    });
+
+    // Filtered Submissions for Subtab 2 & 3
+    const filteredSubmissions = assessmentSubmissions.filter(sub => {
+      const empName = getEmpName(sub.employee).toLowerCase();
+      const asmtName = (sub.assessmentName || '').toLowerCase();
+      const courseName = (sub.course?.title || '').toLowerCase();
+      if (qAsmtSearch && !empName.includes(qAsmtSearch) && !asmtName.includes(qAsmtSearch) && !courseName.includes(qAsmtSearch)) return false;
+      if (asmtFilterProgram !== 'All' && String(sub.program?._id || sub.program) !== asmtFilterProgram) return false;
+      if (asmtFilterCourse !== 'All' && String(sub.course?._id || sub.course) !== asmtFilterCourse) return false;
+      if (asmtFilterDept !== 'All' && !(sub.employee?.department || '').toLowerCase().includes(asmtFilterDept.toLowerCase())) return false;
+      if (asmtFilterResult !== 'All' && sub.passFail !== asmtFilterResult) return false;
+      if (asmtFilterStatus !== 'All' && sub.evaluationStatus !== asmtFilterStatus) return false;
+      return true;
+    });
+
+    return (
+      <div className="hrtm-card">
+        {/* Dynamic KPIs */}
+        <div className="hrtm-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #7c3aed' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Total Assessments</span>
+              <span style={{ fontSize: '1.1rem' }}>📋</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#7c3aed', marginTop: '4px' }}>
+              <AnimatedNumber value={totalAssessments} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #10b981' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Published / Active</span>
+              <span style={{ fontSize: '1.1rem' }}>🚀</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#059669', marginTop: '4px' }}>
+              <AnimatedNumber value={publishedAssessments} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #2563eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Submissions</span>
+              <span style={{ fontSize: '1.1rem' }}>📥</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#2563eb', marginTop: '4px' }}>
+              <AnimatedNumber value={totalSubmissions} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #f59e0b' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Pending Evaluation</span>
+              <span style={{ fontSize: '1.1rem' }}>⏳</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#d97706', marginTop: '4px' }}>
+              <AnimatedNumber value={pendingEvaluations} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #16a34a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Passed</span>
+              <span style={{ fontSize: '1.1rem' }}>🏆</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#16a34a', marginTop: '4px' }}>
+              <AnimatedNumber value={passedSubmissions} />
+            </div>
+          </div>
+          <div className="hrtm-kpi-card" style={{ padding: '0.75rem 1rem', borderLeft: '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="hrtm-kpi-label" style={{ fontSize: '0.72rem', color: '#64748b' }}>Failed</span>
+              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            </div>
+            <div className="hrtm-kpi-value" style={{ fontSize: '1.4rem', fontWeight: 700, color: '#dc2626', marginTop: '4px' }}>
+              <AnimatedNumber value={failedSubmissions} />
+            </div>
+          </div>
         </div>
-        <button className="hrtm-btn hrtm-btn-primary hrtm-btn-sm" onClick={() => openCreateModal('assessment')}>+ Record Assessment</button>
+
+        {/* Header with Title & Action Button */}
+        <div className="hrtm-card-header" style={{ flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div>
+            <h2 className="hrtm-section-heading">Assessments</h2>
+            <span className="hrtm-section-subtext">Employee learning evaluation, testing, questions, submissions, and grading</span>
+          </div>
+          <button
+            type="button"
+            className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+            onClick={() => openCreateAssessmentModal()}
+          >
+            + Create Assessment
+          </button>
+        </div>
+
+        {/* Sub-Navigation Tabs */}
+        <div className="hrtm-asmt-nav" style={{ marginBottom: '1rem' }}>
+          <button
+            type="button"
+            className={`hrtm-asmt-tab ${assessmentSubtab === 'assessments' ? 'active' : ''}`}
+            onClick={() => setAssessmentSubtab('assessments')}
+          >
+            <span>📋</span> Assessment Catalog & Builder ({assessments.length})
+          </button>
+          <button
+            type="button"
+            className={`hrtm-asmt-tab ${assessmentSubtab === 'evaluations' ? 'active' : ''}`}
+            onClick={() => setAssessmentSubtab('evaluations')}
+          >
+            <span>📝</span> Evaluation Queue ({pendingEvaluations})
+          </button>
+          <button
+            type="button"
+            className={`hrtm-asmt-tab ${assessmentSubtab === 'results' ? 'active' : ''}`}
+            onClick={() => setAssessmentSubtab('results')}
+          >
+            <span>📊</span> Results & Performance ({totalSubmissions})
+          </button>
+        </div>
+
+        {/* ── SUBTAB 1: ASSESSMENT CATALOG & BUILDER ── */}
+        {assessmentSubtab === 'assessments' && (
+          <>
+            <div className="hrtm-filter-toolbar" style={{ marginBottom: '1rem' }}>
+              <div className="hrtm-filter-group" style={{ flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="hrtm-search"
+                  placeholder="Search Assessment, Course, Program..."
+                  value={asmtSearch}
+                  onChange={e => setAsmtSearch(e.target.value)}
+                  style={{ minWidth: '220px' }}
+                />
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Programs' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                    value={asmtFilterProgram}
+                    onChange={setAsmtFilterProgram}
+                    placeholder="All Programs"
+                  />
+                </div>
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Courses' }, ...courses.map(c => ({ value: c._id, label: c.title }))]}
+                    value={asmtFilterCourse}
+                    onChange={setAsmtFilterCourse}
+                    placeholder="All Courses"
+                  />
+                </div>
+                <div style={{ minWidth: '130px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Statuses' }, { value: 'Draft', label: 'Draft' }, { value: 'Published', label: 'Published' }, { value: 'Closed', label: 'Closed' }]}
+                    value={asmtFilterStatus}
+                    onChange={setAsmtFilterStatus}
+                    placeholder="All Statuses"
+                  />
+                </div>
+                <div style={{ minWidth: '130px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Types' }, { value: 'Quiz', label: 'Quiz' }, { value: 'Exam', label: 'Exam' }, { value: 'Practical', label: 'Practical' }, { value: 'Assignment', label: 'Assignment' }, { value: 'Survey', label: 'Survey' }]}
+                    value={asmtFilterType}
+                    onChange={setAsmtFilterType}
+                    placeholder="All Types"
+                  />
+                </div>
+                {(asmtSearch || asmtFilterProgram !== 'All' || asmtFilterCourse !== 'All' || asmtFilterStatus !== 'All' || asmtFilterType !== 'All') && (
+                  <button
+                    type="button"
+                    className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                    onClick={() => {
+                      setAsmtSearch('');
+                      setAsmtFilterProgram('All');
+                      setAsmtFilterCourse('All');
+                      setAsmtFilterStatus('All');
+                      setAsmtFilterType('All');
+                    }}
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="hrtm-table-wrap">
+              <table className="hrtm-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '20%', minWidth: '180px' }}>Assessment Name</th>
+                    <th style={{ width: '18%', minWidth: '170px' }}>Course & Program</th>
+                    <th style={{ width: '14%', minWidth: '130px' }}>Marks & Pass</th>
+                    <th style={{ width: '9%', minWidth: '85px' }}>Duration</th>
+                    <th style={{ width: '13%', minWidth: '130px' }}>Schedule</th>
+                    <th style={{ width: '10%', minWidth: '100px' }}>Status</th>
+                    <th style={{ width: '16%', minWidth: '220px', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAssessments.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="hrtm-empty">
+                        No assessments found matching the criteria. Click "+ Create Assessment" to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAssessments.map(asmt => {
+                      const qCount = asmt.questions?.length || 0;
+                      const totalMarks = asmt.totalMarks || asmt.maxScore || 100;
+                      const passMarks = asmt.passingMarks || asmt.passingScore || 60;
+
+                      return (
+                        <tr key={asmt._id}>
+                          <td>
+                            <span className="hrtm-primary-title">{asmt.title || asmt.name || 'Untitled Assessment'}</span>
+                            <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '2px' }}>
+                              <span className="hrtm-code-badge" style={{ fontSize: '0.68rem', padding: '1px 5px' }}>
+                                {asmt.assessmentType || 'Quiz'}
+                              </span>
+                              <span style={{ marginLeft: '6px' }}>{qCount} Questions</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="hrtm-primary-cell">
+                              <span className="hrtm-primary-title" style={{ fontWeight: 500 }}>
+                                {asmt.course?.title || 'All / General'}
+                              </span>
+                              {asmt.program?.name && (
+                                <span className="hrtm-cell-subtext">{asmt.program.name}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <strong>{passMarks}</strong> / {totalMarks}
+                            <span className="hrtm-cell-subtext">Pass: {Math.round((passMarks / totalMarks) * 100)}%</span>
+                          </td>
+                          <td>{asmt.duration ? `${asmt.duration} mins` : 'Untimed'}</td>
+                          <td>
+                            <div style={{ fontSize: '0.78rem' }}>
+                              <div>Start: {formatDate(asmt.startDate)}</div>
+                              <div style={{ color: '#64748b' }}>End: {formatDate(asmt.endDate)}</div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`hrtm-badge hrtm-badge-${(asmt.status || 'draft').toLowerCase()}`}>
+                              <span className="hrtm-badge-dot" />
+                              {asmt.status || 'Draft'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                className="hrtm-action-btn hrtm-action-btn-view"
+                                title="View Assessment Details"
+                                onClick={() => openViewAssessmentModal(asmt)}
+                              >
+                                👁️
+                              </button>
+                              <button
+                                type="button"
+                                className="hrtm-action-btn hrtm-action-btn-edit"
+                                title="Edit Assessment & Questions"
+                                onClick={() => openEditAssessmentModal(asmt)}
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                type="button"
+                                className={`hrtm-action-btn ${asmt.status === 'Published' ? 'hrtm-action-btn-close' : 'hrtm-action-btn-publish'}`}
+                                title={asmt.status === 'Published' ? 'Close Assessment' : 'Publish Assessment'}
+                                onClick={() => handleTogglePublishAssessment(asmt)}
+                              >
+                                {asmt.status === 'Published' ? '🔒' : '🚀'}
+                              </button>
+                              <button
+                                type="button"
+                                className="hrtm-action-btn hrtm-action-btn-assign"
+                                title="Assign to Employees"
+                                onClick={() => openAssignAssessmentModal(asmt)}
+                              >
+                                👥
+                              </button>
+                              <button
+                                type="button"
+                                className="hrtm-action-btn hrtm-action-btn-results"
+                                title="View Submissions & Results"
+                                onClick={() => {
+                                  setAsmtSearch(asmt.title || asmt.name || '');
+                                  setAssessmentSubtab('results');
+                                }}
+                              >
+                                📊
+                              </button>
+                              <button
+                                type="button"
+                                className="hrtm-action-btn hrtm-action-btn-delete"
+                                title="Delete Assessment"
+                                onClick={() => handleDeleteAssessment(asmt._id)}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── SUBTAB 2: EVALUATION QUEUE ── */}
+        {assessmentSubtab === 'evaluations' && (
+          <>
+            <div className="hrtm-filter-toolbar" style={{ marginBottom: '1rem' }}>
+              <div className="hrtm-filter-group" style={{ flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="hrtm-search"
+                  placeholder="Search candidate, assessment, course..."
+                  value={asmtSearch}
+                  onChange={e => setAsmtSearch(e.target.value)}
+                  style={{ minWidth: '220px' }}
+                />
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Programs' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                    value={asmtFilterProgram}
+                    onChange={setAsmtFilterProgram}
+                    placeholder="All Programs"
+                  />
+                </div>
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Courses' }, ...courses.map(c => ({ value: c._id, label: c.title }))]}
+                    value={asmtFilterCourse}
+                    onChange={setAsmtFilterCourse}
+                    placeholder="All Courses"
+                  />
+                </div>
+                <div style={{ minWidth: '140px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Departments' }, ...departments.map(d => ({ value: d.name, label: d.name }))]}
+                    value={asmtFilterDept}
+                    onChange={setAsmtFilterDept}
+                    placeholder="All Departments"
+                  />
+                </div>
+                <div style={{ minWidth: '140px' }}>
+                  <CustomSelect
+                    options={[
+                      { value: 'All', label: 'All Evaluations' },
+                      { value: 'Pending', label: 'Pending Evaluation' },
+                      { value: 'Needs Review', label: 'Needs Review' },
+                      { value: 'Evaluated', label: 'Evaluated' }
+                    ]}
+                    value={asmtFilterStatus}
+                    onChange={setAsmtFilterStatus}
+                    placeholder="Status"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="hrtm-table-wrap">
+              <table className="hrtm-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '20%', minWidth: '170px' }}>Candidate</th>
+                    <th style={{ width: '13%', minWidth: '110px' }}>Department</th>
+                    <th style={{ width: '20%', minWidth: '170px' }}>Assessment</th>
+                    <th style={{ width: '16%', minWidth: '140px' }}>Course</th>
+                    <th style={{ width: '11%', minWidth: '100px' }}>Submitted</th>
+                    <th style={{ width: '10%', minWidth: '95px' }}>Score</th>
+                    <th style={{ width: '10%', minWidth: '105px', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="hrtm-empty">
+                        No submissions currently in queue for evaluation.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSubmissions.map((sub, idx) => (
+                      <tr key={sub._id || idx}>
+                        <td>
+                          <span className="hrtm-primary-title">{getEmpName(sub.employee)}</span>
+                          <span className="hrtm-cell-subtext">{sub.employee?.email || ''}</span>
+                        </td>
+                        <td>{sub.employee?.department || 'General'}</td>
+                        <td>
+                          <strong style={{ color: '#0f172a' }}>{sub.assessmentName || 'Assessment'}</strong>
+                        </td>
+                        <td>{sub.course?.title || '—'}</td>
+                        <td>{formatDate(sub.submittedAt || sub.submissionDate)}</td>
+                        <td>
+                          {sub.score !== null && sub.score !== undefined ? (
+                            <span className="hrtm-code-badge">{sub.score} marks</span>
+                          ) : (
+                            <span style={{ color: '#d97706', fontWeight: 600 }}>Pending</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
+                            <button
+                              type="button"
+                              className="hrtm-action-btn hrtm-action-btn-evaluate"
+                              title="Evaluate Submission"
+                              onClick={() => openEvaluateModal(sub)}
+                            >
+                              📝 Evaluate
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── SUBTAB 3: RESULTS & PERFORMANCE ── */}
+        {assessmentSubtab === 'results' && (
+          <>
+            <div className="hrtm-filter-toolbar" style={{ marginBottom: '1rem' }}>
+              <div className="hrtm-filter-group" style={{ flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="hrtm-search"
+                  placeholder="Search candidate, assessment, course..."
+                  value={asmtSearch}
+                  onChange={e => setAsmtSearch(e.target.value)}
+                  style={{ minWidth: '220px' }}
+                />
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Programs' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                    value={asmtFilterProgram}
+                    onChange={setAsmtFilterProgram}
+                    placeholder="All Programs"
+                  />
+                </div>
+                <div style={{ minWidth: '150px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Courses' }, ...courses.map(c => ({ value: c._id, label: c.title }))]}
+                    value={asmtFilterCourse}
+                    onChange={setAsmtFilterCourse}
+                    placeholder="All Courses"
+                  />
+                </div>
+                <div style={{ minWidth: '140px' }}>
+                  <CustomSelect
+                    options={[{ value: 'All', label: 'All Departments' }, ...departments.map(d => ({ value: d.name, label: d.name }))]}
+                    value={asmtFilterDept}
+                    onChange={setAsmtFilterDept}
+                    placeholder="All Departments"
+                  />
+                </div>
+                <div style={{ minWidth: '120px' }}>
+                  <CustomSelect
+                    options={[
+                      { value: 'All', label: 'All Results' },
+                      { value: 'Pass', label: 'Pass' },
+                      { value: 'Fail', label: 'Fail' }
+                    ]}
+                    value={asmtFilterResult}
+                    onChange={setAsmtFilterResult}
+                    placeholder="Result"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="hrtm-table-wrap">
+              <table className="hrtm-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '16%', minWidth: '150px' }}>Candidate</th>
+                    <th style={{ width: '11%', minWidth: '100px' }}>Department</th>
+                    <th style={{ width: '17%', minWidth: '150px' }}>Assessment</th>
+                    <th style={{ width: '14%', minWidth: '130px' }}>Course & Program</th>
+                    <th style={{ width: '7%', minWidth: '65px' }}>Total</th>
+                    <th style={{ width: '8%', minWidth: '70px' }}>Marks</th>
+                    <th style={{ width: '8%', minWidth: '70px' }}>%</th>
+                    <th style={{ width: '7%', minWidth: '75px' }}>Result</th>
+                    <th style={{ width: '6%', minWidth: '55px' }}>Grade</th>
+                    <th style={{ width: '9%', minWidth: '85px' }}>Date</th>
+                    <th style={{ width: '7%', minWidth: '65px', textAlign: 'center' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan="11" className="hrtm-empty">
+                        No assessment result records found matching the criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSubmissions.map((sub, idx) => (
+                      <tr key={sub._id || idx}>
+                        <td>
+                          <span className="hrtm-primary-title">{getEmpName(sub.employee)}</span>
+                          <span className="hrtm-cell-subtext">{sub.employee?.email || ''}</span>
+                        </td>
+                        <td>{sub.employee?.department || 'General'}</td>
+                        <td>
+                          <strong style={{ color: '#0f172a' }}>{sub.assessmentName || 'Assessment'}</strong>
+                        </td>
+                        <td>
+                          <div className="hrtm-primary-cell">
+                            <span className="hrtm-primary-title" style={{ fontWeight: 500 }}>
+                              {sub.course?.title || '—'}
+                            </span>
+                            {sub.program?.name && (
+                              <span className="hrtm-cell-subtext">{sub.program.name}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>{sub.totalMarks || 100}</td>
+                        <td>
+                          <strong>{sub.marksObtained !== null && sub.marksObtained !== undefined ? sub.marksObtained : (sub.score !== undefined ? sub.score : '—')}</strong>
+                        </td>
+                        <td>
+                          <strong style={{ color: (sub.percentage || 0) >= 60 ? '#16a34a' : '#dc2626' }}>
+                            {sub.percentage !== null && sub.percentage !== undefined ? `${sub.percentage}%` : '—'}
+                          </strong>
+                        </td>
+                        <td>
+                          <span className={`hrtm-badge hrtm-badge-${(sub.passFail || 'pending').toLowerCase()}`}>
+                            <span className="hrtm-badge-dot" />
+                            {sub.passFail || 'Pending'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="hrtm-code-badge" style={{ fontWeight: 700 }}>
+                            {sub.grade || (sub.percentage >= 90 ? 'A+' : sub.percentage >= 80 ? 'A' : sub.percentage >= 70 ? 'B' : sub.percentage >= 60 ? 'C' : 'F')}
+                          </span>
+                        </td>
+                        <td>{formatDate(sub.submittedAt || sub.submissionDate)}</td>
+                        <td>
+                          <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
+                            <button
+                              type="button"
+                              className="hrtm-action-btn hrtm-action-btn-edit"
+                              title="Re-evaluate / Edit Marks"
+                              onClick={() => openEvaluateModal(sub)}
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
-      <div className="hrtm-table-wrap">
-        <table className="hrtm-table">
-          <thead>
-            <tr>
-              <th style={{ width: '22%', minWidth: '180px' }}>Employee</th>
-              <th style={{ width: '25%', minWidth: '200px' }}>Course</th>
-              <th style={{ width: '12%', minWidth: '100px' }}>Score</th>
-              <th style={{ width: '12%', minWidth: '100px' }}>Passing Score</th>
-              <th style={{ width: '10%', minWidth: '95px' }}>Result</th>
-              <th style={{ width: '13%', minWidth: '120px' }}>Assessment Date</th>
-              <th style={{ width: '6%', minWidth: '80px', textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assessments.length === 0 ? (
-              <tr><td colSpan="7" className="hrtm-empty">No assessment records found</td></tr>
-            ) : assessments.map(ass => (
-              <tr key={ass._id}>
-                <td><span className="hrtm-primary-title">{getEmpName(ass.employee)}</span></td>
-                <td>{ass.course?.title || '—'}</td>
-                <td><strong>{ass.score}</strong> / {ass.maxScore}</td>
-                <td>{ass.passingScore}</td>
-                <td><span className={`hrtm-badge hrtm-badge-${(ass.result || '').toLowerCase()}`}><span className="hrtm-badge-dot" />{ass.result}</span></td>
-                <td>{formatDate(ass.assessmentDate)}</td>
-                <td>
-                  <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                    <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" onClick={() => handleDelete('assessment', ass._id)} title="Delete Assessment">🗑️</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderCertifications = () => (
     <div className="hrtm-card">
@@ -1930,14 +3162,14 @@ export default function Training() {
         <table className="hrtm-table">
           <thead>
             <tr>
-              <th style={{ width: '14%', minWidth: '120px' }}>Certificate #</th>
-              <th style={{ width: '18%', minWidth: '160px' }}>Employee</th>
-              <th style={{ width: '16%', minWidth: '150px' }}>Program</th>
-              <th style={{ width: '16%', minWidth: '150px' }}>Course</th>
-              <th style={{ width: '11%', minWidth: '110px' }}>Completion Date</th>
-              <th style={{ width: '10%', minWidth: '105px' }}>Issue Date</th>
-              <th style={{ width: '8%', minWidth: '95px' }}>Status</th>
-              <th style={{ width: '7%', minWidth: '150px', textAlign: 'center' }}>Actions</th>
+              <th style={{ width: '13%', minWidth: '110px' }}>Certificate #</th>
+              <th style={{ width: '16%', minWidth: '140px' }}>Employee</th>
+              <th style={{ width: '14%', minWidth: '120px' }}>Program</th>
+              <th style={{ width: '14%', minWidth: '120px' }}>Course</th>
+              <th style={{ width: '10%', minWidth: '100px' }}>Completion Date</th>
+              <th style={{ width: '9%', minWidth: '95px' }}>Issue Date</th>
+              <th style={{ width: '8%', minWidth: '85px' }}>Status</th>
+              <th style={{ width: '16%', minWidth: '320px', textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1953,21 +3185,49 @@ export default function Training() {
                 <td>{formatDate(cert.issueDate)}</td>
                 <td><span className={`hrtm-badge hrtm-badge-${(cert.status || '').toLowerCase().replace(' ', '-')}`}><span className="hrtm-badge-dot" />{cert.status}</span></td>
                 <td>
-                  <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                    <button type="button" className="hrtm-action-btn hrtm-action-btn-view" title="View / Preview Certificate" onClick={() => setPreviewCert(cert)}>👁️</button>
+                  <div className="hrtm-action-group" style={{ justifyContent: 'center', gap: '0.28rem' }}>
                     <button
                       type="button"
                       className="hrtm-action-btn hrtm-action-btn-view"
+                      title="View / Preview Certificate"
+                      onClick={() => setPreviewCert(cert)}
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      className="hrtm-action-btn hrtm-action-btn-download"
                       title="Download PDF"
                       onClick={() => handleDownloadPdf(cert)}
                       disabled={downloadingCertId === cert._id}
                     >
-                      {downloadingCertId === cert._id ? '⏳' : '📥'}
+                      {downloadingCertId === cert._id ? 'Downloading...' : 'Download'}
                     </button>
-                    {cert.status !== 'Revoked' && (
-                      <button type="button" className="hrtm-action-btn hrtm-action-btn-edit" title="Revoke Certificate" onClick={() => handleRevokeCert(cert._id)}>🚫</button>
-                    )}
-                    <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" title="Delete" onClick={() => handleDelete('certification', cert._id)}>🗑️</button>
+                    <button
+                      type="button"
+                      className="hrtm-action-btn hrtm-action-btn-edit"
+                      title="Edit Certification"
+                      onClick={() => openEditCertModal(cert)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="hrtm-action-btn hrtm-action-btn-deactivate"
+                      title={cert.status === 'Revoked' ? 'Certificate is already deactivated' : 'Deactivate Certificate'}
+                      onClick={() => handleRevokeCert(cert._id)}
+                      disabled={cert.status === 'Revoked'}
+                    >
+                      Deactivate
+                    </button>
+                    <button
+                      type="button"
+                      className="hrtm-action-btn hrtm-action-btn-delete"
+                      title="Delete Certificate"
+                      onClick={() => handleDelete('certification', cert._id)}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -2062,120 +3322,465 @@ export default function Training() {
     </div>
   );
 
-  const renderCosts = () => (
-    <div className="hrtm-card">
-      <div className="hrtm-card-header">
-        <div>
-          <h2 className="hrtm-section-heading">Cost & Expense Management</h2>
-          <span className="hrtm-section-subtext">{costs.length} expense item{costs.length === 1 ? '' : 's'}</span>
-        </div>
-        <button className="hrtm-btn hrtm-btn-primary hrtm-btn-sm" onClick={() => openCreateModal('cost')}>+ Record Cost</button>
-      </div>
-      <div className="hrtm-table-wrap">
-        <table className="hrtm-table">
-          <thead>
-            <tr>
-              <th style={{ width: '24%', minWidth: '200px' }}>Expense Title</th>
-              <th style={{ width: '22%', minWidth: '190px' }}>Program / Course</th>
-              <th style={{ width: '24%', minWidth: '200px' }}>Breakdown</th>
-              <th style={{ width: '12%', minWidth: '100px' }}>Total Cost</th>
-              <th style={{ width: '11%', minWidth: '105px' }}>Date Incurred</th>
-              <th style={{ width: '7%', minWidth: '130px', textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {costs.length === 0 ? (
-              <tr><td colSpan="6" className="hrtm-empty">No training costs recorded</td></tr>
-            ) : costs.map(c => (
-              <tr key={c._id}>
-                <td><span className="hrtm-primary-title">{c.title}</span></td>
-                <td>{c.program?.name || c.course?.title || 'General'}</td>
-                <td><span className="hrtm-cell-subtext">Fee: ₹{c.courseFee || 0} | Trainer: ₹{c.trainerFee || 0} | Venue: ₹{c.venueCost || 0}</span></td>
-                <td><strong>₹{(c.totalCost || 0).toLocaleString()}</strong></td>
-                <td>{formatDate(c.dateIncurred)}</td>
-                <td>
-                  <div className="hrtm-action-group" style={{ justifyContent: 'center' }}>
-                    <button type="button" className="hrtm-action-btn hrtm-action-btn-edit" onClick={() => openEditModal('cost', c)} title="Edit Cost">✏️ Edit</button>
-                    <button type="button" className="hrtm-action-btn hrtm-action-btn-delete" onClick={() => handleDelete('cost', c._id)} title="Delete Cost">🗑️ Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 
-  const renderCostReports = () => {
-    const sum = costReports.summary || {};
+
+  /* ──────────────── EMPLOYEE ASSIGNMENT DETAIL VIEW MODAL ──────────────── */
+
+  const renderAssignmentDetailModal = () => {
+    if (!viewingAssignment) return null;
+    const a = viewingAssignment;
+    const matchedAsmt = getAssignmentAssessment(a);
+    const matchedSub = getAssignmentSubmission(a, matchedAsmt);
+    const matchedCert = getAssignmentCertification(a);
+    const matchedProg = getAssignmentProgress(a);
+
+    const progressPct = a.progress !== undefined && a.progress !== null
+      ? a.progress
+      : (matchedProg?.progressPercent !== undefined ? matchedProg.progressPercent : (a.status === 'Completed' ? 100 : (a.status === 'In Progress' ? 50 : 0)));
+
+    const empIdStr = a.employee?.employeeId || (a.employee?._id ? `EMP-${String(a.employee._id).slice(-6).toUpperCase()}` : 'EMP-001');
+
     return (
-      <div>
-        <div className="hrtm-cost-summary">
-          <div className="hrtm-cost-card">
-            <h5>Total Expenses</h5>
-            <p>₹{(sum.totalCost || 0).toLocaleString()}</p>
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-lg" style={{ maxWidth: '880px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="hrtm-modal-header" style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 1.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a' }}>Assignment Details</h3>
+              <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                Training & Progress Overview: {getEmpName(a.employee)} • {a.course?.title || 'Training Course'}
+              </span>
+            </div>
+            <button className="hrtm-modal-close" onClick={() => setViewingAssignment(null)}>✕</button>
           </div>
-          <div className="hrtm-cost-card">
-            <h5>Employees Trained</h5>
-            <p>{costReports.employeesTrained || 0}</p>
-          </div>
-          <div className="hrtm-cost-card">
-            <h5>Cost / Employee</h5>
-            <p>₹{(costReports.costPerEmployee || 0).toLocaleString()}</p>
-          </div>
-          <div className="hrtm-cost-card">
-            <h5>Cost / Completion</h5>
-            <p>₹{(costReports.costPerCompletedEmployee || 0).toLocaleString()}</p>
-          </div>
-        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-          <div className="hrtm-card">
-            <div className="hrtm-card-header">
-              <h2 className="hrtm-section-heading">Cost by Program</h2>
+          <div className="hrtm-modal-body" style={{ overflowY: 'auto', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Section 1: Employee Details */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>👤</span> Employee Details
+                </h4>
+                <span className="hrtm-code-badge" style={{ fontWeight: 600 }}>{empIdStr}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.82rem' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Full Name</span>
+                  <strong style={{ color: '#0f172a' }}>{getEmpName(a.employee)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Employee ID</span>
+                  <strong style={{ color: '#0f172a' }}>{empIdStr}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Department</span>
+                  <span style={{ color: '#0f172a' }}>{a.employee?.department || 'General'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Designation</span>
+                  <span style={{ color: '#0f172a' }}>{a.employee?.designation || 'Staff / Specialist'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Email Address</span>
+                  <span style={{ color: '#0f172a' }}>{a.employee?.email || '—'}</span>
+                </div>
+              </div>
             </div>
-            <div className="hrtm-table-wrap">
-              <table className="hrtm-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '65%', minWidth: '200px' }}>Program</th>
-                    <th style={{ width: '35%', minWidth: '120px' }}>Expenses</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(costReports.byProgram || []).map(p => (
-                    <tr key={p._id}>
-                      <td><span className="hrtm-primary-title">{p.programName || 'Unlinked'}</span></td>
-                      <td><strong>₹{(p.totalCost || 0).toLocaleString()}</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+            {/* Section 2: Training Details */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📚</span> Training Details
+                </h4>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span className={`hrtm-badge hrtm-badge-${(a.status || 'assigned').toLowerCase().replace(' ', '-')}`}>
+                    <span className="hrtm-badge-dot" />{a.status}
+                  </span>
+                  <button
+                    type="button"
+                    className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                    style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    onClick={() => {
+                      setViewingAssignment(null);
+                      openEditModal('assignment', a);
+                    }}
+                  >
+                    ✏️ Edit Assignment / Due Date
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Program</span>
+                  <strong style={{ color: '#0f172a' }}>{a.program?.name || 'General Program'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Course</span>
+                  <strong style={{ color: '#0f172a' }}>{a.course?.title || '—'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Assigned Date</span>
+                  <span style={{ color: '#0f172a' }}>{formatDate(a.startDate || a.createdAt)}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Due Date</span>
+                  <span style={{ color: '#0f172a' }}>{formatDate(a.dueDate)}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Mandatory Requirement</span>
+                  <span style={{ color: a.isMandatory ? '#b91c1c' : '#64748b', fontWeight: 600 }}>{a.isMandatory ? 'Yes (Mandatory)' : 'No (Optional)'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Attendance / Sessions</span>
+                  <span style={{ color: '#0f172a' }}>{matchedProg ? `${matchedProg.attendedSessions || 0} / ${matchedProg.totalSessions || 0} sessions` : 'Self-Paced'}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Training Progress</span>
+                  <strong style={{ color: '#2563eb' }}>{progressPct}%</strong>
+                </div>
+                <div className="hrtm-progress-bar" style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div className="hrtm-progress-fill" style={{ width: `${progressPct}%`, height: '100%', background: '#2563eb', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Assessment */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📝</span> Assessment
+                </h4>
+                <div>
+                  {matchedSub ? (
+                    <span className={`hrtm-badge hrtm-badge-${(matchedSub.passFail || 'pending').toLowerCase()}`}>
+                      <span className="hrtm-badge-dot" />{matchedSub.passFail || 'Pending'}
+                    </span>
+                  ) : matchedAsmt ? (
+                    <span className="hrtm-badge hrtm-badge-scheduled">Assigned</span>
+                  ) : (
+                    <span className="hrtm-badge" style={{ background: '#f1f5f9', color: '#64748b' }}>Not Assigned</span>
+                  )}
+                </div>
+              </div>
+
+              {matchedAsmt ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Assessment Name</span>
+                      <strong style={{ color: '#0f172a' }}>{matchedAsmt.title || matchedAsmt.name}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Type</span>
+                      <span className="hrtm-code-badge">{matchedAsmt.assessmentType || 'Quiz'}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Duration</span>
+                      <span>{matchedAsmt.duration || 45} mins</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Marks & Pass</span>
+                      <span>{matchedAsmt.totalMarks || 100} Total • Pass: {matchedAsmt.passingMarks || 60}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Questions</span>
+                      <span>{matchedAsmt.questions?.length || 0} Questions</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Assessment Status</span>
+                      <span className={`hrtm-badge hrtm-badge-${(matchedAsmt.status || 'draft').toLowerCase()}`}>{matchedAsmt.status}</span>
+                    </div>
+                  </div>
+
+                  {matchedSub ? (
+                    <div style={{ background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', padding: '0.75rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>Candidate Submission</span>
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          Submitted: {formatDate(matchedSub.submittedAt)} {matchedSub.attemptNumber ? `• Attempt #${matchedSub.attemptNumber}` : ''}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', fontSize: '0.8rem' }}>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Score Obtained</span>
+                          <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>
+                            {matchedSub.marksObtained !== null && matchedSub.marksObtained !== undefined ? matchedSub.marksObtained : (matchedSub.score ?? '—')} / {matchedSub.totalMarks || matchedAsmt.totalMarks || 100}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Percentage</span>
+                          <strong style={{ fontSize: '0.95rem', color: (matchedSub.percentage || 0) >= (matchedAsmt.passingMarks || 60) ? '#16a34a' : '#dc2626' }}>
+                            {matchedSub.percentage !== null && matchedSub.percentage !== undefined ? `${matchedSub.percentage}%` : '—'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Result</span>
+                          <span className={`hrtm-badge hrtm-badge-${(matchedSub.passFail || 'pending').toLowerCase()}`}>
+                            {matchedSub.passFail || 'Pending'}
+                          </span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Grade</span>
+                          <span className="hrtm-code-badge" style={{ fontWeight: 700 }}>
+                            {matchedSub.grade || (matchedSub.percentage >= 90 ? 'A+' : matchedSub.percentage >= 80 ? 'A' : matchedSub.percentage >= 70 ? 'B' : matchedSub.percentage >= 60 ? 'C' : 'F')}
+                          </span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Evaluator</span>
+                          <span style={{ color: '#334155' }}>{matchedSub.evaluator ? getEmpName(matchedSub.evaluator) : 'HR Evaluator'}</span>
+                        </div>
+                      </div>
+                      {matchedSub.remarks && (
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#475569', background: '#ffffff', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                          <strong>Remarks:</strong> {matchedSub.remarks}
+                        </div>
+                      )}
+                      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+                          onClick={() => {
+                            setViewingAssignment(null);
+                            openEvaluateModal(matchedSub);
+                          }}
+                        >
+                          📝 Re-evaluate / Grade Submission
+                        </button>
+                        <button
+                          type="button"
+                          className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                          onClick={() => {
+                            setViewingAssignment(null);
+                            openViewAssessmentModal(matchedAsmt);
+                          }}
+                        >
+                          👁️ View Assessment Questions
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        Assessment is assigned to this course. Candidate submission is currently pending.
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                          onClick={() => {
+                            setViewingAssignment(null);
+                            openViewAssessmentModal(matchedAsmt);
+                          }}
+                        >
+                          👁️ View Questions ({matchedAsmt.questions?.length || 0})
+                        </button>
+                        <button
+                          type="button"
+                          className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+                          onClick={() => {
+                            setViewingAssignment(null);
+                            openEvaluateModal({
+                              assessmentId: matchedAsmt._id,
+                              assessmentName: matchedAsmt.title || matchedAsmt.name,
+                              course: a.course,
+                              program: a.program,
+                              employee: a.employee,
+                              totalMarks: matchedAsmt.totalMarks || 100,
+                              passingMarks: matchedAsmt.passingMarks || 60,
+                            });
+                          }}
+                        >
+                          📝 Enter Grade / Evaluate
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: '0.85rem', background: '#fffbeb', borderRadius: '6px', border: '1px solid #fef3c7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#92400e' }}>
+                    No assessment is currently connected to <strong>{a.course?.title || 'this course'}</strong>.
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+                      onClick={() => {
+                        setViewingAssignment(null);
+                        openCreateAssessmentModal(a);
+                      }}
+                    >
+                      + Create Assessment for Course
+                    </button>
+                    {assessments.length > 0 && (
+                      <button
+                        type="button"
+                        className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                        onClick={() => {
+                          setViewingAssignment(null);
+                          openAssignAssessmentModal(assessments[0]);
+                        }}
+                      >
+                        📋 Assign Existing Assessment
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Certification */}
+            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📜</span> Certification
+                </h4>
+                <div>
+                  {matchedCert ? (
+                    <span className="hrtm-badge hrtm-badge-active">Awarded</span>
+                  ) : (a.status === 'Completed' || matchedSub?.passFail === 'Pass') ? (
+                    <span className="hrtm-badge hrtm-badge-active" style={{ background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0' }}>
+                      Eligible for Certification
+                    </span>
+                  ) : (
+                    <span className="hrtm-badge" style={{ background: '#f1f5f9', color: '#64748b' }}>
+                      Pending Completion
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {matchedCert ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.82rem' }}>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Certificate Number</span>
+                    <strong className="hrtm-code-badge">{matchedCert.certificateNumber}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Issue Date</span>
+                    <span>{formatDate(matchedCert.issueDate)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Expiry Date</span>
+                    <span>{matchedCert.expiryDate ? formatDate(matchedCert.expiryDate) : 'No Expiry (Lifetime)'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Final Score</span>
+                    <span>{matchedCert.finalScore !== undefined && matchedCert.finalScore !== null ? `${matchedCert.finalScore}%` : '—'}</span>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <button
+                      type="button"
+                      className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                      onClick={() => setPreviewCert(matchedCert)}
+                    >
+                      👁️ Preview Certificate
+                    </button>
+                    <button
+                      type="button"
+                      className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                      onClick={() => handleDownloadCert(matchedCert)}
+                    >
+                      ⬇️ Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                      onClick={() => openEditCertModal(matchedCert)}
+                    >
+                      ✏️ Edit Certification
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    {(a.status === 'Completed' || matchedSub?.passFail === 'Pass')
+                      ? 'This employee has satisfied course/assessment requirements and is eligible for a Certificate of Completion.'
+                      : 'Candidate will become eligible for a certificate upon passing the assessment or completing the training.'}
+                  </span>
+                  <button
+                    type="button"
+                    className="hrtm-btn hrtm-btn-primary hrtm-btn-sm"
+                    onClick={() => {
+                      setGenCertForm({
+                        employee: a.employee?._id || a.employee || '',
+                        program: a.program?._id || a.program || '',
+                        course: a.course?._id || a.course || '',
+                        assignment: a._id
+                      });
+                      setShowGenCertModal(true);
+                    }}
+                  >
+                    + Generate Certification
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Section 5: Completion */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>🏁</span> Completion
+                </h4>
+                <span className={`hrtm-badge hrtm-badge-${(a.status === 'Completed' ? 'completed' : 'in-progress')}`}>
+                  {a.status === 'Completed' ? 'Completed' : 'In Progress'}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Completion Date</span>
+                  <strong>{a.completionDate ? formatDate(a.completionDate) : (a.status === 'Completed' ? formatDate(a.updatedAt) : 'Pending completion')}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '0.72rem' }}>Overall Lifecycle Status</span>
+                  <span style={{ color: a.status === 'Completed' ? '#16a34a' : '#2563eb', fontWeight: 600 }}>
+                    {a.status === 'Completed' ? '100% Finalized' : 'Active Training Track'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Lifecycle Stepper */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.74rem', color: '#475569' }}>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>1. Assigned ✓</span>
+                <span>→</span>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: progressPct > 0 ? '#dcfce7' : '#f1f5f9', color: progressPct > 0 ? '#15803d' : '#64748b', fontWeight: 600 }}>
+                  2. Progress ({progressPct}%)
+                </span>
+                <span>→</span>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: matchedSub ? '#dcfce7' : (matchedAsmt ? '#fef3c7' : '#f1f5f9'), color: matchedSub ? '#15803d' : (matchedAsmt ? '#b45309' : '#64748b'), fontWeight: 600 }}>
+                  3. Assessment {matchedSub ? '✓' : (matchedAsmt ? '(Assigned)' : '(Pending)')}
+                </span>
+                <span>→</span>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: matchedSub?.evaluationStatus === 'Evaluated' ? '#dcfce7' : '#f1f5f9', color: matchedSub?.evaluationStatus === 'Evaluated' ? '#15803d' : '#64748b', fontWeight: 600 }}>
+                  4. Evaluation {matchedSub?.evaluationStatus === 'Evaluated' ? '✓' : ''}
+                </span>
+                <span>→</span>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: matchedSub?.passFail === 'Pass' ? '#dcfce7' : (matchedSub?.passFail === 'Fail' ? '#fee2e2' : '#f1f5f9'), color: matchedSub?.passFail === 'Pass' ? '#15803d' : (matchedSub?.passFail === 'Fail' ? '#b91c1c' : '#64748b'), fontWeight: 600 }}>
+                  5. Result {matchedSub?.passFail ? `(${matchedSub.passFail})` : ''}
+                </span>
+                <span>→</span>
+                <span style={{ padding: '2px 7px', borderRadius: '4px', background: matchedCert ? '#dcfce7' : '#f1f5f9', color: matchedCert ? '#15803d' : '#64748b', fontWeight: 600 }}>
+                  6. Certification {matchedCert ? '✓' : ''}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="hrtm-card">
-            <div className="hrtm-card-header">
-              <h2 className="hrtm-section-heading">Cost by Course</h2>
-            </div>
-            <div className="hrtm-table-wrap">
-              <table className="hrtm-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '65%', minWidth: '200px' }}>Course</th>
-                    <th style={{ width: '35%', minWidth: '120px' }}>Expenses</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(costReports.byCourse || []).map(c => (
-                    <tr key={c._id}>
-                      <td><span className="hrtm-primary-title">{c.courseTitle || 'Unlinked'}</span></td>
-                      <td><strong>₹{(c.totalCost || 0).toLocaleString()}</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+
+          <div className="hrtm-modal-footer" style={{ borderTop: '1px solid #e2e8f0', padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+              Assignment ID: {a._id}
+            </span>
+            <button
+              type="button"
+              className="hrtm-btn hrtm-btn-secondary"
+              onClick={() => setViewingAssignment(null)}
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
@@ -2552,73 +4157,20 @@ export default function Training() {
                 </>
               )}
 
-              {showModal === 'session' && (
-                <>
-                  <div className="hrtm-form-group">
-                    <label>Session Title *</label>
-                    <input type="text" required value={formData.sessionTitle || ''} onChange={e => setFormData({ ...formData, sessionTitle: e.target.value })} placeholder="e.g. Session 1: Fundamentals" />
-                  </div>
-                  <div className="hrtm-form-row">
-                    <div className="hrtm-form-group">
-                      <label>Program *</label>
-                      <CustomSelect
-                        options={programs.map(p => ({ value: p._id, label: p.name }))}
-                        value={formData.program || ''}
-                        onChange={v => {
-                          // Dynamic Program -> Course dependency filter
-                          const filteredCourses = courses.filter(c => !v || String(c.program || '') === String(v));
-                          const isValidCourse = filteredCourses.some(c => String(c._id) === String(formData.course));
-                          setFormData({
-                            ...formData,
-                            program: v,
-                            course: isValidCourse ? formData.course : ''
-                          });
-                        }}
-                        placeholder="-- Choose Program --"
-                      />
-                    </div>
-                    <div className="hrtm-form-group">
-                      <label>Course *</label>
-                      <CustomSelect
-                        options={courses
-                          .filter(c => !formData.program || String(c.program || '') === String(formData.program))
-                          .map(c => ({ value: c._id, label: c.title }))}
-                        value={formData.course || ''}
-                        onChange={v => setFormData({ ...formData, course: v })}
-                        placeholder="-- Choose Course --"
-                      />
-                    </div>
-                  </div>
-                  <div className="hrtm-form-row">
-                    <div className="hrtm-form-group">
-                      <label>Trainer</label>
-                      <CustomSelect
-                        options={trainers.map(t => ({ value: t._id, label: t.trainerType === 'Internal' ? getEmpName(t.employee) : t.name }))}
-                        value={formData.trainer || ''}
-                        onChange={v => setFormData({ ...formData, trainer: v })}
-                        placeholder="-- Choose Trainer --"
-                      />
-                    </div>
-                    <div className="hrtm-form-group">
-                      <label>Date *</label>
-                      <input type="date" required value={formData.sessionDate ? formData.sessionDate.slice(0, 10) : ''} onChange={e => setFormData({ ...formData, sessionDate: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="hrtm-form-row">
-                    <div className="hrtm-form-group">
-                      <label>Start Time</label>
-                      <input type="time" value={formData.startTime || ''} onChange={e => setFormData({ ...formData, startTime: e.target.value })} />
-                    </div>
-                    <div className="hrtm-form-group">
-                      <label>End Time</label>
-                      <input type="time" value={formData.endTime || ''} onChange={e => setFormData({ ...formData, endTime: e.target.value })} />
-                    </div>
-                  </div>
-                </>
-              )}
+
 
               {showModal === 'assignment' && (
                 <>
+                  {editingItem ? (
+                    <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block' }}>Assigned Employee</span>
+                      <strong style={{ fontSize: '0.92rem', color: '#0f172a' }}>{getEmpName(editingItem.employee)}</strong>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                        {editingItem.employee?.department || 'General'} {editingItem.employee?.email ? `• ${editingItem.employee.email}` : ''}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="hrtm-form-row">
                     <div className="hrtm-form-group">
                       <label>Program *</label>
@@ -2642,8 +4194,28 @@ export default function Training() {
 
                   {!editingItem ? (
                     <div className="hrtm-form-group">
-                      <label>Select Employees ({selectedEmployees.length} selected)</label>
-                      <div className="hrtm-emp-pick-list">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <label style={{ margin: 0 }}>Select Employees ({selectedEmployees.length} of {employees.length} selected) *</label>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            type="button"
+                            className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                            onClick={() => setSelectedEmployees(employees.map(e => e._id))}
+                          >
+                            Select All
+                          </button>
+                          <button
+                            type="button"
+                            className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                            onClick={() => setSelectedEmployees([])}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="hrtm-emp-pick-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         {employees.map(emp => {
                           const isSel = selectedEmployees.includes(emp._id);
                           return (
@@ -2652,22 +4224,69 @@ export default function Training() {
                               else setSelectedEmployees([...selectedEmployees, emp._id]);
                             }}>
                               <input type="checkbox" checked={isSel} onChange={() => { }} />
-                              <span>{getEmpName(emp)} ({emp.email})</span>
+                              <span>{getEmpName(emp)}</span>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b', marginLeft: 'auto' }}>{emp.department || 'General'}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                  ) : (
+                  ) : null}
+
+                  <div className="hrtm-form-row">
                     <div className="hrtm-form-group">
-                      <label>Status</label>
-                      <CustomSelect
-                        options={['Assigned', 'In Progress', 'Completed', 'Failed', 'Overdue']}
-                        value={formData.status || 'Assigned'}
-                        onChange={v => setFormData({ ...formData, status: v })}
+                      <label>Start Date</label>
+                      <input
+                        type="date"
+                        value={formData.startDate || ''}
+                        onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                       />
                     </div>
-                  )}
+                    <div className="hrtm-form-group">
+                      <label>Due Date *</label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.dueDate || ''}
+                        onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {editingItem ? (
+                    <div className="hrtm-form-row">
+                      <div className="hrtm-form-group">
+                        <label>Training Status *</label>
+                        <CustomSelect
+                          options={['Assigned', 'In Progress', 'Completed', 'Failed', 'Overdue']}
+                          value={formData.status || 'Assigned'}
+                          onChange={v => setFormData({ ...formData, status: v })}
+                        />
+                      </div>
+                      {formData.status === 'Completed' && (
+                        <div className="hrtm-form-group">
+                          <label>Completion Date</label>
+                          <input
+                            type="date"
+                            value={formData.completionDate || ''}
+                            onChange={e => setFormData({ ...formData, completionDate: e.target.value })}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="hrtm-form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <input
+                      type="checkbox"
+                      id="asgnMandatory"
+                      checked={formData.isMandatory !== false}
+                      onChange={e => setFormData({ ...formData, isMandatory: e.target.checked })}
+                    />
+                    <label htmlFor="asgnMandatory" style={{ margin: 0, cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', color: '#334155' }}>
+                      Mandatory Training Assignment (Required for completion & assessment)
+                    </label>
+                  </div>
                 </>
               )}
 
@@ -2780,111 +4399,7 @@ export default function Training() {
                 </>
               )}
 
-              {showModal === 'cost' && (
-                <>
-                  <div className="hrtm-form-group">
-                    <label>Expense Title *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.title || ''}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="e.g. External Instructor Fee, AWS Certification Voucher"
-                    />
-                  </div>
-                  <div className="hrtm-form-row">
-                    <div className="hrtm-form-group">
-                      <label>Training Program</label>
-                      <CustomSelect
-                        options={[
-                          { value: '', label: 'Select Program (Optional)' },
-                          ...programs.map((p) => ({ value: p._id, label: p.name })),
-                        ]}
-                        value={formData.program || ''}
-                        onChange={(v) => {
-                          setFormData({
-                            ...formData,
-                            program: v,
-                          });
-                        }}
-                        placeholder="-- Choose Program --"
-                      />
-                    </div>
-                    <div className="hrtm-form-group">
-                      <label>Training Course</label>
-                      <CustomSelect
-                        options={[
-                          { value: '', label: 'Select Course (Optional)' },
-                          ...courses
-                            .filter((c) => {
-                              if (!formData.program) return true;
-                              const selectedProg = programs.find((p) => String(p._id) === String(formData.program));
-                              if (selectedProg && Array.isArray(selectedProg.courses) && selectedProg.courses.length > 0) {
-                                return selectedProg.courses.some((pc) => String(pc._id || pc) === String(c._id));
-                              }
-                              return true;
-                            })
-                            .map((c) => ({
-                              value: c._id,
-                              label: c.title,
-                              subtitle: c.code ? `${c.code} • ${c.category || 'General'}` : (c.category || 'General')
-                            })),
-                        ]}
-                        value={formData.course || ''}
-                        onChange={(v) => setFormData({ ...formData, course: v })}
-                        placeholder="-- Choose Course (Optional) --"
-                      />
-                    </div>
-                  </div>
-                  <div className="hrtm-form-row">
-                    <div className="hrtm-form-group">
-                      <label>Cost Category / Type *</label>
-                      <CustomSelect
-                        options={[
-                          'Trainer Fee',
-                          'Course Fee',
-                          'Venue',
-                          'Materials',
-                          'Certification',
-                          'Other',
-                        ]}
-                        value={formData.category || 'Trainer Fee'}
-                        onChange={(v) => setFormData({ ...formData, category: v })}
-                      />
-                    </div>
-                    <div className="hrtm-form-group">
-                      <label>Amount (₹) *</label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        step="1"
-                        value={formData.amount || ''}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                        placeholder="e.g. 15000"
-                      />
-                    </div>
-                  </div>
-                  <div className="hrtm-form-group">
-                    <label>Date Incurred *</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.dateIncurred ? String(formData.dateIncurred).slice(0, 10) : ''}
-                      onChange={(e) => setFormData({ ...formData, dateIncurred: e.target.value })}
-                    />
-                  </div>
-                  <div className="hrtm-form-group">
-                    <label>Description / Notes</label>
-                    <textarea
-                      rows="3"
-                      value={formData.notes || ''}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Vendor details, invoice reference, or payment notes..."
-                    />
-                  </div>
-                </>
-              )}
+
             </div>
 
             <div className="hrtm-modal-footer">
@@ -4367,6 +5882,972 @@ export default function Training() {
     );
   };
 
+  const renderAssessmentFormModal = () => {
+    if (!showAssessmentModal) return null;
+
+    const availableCourses = assessmentForm.program
+      ? courses.filter(c => String(c.program?._id || c.program) === String(assessmentForm.program))
+      : courses;
+
+    return (
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-lg">
+          <div className="hrtm-modal-header">
+            <h3>{editingAssessment ? 'Edit Training Assessment' : 'Create New Training Assessment'}</h3>
+            <button type="button" className="hrtm-modal-close" onClick={() => setShowAssessmentModal(false)}>✕</button>
+          </div>
+          <form onSubmit={handleSaveAssessment}>
+            <div className="hrtm-modal-body">
+              {/* Basic Info Row 1 */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group" style={{ flex: 2 }}>
+                  <label>Assessment Name / Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={assessmentForm.name}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, name: e.target.value })}
+                    placeholder="e.g. Q3 React & Node.js Core Competency Exam"
+                  />
+                </div>
+                <div className="hrtm-form-group" style={{ flex: 1 }}>
+                  <label>Assessment Type *</label>
+                  <CustomSelect
+                    options={['Quiz', 'Exam', 'Practical', 'Assignment', 'Survey']}
+                    value={assessmentForm.assessmentType}
+                    onChange={v => setAssessmentForm({ ...assessmentForm, assessmentType: v })}
+                  />
+                </div>
+              </div>
+
+              {/* Basic Info Row 2: Program & Course */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Training Program</label>
+                  <CustomSelect
+                    options={[{ value: '', label: 'Select Program (Optional)' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                    value={assessmentForm.program}
+                    onChange={v => {
+                      setAssessmentForm({ ...assessmentForm, program: v, course: '' });
+                    }}
+                    placeholder="Select Program"
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Training Course *</label>
+                  <CustomSelect
+                    options={availableCourses.map(c => ({ value: c._id, label: c.title }))}
+                    value={assessmentForm.course}
+                    onChange={v => setAssessmentForm({ ...assessmentForm, course: v })}
+                    placeholder="-- Select Course --"
+                  />
+                </div>
+              </div>
+
+              {/* Scoring & Duration Row */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Duration (Minutes) *</label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="600"
+                    required
+                    value={assessmentForm.duration}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, duration: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Total Marks *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={assessmentForm.totalMarks}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, totalMarks: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Passing Marks / Score *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={assessmentForm.totalMarks}
+                    required
+                    value={assessmentForm.passingMarks}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, passingMarks: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Initial Status *</label>
+                  <CustomSelect
+                    options={['Draft', 'Published', 'Closed']}
+                    value={assessmentForm.status}
+                    onChange={v => setAssessmentForm({ ...assessmentForm, status: v })}
+                  />
+                </div>
+              </div>
+
+              {/* Dates Row */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={assessmentForm.startDate}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>End Date / Deadline</label>
+                  <input
+                    type="date"
+                    value={assessmentForm.endDate}
+                    onChange={e => setAssessmentForm({ ...assessmentForm, endDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Description & Instructions */}
+              <div className="hrtm-form-group">
+                <label>Description / Assessment Overview</label>
+                <textarea
+                  rows="2"
+                  value={assessmentForm.description}
+                  onChange={e => setAssessmentForm({ ...assessmentForm, description: e.target.value })}
+                  placeholder="Provide background, target skills, or objectives for this assessment..."
+                />
+              </div>
+              <div className="hrtm-form-group">
+                <label>Instructions for Candidates</label>
+                <textarea
+                  rows="2"
+                  value={assessmentForm.instructions}
+                  onChange={e => setAssessmentForm({ ...assessmentForm, instructions: e.target.value })}
+                  placeholder="e.g. Attempt all questions within the allocated time. Passing threshold is 60%."
+                />
+              </div>
+
+              {/* Question Management Builder */}
+              <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                      Questions & Tasks ({assessmentForm.questions?.length || 0})
+                    </h4>
+                    <span style={{ fontSize: '0.73rem', color: '#64748b' }}>
+                      Build multiple-choice, true/false, short answer, or practical tasks. Total question marks: {assessmentForm.questions?.reduce((s, q) => s + (Number(q.marks) || 0), 0) || 0}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                    onClick={handleAddQuestion}
+                  >
+                    + Add Question
+                  </button>
+                </div>
+
+                {(!assessmentForm.questions || assessmentForm.questions.length === 0) ? (
+                  <div style={{ padding: '1.25rem', textAlign: 'center', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.8rem' }}>
+                    No questions added yet. Click <strong>"+ Add Question"</strong> above to add assessment questions or tasks.
+                  </div>
+                ) : (
+                  assessmentForm.questions.map((q, qIdx) => (
+                    <div key={qIdx} className="hrtm-question-card">
+                      <div className="hrtm-question-header">
+                        <div className="hrtm-question-num">
+                          <span>Q{qIdx + 1}.</span>
+                          <div style={{ width: '160px' }}>
+                            <CustomSelect
+                              options={['Multiple Choice', 'True/False', 'Short Answer', 'Task/Practical']}
+                              value={q.questionType || 'Multiple Choice'}
+                              onChange={v => handleUpdateQuestion(qIdx, 'questionType', v)}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Marks:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              style={{ width: '65px', padding: '0.2rem 0.4rem', height: '28px', fontSize: '0.8rem' }}
+                              value={q.marks || 10}
+                              onChange={e => handleUpdateQuestion(qIdx, 'marks', Number(e.target.value))}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          <button
+                            type="button"
+                            className="hrtm-btn-icon"
+                            disabled={qIdx === 0}
+                            title="Move Up"
+                            onClick={() => handleMoveQuestion(qIdx, -1)}
+                          >
+                            ⬆️
+                          </button>
+                          <button
+                            type="button"
+                            className="hrtm-btn-icon"
+                            disabled={qIdx === assessmentForm.questions.length - 1}
+                            title="Move Down"
+                            onClick={() => handleMoveQuestion(qIdx, 1)}
+                          >
+                            ⬇️
+                          </button>
+                          <button
+                            type="button"
+                            className="hrtm-btn-icon"
+                            style={{ color: '#dc2626' }}
+                            title="Delete Question"
+                            onClick={() => handleRemoveQuestion(qIdx)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Question Text */}
+                      <div style={{ marginBottom: '0.6rem' }}>
+                        <textarea
+                          rows="2"
+                          placeholder="Enter question statement, scenario, or task prompt..."
+                          value={q.questionText || ''}
+                          onChange={e => handleUpdateQuestion(qIdx, 'questionText', e.target.value)}
+                        />
+                      </div>
+
+                      {/* Question Type Specific Content */}
+                      {q.questionType === 'Multiple Choice' && (
+                        <div style={{ background: '#f1f5f9', padding: '0.75rem', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>
+                            Options (Select radio for correct answer):
+                          </div>
+                          {(q.options || []).map((opt, optIdx) => (
+                            <div key={optIdx} className="hrtm-opt-row">
+                              <input
+                                type="radio"
+                                name={`correct_${qIdx}`}
+                                checked={q.correctAnswer === opt}
+                                onChange={() => handleUpdateQuestion(qIdx, 'correctAnswer', opt)}
+                                title="Mark as correct answer"
+                              />
+                              <input
+                                type="text"
+                                style={{ flex: 1, height: '28px', fontSize: '0.8rem' }}
+                                value={opt}
+                                onChange={e => handleUpdateOption(qIdx, optIdx, e.target.value)}
+                                placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                              />
+                              {(q.options?.length || 0) > 2 && (
+                                <button
+                                  type="button"
+                                  className="hrtm-btn-icon"
+                                  style={{ color: '#dc2626' }}
+                                  onClick={() => handleRemoveOption(qIdx, optIdx)}
+                                  title="Remove option"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="hrtm-btn hrtm-btn-secondary hrtm-btn-sm"
+                            style={{ marginTop: '0.35rem', fontSize: '0.72rem', padding: '0.2rem 0.6rem' }}
+                            onClick={() => handleAddOption(qIdx)}
+                          >
+                            + Add Option
+                          </button>
+                        </div>
+                      )}
+
+                      {q.questionType === 'True/False' && (
+                        <div style={{ display: 'flex', gap: '1.5rem', background: '#f1f5f9', padding: '0.5rem 0.75rem', borderRadius: '6px', marginBottom: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Correct Answer:</span>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                            <input
+                              type="radio"
+                              name={`tf_${qIdx}`}
+                              checked={q.correctAnswer === 'True'}
+                              onChange={() => handleUpdateQuestion(qIdx, 'correctAnswer', 'True')}
+                            />
+                            True
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                            <input
+                              type="radio"
+                              name={`tf_${qIdx}`}
+                              checked={q.correctAnswer === 'False'}
+                              onChange={() => handleUpdateQuestion(qIdx, 'correctAnswer', 'False')}
+                            />
+                            False
+                          </label>
+                        </div>
+                      )}
+
+                      {(q.questionType === 'Short Answer' || q.questionType === 'Task/Practical') && (
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <label style={{ fontSize: '0.73rem', color: '#475569', fontWeight: 600 }}>
+                            {q.questionType === 'Short Answer' ? 'Sample Correct Answer / Keywords:' : 'Evaluation Criteria / Expected Output:'}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Enter model answer or grading rubric..."
+                            value={q.correctAnswer || ''}
+                            onChange={e => handleUpdateQuestion(qIdx, 'correctAnswer', e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Explanation / Grading notes (optional)..."
+                          style={{ fontSize: '0.75rem', height: '26px' }}
+                          value={q.explanation || ''}
+                          onChange={e => handleUpdateQuestion(qIdx, 'explanation', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="hrtm-modal-footer">
+              <button
+                type="button"
+                className="hrtm-btn hrtm-btn-secondary"
+                onClick={() => setShowAssessmentModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="hrtm-btn hrtm-btn-primary"
+                disabled={savingAssessment}
+              >
+                {savingAssessment ? 'Saving to Atlas...' : (editingAssessment ? 'Update Assessment' : 'Create Assessment')}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderViewAssessmentModal = () => {
+    if (!viewingAssessment) return null;
+    const asmt = viewingAssessment;
+    const qCount = asmt.questions?.length || 0;
+    const totalMarks = asmt.totalMarks || asmt.maxScore || 100;
+    const passMarks = asmt.passingMarks || asmt.passingScore || 60;
+    const assignedList = asmt.assignedEmployees || [];
+    const submissionsList = asmt.submissions || [];
+
+    return (
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-lg">
+          <div className="hrtm-modal-header">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2px' }}>
+                <span className="hrtm-code-badge">{asmt.assessmentType || 'Quiz'}</span>
+                <span className={`hrtm-badge hrtm-badge-${(asmt.status || 'Draft').toLowerCase()}`}>
+                  <span className="hrtm-badge-dot" />{asmt.status || 'Draft'}
+                </span>
+              </div>
+              <h3 style={{ margin: 0 }}>{asmt.title || asmt.name}</h3>
+            </div>
+            <button type="button" className="hrtm-modal-close" onClick={() => setViewingAssessment(null)}>✕</button>
+          </div>
+
+          <div className="hrtm-modal-body">
+            {/* Meta Stats Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Course</span>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{asmt.course?.title || '—'}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Program</span>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{asmt.program?.name || 'General'}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Duration</span>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{asmt.duration ? `${asmt.duration} mins` : 'Flexible'}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Total / Passing</span>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>{totalMarks} / Pass: {passMarks}</div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Enrolled</span>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#2563eb' }}>{assignedList.length} Assigned · {submissionsList.length} Done</div>
+              </div>
+            </div>
+
+            {asmt.description && (
+              <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.8rem', color: '#334155' }}>Description:</strong>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#475569' }}>{asmt.description}</p>
+              </div>
+            )}
+            {asmt.instructions && (
+              <div style={{ marginBottom: '1rem', background: '#eff6ff', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                <strong style={{ fontSize: '0.8rem', color: '#1e40af' }}>Candidate Instructions:</strong>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#1e3a8a' }}>{asmt.instructions}</p>
+              </div>
+            )}
+
+            {/* Questions List */}
+            <div style={{ marginTop: '1rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
+                Questions ({qCount})
+              </h4>
+              {qCount === 0 ? (
+                <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '6px', color: '#64748b', fontSize: '0.8rem' }}>
+                  No questions defined yet.
+                </div>
+              ) : (
+                asmt.questions.map((q, idx) => (
+                  <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#1e293b' }}>
+                        Q{idx + 1}. ({q.marks || 10} marks)
+                      </span>
+                      <span className="hrtm-code-badge" style={{ fontSize: '0.7rem' }}>{q.questionType}</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: '#334155', marginBottom: '0.4rem' }}>{q.questionText}</div>
+                    {q.questionType === 'Multiple Choice' && Array.isArray(q.options) && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.35rem' }}>
+                        {q.options.map((opt, oIdx) => (
+                          <div
+                            key={oIdx}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              fontSize: '0.78rem',
+                              border: opt === q.correctAnswer ? '1px solid #86efac' : '1px solid #e2e8f0',
+                              background: opt === q.correctAnswer ? '#f0fdf4' : '#ffffff',
+                              color: opt === q.correctAnswer ? '#15803d' : '#475569',
+                              fontWeight: opt === q.correctAnswer ? 600 : 400
+                            }}
+                          >
+                            {opt === q.correctAnswer ? '✓ ' : ''}{opt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {q.correctAnswer && q.questionType !== 'Multiple Choice' && (
+                      <div style={{ fontSize: '0.75rem', color: '#15803d', marginTop: '0.35rem' }}>
+                        <strong>Correct:</strong> {q.correctAnswer}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Assigned Employees */}
+            {assignedList.length > 0 && (
+              <div style={{ marginTop: '1.25rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
+                  Assigned Candidates ({assignedList.length})
+                </h4>
+                <div className="hrtm-table-wrap" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <table className="hrtm-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Assigned Date</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignedList.map((a, idx) => (
+                        <tr key={idx}>
+                          <td><strong>{getEmpName(a.employee)}</strong></td>
+                          <td>{a.employee?.department || '—'}</td>
+                          <td>{formatDate(a.assignedDate)}</td>
+                          <td>{formatDate(a.dueDate)}</td>
+                          <td>
+                            <span className={`hrtm-badge hrtm-badge-${(a.status || 'Assigned').toLowerCase()}`}>
+                              {a.status || 'Assigned'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="hrtm-modal-footer">
+            <button
+              type="button"
+              className="hrtm-btn hrtm-btn-secondary"
+              onClick={() => {
+                setViewingAssessment(null);
+                openEditAssessmentModal(asmt);
+              }}
+            >
+              ✏️ Edit Assessment
+            </button>
+            <button
+              type="button"
+              className="hrtm-btn hrtm-btn-primary"
+              onClick={() => {
+                setViewingAssessment(null);
+                openAssignModal(asmt);
+              }}
+            >
+              👥 Assign to Employees
+            </button>
+            <button
+              type="button"
+              className="hrtm-btn hrtm-btn-secondary"
+              onClick={() => setViewingAssessment(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAssignAssessmentModal = () => {
+    if (!assigningAssessment) return null;
+    const asmt = assigningAssessment;
+
+    return (
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-md">
+          <div className="hrtm-modal-header">
+            <h3>Assign Assessment — {asmt.title || asmt.name}</h3>
+            <button type="button" className="hrtm-modal-close" onClick={() => setAssigningAssessment(null)}>✕</button>
+          </div>
+          <form onSubmit={handleSaveAssignment}>
+            <div className="hrtm-modal-body">
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1rem', fontSize: '0.8rem' }}>
+                <div>Course: <strong>{asmt.course?.title || '—'}</strong></div>
+                <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Duration: {asmt.duration || 30} mins · Total Marks: {asmt.totalMarks || 100}</div>
+              </div>
+
+              {/* Assignment Target Type */}
+              <div className="hrtm-form-group">
+                <label>Assignment Target *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {[
+                    { id: 'individual', label: '👤 Individual Employee' },
+                    { id: 'multiple', label: '👥 Multiple Employees' },
+                    { id: 'department', label: '🏢 Entire Department' },
+                    { id: 'course', label: '🎓 Course Participants' }
+                  ].map(tgt => (
+                    <label
+                      key={tgt.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '6px',
+                        border: assignForm.targetType === tgt.id ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                        background: assignForm.targetType === tgt.id ? '#eff6ff' : '#ffffff',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        fontWeight: assignForm.targetType === tgt.id ? 600 : 400
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="assignTarget"
+                        checked={assignForm.targetType === tgt.id}
+                        onChange={() => setAssignForm({ ...assignForm, targetType: tgt.id })}
+                      />
+                      {tgt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target: Individual */}
+              {assignForm.targetType === 'individual' && (
+                <div className="hrtm-form-group">
+                  <label>Select Employee *</label>
+                  <CustomSelect
+                    options={employees.map(e => ({ value: e._id, label: getEmpName(e), subtitle: e.department || e.email }))}
+                    value={assignForm.employeeId}
+                    onChange={v => setAssignForm({ ...assignForm, employeeId: v })}
+                    placeholder="-- Choose Employee --"
+                  />
+                </div>
+              )}
+
+              {/* Target: Multiple */}
+              {assignForm.targetType === 'multiple' && (
+                <div className="hrtm-form-group">
+                  <label>Select Multiple Employees * ({assignForm.selectedEmployeeIds?.length || 0} selected)</label>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.5rem', background: '#f8fafc' }}>
+                    {employees.map(e => {
+                      const isSelected = assignForm.selectedEmployeeIds?.includes(e._id);
+                      return (
+                        <label key={e._id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.4rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              const curr = assignForm.selectedEmployeeIds || [];
+                              const updated = isSelected ? curr.filter(id => id !== e._id) : [...curr, e._id];
+                              setAssignForm({ ...assignForm, selectedEmployeeIds: updated });
+                            }}
+                          />
+                          <span>{getEmpName(e)} <small style={{ color: '#64748b' }}>({e.department || 'General'})</small></span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Target: Department */}
+              {assignForm.targetType === 'department' && (
+                <div className="hrtm-form-group">
+                  <label>Select Department *</label>
+                  <CustomSelect
+                    options={departments.map(d => ({ value: d._id, label: d.name }))}
+                    value={assignForm.departmentId}
+                    onChange={v => setAssignForm({ ...assignForm, departmentId: v })}
+                    placeholder="-- Select Department --"
+                  />
+                  <small style={{ color: '#64748b', display: 'block', marginTop: '4px' }}>
+                    All active employees belonging to the selected department will be assigned.
+                  </small>
+                </div>
+              )}
+
+              {/* Target: Course Participants */}
+              {assignForm.targetType === 'course' && (
+                <div style={{ padding: '0.75rem', background: '#eff6ff', borderRadius: '6px', border: '1px solid #bfdbfe', fontSize: '0.8rem', color: '#1e3a8a', marginBottom: '1rem' }}>
+                  ℹ️ All employees currently enrolled or assigned to <strong>{asmt.course?.title || 'this course'}</strong> will automatically receive this assessment.
+                </div>
+              )}
+
+              {/* Due Date & Notes */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Due Date / Deadline</label>
+                  <input
+                    type="date"
+                    value={assignForm.dueDate}
+                    onChange={e => setAssignForm({ ...assignForm, dueDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-group">
+                <label>Instructions / Notes for Candidates</label>
+                <textarea
+                  rows="2"
+                  value={assignForm.notes}
+                  onChange={e => setAssignForm({ ...assignForm, notes: e.target.value })}
+                  placeholder="Optional assignment instructions, expectations, or guidance..."
+                />
+              </div>
+            </div>
+
+            <div className="hrtm-modal-footer">
+              <button
+                type="button"
+                className="hrtm-btn hrtm-btn-secondary"
+                onClick={() => setAssigningAssessment(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="hrtm-btn hrtm-btn-primary"
+                disabled={savingAssignment}
+              >
+                {savingAssignment ? 'Assigning...' : 'Confirm Assignment'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEvaluateModal = () => {
+    if (!evaluatingSubmission) return null;
+    const sub = evaluatingSubmission;
+    const total = evaluateForm.totalMarks || 100;
+    const passMark = evaluateForm.passingMarks || 60;
+    const marks = Number(evaluateForm.marksObtained) || 0;
+    const computedPct = total > 0 ? Math.round((marks / total) * 100) : 0;
+
+    return (
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-md">
+          <div className="hrtm-modal-header">
+            <div>
+              <span className="hrtm-code-badge" style={{ marginBottom: '2px' }}>Evaluation & Grading</span>
+              <h3 style={{ margin: 0 }}>Evaluate — {getEmpName(sub.employee)}</h3>
+            </div>
+            <button type="button" className="hrtm-modal-close" onClick={() => setEvaluatingSubmission(null)}>✕</button>
+          </div>
+
+          <form onSubmit={handleSaveEvaluation}>
+            <div className="hrtm-modal-body">
+              <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1rem', fontSize: '0.8rem' }}>
+                <div>Assessment: <strong>{sub.assessmentName || 'Assessment'}</strong></div>
+                <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '2px' }}>
+                  Course: {sub.course?.title || '—'} · Candidate: {getEmpName(sub.employee)} ({sub.employee?.department || 'General'})
+                </div>
+              </div>
+
+              {/* Score & Marks Entry */}
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Marks Obtained *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={total}
+                    required
+                    value={evaluateForm.marksObtained}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                      const pf = val >= passMark ? 'Pass' : 'Fail';
+                      const gr = pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B' : pct >= 60 ? 'C' : 'F';
+                      setEvaluateForm({
+                        ...evaluateForm,
+                        marksObtained: val,
+                        percentage: pct,
+                        passFail: pf,
+                        grade: gr
+                      });
+                    }}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Total Possible Marks</label>
+                  <input type="number" readOnly value={total} style={{ background: '#f1f5f9', cursor: 'not-allowed' }} />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Percentage (%)</label>
+                  <input type="number" readOnly value={computedPct} style={{ background: '#f1f5f9', cursor: 'not-allowed', fontWeight: 700 }} />
+                </div>
+              </div>
+
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Pass / Fail Status *</label>
+                  <CustomSelect
+                    options={['Pass', 'Fail']}
+                    value={evaluateForm.passFail}
+                    onChange={v => setEvaluateForm({ ...evaluateForm, passFail: v })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Grade</label>
+                  <CustomSelect
+                    options={['A+', 'A', 'B', 'C', 'F']}
+                    value={evaluateForm.grade}
+                    onChange={v => setEvaluateForm({ ...evaluateForm, grade: v })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Evaluation Status *</label>
+                  <CustomSelect
+                    options={['Evaluated', 'Needs Review', 'Pending']}
+                    value={evaluateForm.evaluationStatus}
+                    onChange={v => setEvaluateForm({ ...evaluateForm, evaluationStatus: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-group">
+                <label>Evaluator Remarks & Feedback</label>
+                <textarea
+                  rows="3"
+                  value={evaluateForm.remarks}
+                  onChange={e => setEvaluateForm({ ...evaluateForm, remarks: e.target.value })}
+                  placeholder="Enter detailed feedback, strong areas, and improvement recommendations..."
+                />
+              </div>
+            </div>
+
+            <div className="hrtm-modal-footer">
+              <button
+                type="button"
+                className="hrtm-btn hrtm-btn-secondary"
+                onClick={() => setEvaluatingSubmission(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="hrtm-btn hrtm-btn-primary"
+                disabled={savingEvaluation}
+              >
+                {savingEvaluation ? 'Saving Evaluation...' : 'Save Evaluation'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEditCertModal = () => {
+    if (!showEditCertModal || !editingCert) return null;
+
+    return (
+      <div className="hrtm-modal-overlay">
+        <div className="hrtm-modal hrtm-modal-md">
+          <div className="hrtm-modal-header">
+            <div>
+              <span className="hrtm-code-badge" style={{ marginBottom: '2px' }}>Edit Certification</span>
+              <h3 style={{ margin: 0 }}>Certificate #{editingCert.certificateNumber}</h3>
+            </div>
+            <button type="button" className="hrtm-modal-close" onClick={() => setShowEditCertModal(false)}>✕</button>
+          </div>
+
+          <form onSubmit={handleSaveCert}>
+            <div className="hrtm-modal-body">
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Certificate Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCertForm.certificateNumber}
+                    onChange={e => setEditCertForm({ ...editCertForm, certificateNumber: e.target.value })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Status *</label>
+                  <CustomSelect
+                    options={['Active', 'Revoked', 'Expired']}
+                    value={editCertForm.status}
+                    onChange={v => setEditCertForm({ ...editCertForm, status: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Employee *</label>
+                  <CustomSelect
+                    options={employees.map(e => ({ value: e._id, label: getEmpName(e), subtitle: e.department || e.email }))}
+                    value={editCertForm.employee}
+                    onChange={v => setEditCertForm({ ...editCertForm, employee: v })}
+                    placeholder="-- Select Employee --"
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Certificate Type *</label>
+                  <CustomSelect
+                    options={['Completion', 'Excellence', 'Participation', 'Achievement']}
+                    value={editCertForm.certificateType}
+                    onChange={v => setEditCertForm({ ...editCertForm, certificateType: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Training Program</label>
+                  <CustomSelect
+                    options={[{ value: '', label: 'None (General)' }, ...programs.map(p => ({ value: p._id, label: p.name }))]}
+                    value={editCertForm.program}
+                    onChange={v => setEditCertForm({ ...editCertForm, program: v })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Training Course *</label>
+                  <CustomSelect
+                    options={courses.map(c => ({ value: c._id, label: c.title }))}
+                    value={editCertForm.course}
+                    onChange={v => setEditCertForm({ ...editCertForm, course: v })}
+                    placeholder="-- Select Course --"
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Final Assessment Score (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editCertForm.finalScore}
+                    onChange={e => setEditCertForm({ ...editCertForm, finalScore: e.target.value })}
+                    placeholder="e.g. 85"
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Issue Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editCertForm.issueDate}
+                    onChange={e => setEditCertForm({ ...editCertForm, issueDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="hrtm-form-row">
+                <div className="hrtm-form-group">
+                  <label>Completion Date</label>
+                  <input
+                    type="date"
+                    value={editCertForm.completionDate}
+                    onChange={e => setEditCertForm({ ...editCertForm, completionDate: e.target.value })}
+                  />
+                </div>
+                <div className="hrtm-form-group">
+                  <label>Expiry Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={editCertForm.expiryDate}
+                    onChange={e => setEditCertForm({ ...editCertForm, expiryDate: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="hrtm-modal-footer">
+              <button
+                type="button"
+                className="hrtm-btn hrtm-btn-secondary"
+                onClick={() => setShowEditCertModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="hrtm-btn hrtm-btn-primary"
+                disabled={savingCert}
+              >
+                {savingCert ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   const kpis = overview.kpis || overview;
 
   return (
@@ -4378,11 +6859,11 @@ export default function Training() {
         <div className="hrtm-header">
           <div>
             <h2>Training Management System</h2>
-            <p>Comprehensive corporate learning, course scheduling, attendance, skill tracking, and cost analytics.</p>
+            <p>Comprehensive corporate learning, attendance, skill tracking, and performance analytics.</p>
           </div>
         </div>
 
-        {/* 2. 8 KPI Cards (4 × 2 Grid Layout) + Dynamic Skill Performance Card */}
+        {/* 2. 6 KPI Cards (3 × 2 Grid Layout) + Dynamic Skill Performance Card */}
         <div className="hrtm-kpi-hero-wrapper">
           <div className="hrtm-kpi-grid-4x2">
             <div className="hrtm-kpi-card">
@@ -4407,13 +6888,6 @@ export default function Training() {
               </div>
             </div>
             <div className="hrtm-kpi-card">
-              <div className="hrtm-kpi-icon" style={{ background: '#faf5ff', color: '#9333ea' }}>🗓️</div>
-              <div className="hrtm-kpi-info">
-                <h4>{kpis.upcomingSessions || 0}</h4>
-                <span>Upcoming Sessions</span>
-              </div>
-            </div>
-            <div className="hrtm-kpi-card">
               <div className="hrtm-kpi-icon" style={{ background: '#ecfeff', color: '#0891b2' }}>👥</div>
               <div className="hrtm-kpi-info">
                 <h4>{kpis.totalAssignments || 0}</h4>
@@ -4432,13 +6906,6 @@ export default function Training() {
               <div className="hrtm-kpi-info">
                 <h4>{kpis.averageScore || 0}</h4>
                 <span>Average Assessment Score</span>
-              </div>
-            </div>
-            <div className="hrtm-kpi-card">
-              <div className="hrtm-kpi-icon" style={{ background: '#fef3c7', color: '#d97706' }}>💰</div>
-              <div className="hrtm-kpi-info">
-                <h4>₹{(kpis.totalInvestment || kpis.totalCost || 0).toLocaleString()}</h4>
-                <span>Total Investment</span>
               </div>
             </div>
           </div>
@@ -4566,24 +7033,10 @@ export default function Training() {
           </div>
         </div>
 
-        {/* 4. Training Module Navigation (Unified 6 + 6 Two-Row Grid) */}
+        {/* 4. Training Module Navigation */}
         <div className="hrtm-tabs-container" role="tablist" aria-label="Training Management Navigation">
           <div className="hrtm-tab-row" role="row">
-            {ROW1_TABS.map(tab => (
-              <button
-                key={tab.id}
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                title={tab.label}
-                className={`hrtm-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div className="hrtm-tab-row" role="row">
-            {ROW2_TABS.map(tab => (
+            {TABS.map(tab => (
               <button
                 key={tab.id}
                 role="tab"
@@ -4607,7 +7060,6 @@ export default function Training() {
             {activeTab === 'programs' && renderPrograms()}
             {activeTab === 'courses' && renderCourses()}
             {activeTab === 'trainers' && renderTrainers()}
-            {activeTab === 'sessions' && renderSessions()}
             {activeTab === 'assignments' && renderAssignments()}
             {activeTab === 'attendance' && renderAttendance()}
             {activeTab === 'progress' && renderProgress()}
@@ -4615,8 +7067,6 @@ export default function Training() {
             {activeTab === 'certifications' && renderCertifications()}
             {activeTab === 'feedback' && renderFeedback()}
             {activeTab === 'completion' && renderCompletion()}
-            {activeTab === 'costs' && renderCosts()}
-            {activeTab === 'cost-reports' && renderCostReports()}
           </>
         )}
 
@@ -4626,6 +7076,12 @@ export default function Training() {
         {renderPreviewCertModal()}
         {renderManageProgramModal()}
         {renderManageCourseModal()}
+        {renderAssessmentFormModal()}
+        {renderViewAssessmentModal()}
+        {renderAssignAssessmentModal()}
+        {renderEvaluateModal()}
+        {renderEditCertModal()}
+        {renderAssignmentDetailModal()}
       </div>
     </UserLayout>
   );

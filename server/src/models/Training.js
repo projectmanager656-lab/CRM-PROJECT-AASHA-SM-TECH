@@ -163,15 +163,101 @@ const trainingAttendanceSchema = new Schema({
   remarks: { type: String }
 }, { timestamps: true });
 
-// 7. Training Assessment
+// 7. Training Assessment Question Sub-Schema
+const assessmentQuestionSchema = new Schema({
+  questionText: { type: String, required: true, trim: true },
+  questionType: {
+    type: String,
+    enum: ['Multiple Choice', 'True/False', 'Short Answer', 'Task/Practical'],
+    default: 'Multiple Choice'
+  },
+  options: [{ type: String, trim: true }],
+  correctAnswer: { type: String, trim: true },
+  marks: { type: Number, default: 10 },
+  order: { type: Number, default: 1 }
+}, { timestamps: true });
+
+// Assessment Assignment Sub-Schema
+const assessmentAssignmentSchema = new Schema({
+  employee: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  assignedDate: { type: Date, default: Date.now },
+  assignedAt: { type: Date, default: Date.now },
+  dueDate: { type: Date },
+  status: {
+    type: String,
+    enum: ['Assigned', 'In Progress', 'Submitted', 'Evaluated', 'Completed'],
+    default: 'Assigned'
+  },
+  assignedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  notes: { type: String, default: '' }
+}, { timestamps: true });
+
+// Assessment Submission Sub-Schema
+const assessmentSubmissionSchema = new Schema({
+  employee: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  submittedAt: { type: Date, default: Date.now },
+  submissionDate: { type: Date, default: Date.now },
+  completionDate: { type: Date },
+  answers: [{
+    questionId: { type: Schema.Types.ObjectId },
+    questionText: { type: String },
+    answer: { type: String },
+    marksAwarded: { type: Number, default: 0 }
+  }],
+  totalMarks: { type: Number, default: 100 },
+  obtainedMarks: { type: Number, default: 0 },
+  marksObtained: { type: Number, default: 0 },
+  score: { type: Number, default: 0 },
+  percentage: { type: Number, default: 0 },
+  passFail: { type: String, enum: ['Pass', 'Fail', 'Pending'], default: 'Pending' },
+  result: { type: String, enum: ['Pass', 'Fail', 'Pending'], default: 'Pending' },
+  grade: { type: String, default: 'N/A' },
+  evaluator: { type: Schema.Types.ObjectId, ref: 'User' },
+  evaluatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  evaluatedAt: { type: Date },
+  evaluationStatus: {
+    type: String,
+    enum: ['Pending', 'Evaluated', 'Needs Review', 'Pending Submission'],
+    default: 'Pending'
+  },
+  remarks: { type: String, default: '' },
+  attemptNumber: { type: Number, default: 1 },
+  attempts: { type: Number, default: 1 }
+}, { timestamps: true });
+
+// 7. Training Assessment Master Entity
 const trainingAssessmentSchema = new Schema({
   program: { type: Schema.Types.ObjectId, ref: 'TrainingProgram' },
   course: { type: Schema.Types.ObjectId, ref: 'TrainingCourse', required: true },
-  employee: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  title: { type: String, default: 'Course Final Assessment' },
+  title: { type: String, trim: true, default: 'Course Final Assessment' },
+  name: { type: String, trim: true },
+  description: { type: String, trim: true, default: '' },
+  instructions: { type: String, trim: true, default: '' },
+  assessmentType: {
+    type: String,
+    enum: ['Quiz', 'Exam', 'Assignment', 'Practical', 'Project', 'Certification', 'Other'],
+    default: 'Quiz'
+  },
+  duration: { type: Number, default: 60 },
+  totalMarks: { type: Number, default: 100 },
+  passingMarks: { type: Number, default: 70 },
   passingScore: { type: Number, default: 70 },
-  score: { type: Number, required: true },
   maxScore: { type: Number, default: 100 },
+  startDate: { type: Date },
+  endDate: { type: Date },
+  status: {
+    type: String,
+    enum: ['Draft', 'Published', 'Active', 'Closed', 'Archived'],
+    default: 'Draft'
+  },
+  questions: [assessmentQuestionSchema],
+  assignedEmployees: [assessmentAssignmentSchema],
+  submissions: [assessmentSubmissionSchema],
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+
+  // Preserved fields for existing records and direct evaluation compatibility:
+  employee: { type: Schema.Types.ObjectId, ref: 'User' },
+  score: { type: Number },
   result: { type: String, enum: ['Pass', 'Fail', 'Pending'], default: 'Pending' },
   attemptNumber: { type: Number, default: 1 },
   assessmentDate: { type: Date, default: Date.now },
