@@ -31,6 +31,7 @@ import fullAndFinalSettlementRoutes from './fullAndFinalSettlement.routes.js';
 import accessManagementRoutes from './accessManagement.routes.js';
 import expenseRoutes from './expense.routes.js';
 import hrSupportRoutes from './hrSupport.routes.js';
+import financeRoutes from './finance.routes.js';
 
 const router = Router();
 
@@ -73,6 +74,7 @@ router.use('/messages', messageRoutes);
 router.use('/payroll', payrollRouter);
 router.use('/expenses', expenseRoutes);
 router.use('/invoices', invoiceRouter);
+router.use('/finance', financeRoutes);
 router.use('/settings', settingsRouter);
 router.route('/company-settings').get(authenticateToken, CompanySettingController.get).put(authenticateToken, CompanySettingController.update).patch(authenticateToken, CompanySettingController.update);
 router.use('/profile', profileRouter);

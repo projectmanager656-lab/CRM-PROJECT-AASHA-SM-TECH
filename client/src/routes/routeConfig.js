@@ -144,7 +144,7 @@ const routeConfig = [
   { path: '/super-admin/login', component: SuperAdminLogin, layout: BlankLayout },
   { path: '/unauthorized', component: Unauthorized, layout: BlankLayout },
   { path: '/dashboard/hr', component: withProtected(HRDashboard, ['employee', 'user', 'admin', 'super_admin']), layout: BlankLayout },
-  { path: '/dashboard/finance', component: withProtected(FinanceDashboard, ['employee', 'user']), layout: BlankLayout },
+  { path: '/dashboard/finance', component: withProtected(FinanceDashboard, ['employee', 'user', 'admin', 'super_admin']), layout: BlankLayout },
   { path: '/dashboard/business-development', component: withProtected(BusinessDevelopmentDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/dashboard/digital-marketing', component: withProtected(DigitalMarketingDashboard, ['employee', 'user']), layout: BlankLayout },
   { path: '/dashboard/video-editor', component: withProtected(VideoEditorDashboard, ['employee', 'user']), layout: BlankLayout },

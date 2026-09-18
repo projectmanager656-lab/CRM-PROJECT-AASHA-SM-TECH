@@ -1,5 +1,5 @@
 import Payroll from'../models/Payroll.js';import Invoice from'../models/Invoice.js';import UserSetting from'../models/UserSetting.js';import User from'../models/User.js';import Department from'../models/Department.js';import{createForbiddenError,createNotFoundError,createValidationError}from'../utils/apiError.js';import{createdResponse,successResponse}from'../utils/apiResponse.js';import{asyncHandler}from'../utils/asyncHandler.js';
-const isHrOrAdmin = (user) => ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR';
+const isHrOrAdmin = (user) => ['admin', 'super_admin'].includes(user?.role) || user?.department === 'HR' || String(user?.department || '').trim().toUpperCase() === 'FINANCE';
 const financial=(Model,label)=>({
  list:asyncHandler(async(req,res)=>res.json(successResponse(await Model.find(!isHrOrAdmin(req.user)?{user:req.user.userId}:{}).populate('user','firstName lastName email department').sort({createdAt:-1}),`${label} retrieved`))),
  get:asyncHandler(async(req,res)=>{const x=await Model.findById(req.params.id).populate('user','firstName lastName email department');if(!x)throw createNotFoundError(`${label} not found`);if(!isHrOrAdmin(req.user)&&String(x.user?._id||x.user)!==String(req.user.userId))throw createForbiddenError('Access denied');res.json(successResponse(x,`${label} retrieved`));}),

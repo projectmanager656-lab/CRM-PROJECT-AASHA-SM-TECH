@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../../../../../services/apiClient';
 import { AppContext } from '../../../../../context/AppContext';
 import { NON_TECH_LEAD_DEPARTMENTS } from '../../../../../config/departments';
@@ -85,15 +85,44 @@ const videoEditorNavItems = [
 ];
 
 const financeNavItems = [
-  { label: 'Dashboard', path: '/dashboard/finance' },
-  { label: 'Invoices', path: '/user/invoices' },
-  { label: 'My Payroll', path: '/user/payroll', permission: ['finance', 'payroll'] },
-  { label: 'HR Support', path: '/user/hr-support' },
-  { label: 'Documents', path: '/user/documents', permission: ['documents', 'documents'] },
-  { label: 'Notifications', path: '/user/notifications', permission: ['communications', 'notifications'] },
-  { label: 'Calendar', path: '/user/calendar', permission: ['communications', 'calendar'] },
-  { label: 'Settings', path: '/user/settings' },
+  { label: 'Overview', path: '/dashboard/finance?tab=overview', tab: 'overview' },
+  { label: 'Client Financial Master', path: '/dashboard/finance?tab=clients', tab: 'clients' },
+  { label: 'Proposals / Quotations', path: '/dashboard/finance?tab=proposals', tab: 'proposals' },
+  { label: 'Invoices', path: '/dashboard/finance?tab=invoices', tab: 'invoices' },
+  { label: 'Payment Recovery', path: '/dashboard/finance?tab=recovery', tab: 'recovery' },
+  { label: 'Income Management', path: '/dashboard/finance?tab=income', tab: 'income' },
+  { label: 'Expense Management', path: '/dashboard/finance?tab=expenses', tab: 'expenses' },
+  { label: 'Bank Accounts & Transactions', path: '/dashboard/finance?tab=banking', tab: 'banking' },
+  { label: 'Cash Flow', path: '/dashboard/finance?tab=cashflow', tab: 'cashflow' },
+  { label: 'Vendor Management', path: '/dashboard/finance?tab=vendors', tab: 'vendors' },
+  { label: 'Payroll & F&F Integration', path: '/dashboard/finance?tab=payroll', tab: 'payroll' },
+  { label: 'Payment Requests', path: '/dashboard/finance?tab=requests', tab: 'requests' },
+  { label: 'General Ledger', path: '/dashboard/finance?tab=ledger', tab: 'ledger' },
+  { label: 'Bank Reconciliation', path: '/dashboard/finance?tab=reconciliation', tab: 'reconciliation' },
+  { label: 'Financial Reports', path: '/dashboard/finance?tab=reports', tab: 'reports' },
+  { label: 'Audit History', path: '/dashboard/finance?tab=audit', tab: 'audit' },
+  { label: 'Finance Configuration', path: '/dashboard/finance?tab=settings', tab: 'settings' },
 ];
+
+const financeNavIcons = {
+  overview: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>,
+  clients: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  proposals: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  invoices: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  recovery: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  income: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+  expenses: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+  banking: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="5 10 5 21"/><polyline points="19 10 19 21"/><polyline points="10 10 10 21"/><polyline points="14 10 14 21"/><polygon points="12 2 2 7 22 7 12 2"/></svg>,
+  cashflow: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+  vendors: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+  payroll: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /><path d="M7 15h2"/><path d="M15 15h2"/></svg>,
+  requests: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>,
+  ledger: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/></svg>,
+  reconciliation: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 2 2 4-4"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/></svg>,
+  reports: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
+  audit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+  settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
+};
 
 const getNavItemsForDept = (department) => {
   const dept = String(department || '').trim().toLowerCase();
@@ -149,6 +178,14 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
   const { user, logout, can } = useContext(AppContext);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const queryParams = new URLSearchParams(location.search);
+  const currentTab = queryParams.get('tab');
+  const isFinancePage =
+    location.pathname.startsWith('/dashboard/finance') ||
+    (String(user?.department || '').trim().toLowerCase() === 'finance' &&
+      !location.pathname.startsWith('/admin') &&
+      !location.pathname.startsWith('/dashboard/hr'));
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [latestNotification, setLatestNotification] = useState(null);
@@ -216,7 +253,7 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
     .slice(0, 2)
     .toUpperCase();
 
-  if (user?.role === 'admin' || user?.role === 'super_admin') {
+  if ((user?.role === 'admin' || user?.role === 'super_admin') && !location.pathname.startsWith('/dashboard/finance')) {
     return (
       <AdminLayout pageTitle={pageTitle} pageSubtitle={pageSubtitle}>
         {children}
@@ -225,31 +262,58 @@ export default function UserLayout({ children, pageTitle, pageSubtitle = 'Employ
   }
 
   return (
-    <div className="user-layout-shell">
-      <aside className="user-layout-sidebar">
+    <div className={`user-layout-shell ${isFinancePage ? 'finance-shell' : ''}`}>
+      <aside className={`user-layout-sidebar ${isFinancePage ? 'finance-sidebar' : ''}`}>
         <div className="user-employee-logo-container">
           <img className="user-employee-logo" src="/aasha-logo-new.jpg" alt="ASHA SM TECHNOLOGIES" />
         </div>
 
+        <nav className={`user-sidebar-nav ${isFinancePage ? 'finance-nav' : ''}`} aria-label="User navigation">
+          {isFinancePage ? (
+            <>
+              <div className="finance-sidebar-section-title">FINANCE</div>
 
-        <nav className="user-sidebar-nav" aria-label="User navigation">
-          {getNavItemsForDept(user?.department)
-            .filter((item) => (!item.permission || can(...item.permission, 'view')) && (!item.departments || item.departments.includes(user?.department)))
-            .map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `user-nav-item ${isActive || location.pathname === item.path ? 'active' : ''}`
-                }
+              {financeNavItems.map((item) => {
+                const isItemActive =
+                  location.pathname.startsWith('/dashboard/finance') &&
+                  (currentTab === item.tab || (!currentTab && item.tab === 'overview'));
+                return (
+                  <Link
+                    key={item.tab}
+                    to={item.path}
+                    className={`user-nav-item fin-nav-item ${isItemActive ? 'active' : ''}`}
+                  >
+                    <span className="nav-item-icon fin-nav-icon" aria-hidden="true">{financeNavIcons[item.tab]}</span>
+                    <span className="nav-item-text fin-nav-text">{item.label}</span>
+                  </Link>
+                );
+              })}
+
+              <Link
+                to="/user/documents"
+                className={`user-nav-item fin-nav-item ${location.pathname === '/user/documents' ? 'active' : ''}`}
               >
-                <span className="nav-item-icon" aria-hidden="true">{navIcons[item.path]}</span>
-                <span className="nav-item-text">{item.label}</span>
-              </NavLink>
-            ))}
+                <span className="nav-item-icon fin-nav-icon" aria-hidden="true">{navIcons['/user/documents']}</span>
+                <span className="nav-item-text fin-nav-text">Documents</span>
+              </Link>
+            </>
+          ) : (
+            getNavItemsForDept(user?.department)
+              .filter((item) => (!item.permission || can(...item.permission, 'view')) && (!item.departments || item.departments.includes(user?.department)))
+              .map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `user-nav-item ${isActive || location.pathname === item.path ? 'active' : ''}`
+                  }
+                >
+                  <span className="nav-item-icon" aria-hidden="true">{navIcons[item.path]}</span>
+                  <span className="nav-item-text">{item.label}</span>
+                </NavLink>
+              ))
+          )}
         </nav>
-
-
       </aside>
 
       <main className="user-layout-content">

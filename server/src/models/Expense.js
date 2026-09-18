@@ -12,6 +12,12 @@ const expenseSchema = new mongoose.Schema(
       required: [true, 'Category is required'],
       trim: true,
     },
+    categoryType: {
+      type: String,
+      enum: ['Client Expenses', 'Office Expenses', 'Project Expenses'],
+      default: 'Office Expenses',
+      index: true,
+    },
     department: {
       type: String,
       default: 'Finance',
@@ -40,11 +46,51 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       enum: ['Pending', 'Approved', 'Rejected', 'Paid'],
       default: 'Pending',
+      index: true,
+    },
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vendor',
+      default: null,
     },
     vendorName: {
       type: String,
       default: '',
       trim: true,
+    },
+    client: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Client',
+      default: null,
+    },
+    clientName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      default: null,
+    },
+    projectName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    bankAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'BankAccount',
+      default: null,
+    },
+    payment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Payment',
+      default: null,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
     },
     receiptNumber: {
       type: String,
@@ -98,6 +144,7 @@ const expenseSchema = new mongoose.Schema(
 
 expenseSchema.index({ expenseDate: -1 });
 expenseSchema.index({ department: 1, paymentStatus: 1 });
+expenseSchema.index({ categoryType: 1, paymentStatus: 1 });
 expenseSchema.index({ employee: 1 });
 
 export const Expense =
