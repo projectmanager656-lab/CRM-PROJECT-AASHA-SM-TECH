@@ -1,0 +1,658 @@
+/* ============================================================
+   REPORTS & ANALYTICS MASTER STYLESHEET
+   Enterprise Financial & Business Intelligence Workspace
+   ============================================================ */
+
+.reports-analytics-master {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  animation: fadeIn 0.25s ease-out;
+  padding-bottom: 2.5rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 1. Header Toolbar */
+.reports-header-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.reports-header-titles h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reports-header-titles p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.reports-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reports-preset-group {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.reports-preset-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reports-preset-btn:hover {
+  color: #0f172a;
+}
+
+.reports-preset-btn.active {
+  background: #ffffff;
+  color: #ea580c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.reports-custom-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.reports-custom-dates input {
+  border: none;
+  background: transparent;
+  font-size: 0.8rem;
+  color: #0f172a;
+  outline: none;
+}
+
+/* 2. Top 6 KPI Summary Cards Desktop Row */
+.reports-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1400px) {
+  .reports-kpi-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .reports-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.reports-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reports-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.reports-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #cbd5e1;
+}
+
+.reports-kpi-card.revenue::before { background: #10b981; }
+.reports-kpi-card.expense::before { background: #ef4444; }
+.reports-kpi-card.profit::before { background: #3b82f6; }
+.reports-kpi-card.receivables::before { background: #f59e0b; }
+.reports-kpi-card.payables::before { background: #8b5cf6; }
+.reports-kpi-card.cashflow::before { background: #06b6d4; }
+
+.reports-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.reports-kpi-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.reports-kpi-icon {
+  font-size: 1.1rem;
+}
+
+.reports-kpi-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.reports-kpi-sub {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.reports-kpi-badge {
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.reports-kpi-badge.positive {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.reports-kpi-badge.negative {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.reports-kpi-badge.neutral {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* 3. Section Grid (2-column layout) */
+.reports-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .reports-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reports-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.reports-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reports-pill-toggle {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.reports-pill-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.reports-pill-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* 4. Chart Visualization */
+.reports-chart-container {
+  height: 240px;
+  width: 100%;
+  position: relative;
+  margin-top: 0.5rem;
+}
+
+.reports-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.reports-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reports-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* 5. Breakdown Lists (Progress Bars) */
+.reports-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.reports-breakdown-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.reports-breakdown-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.reports-breakdown-name {
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reports-breakdown-values {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reports-breakdown-amt {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.reports-breakdown-pct {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.reports-progress-track {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.reports-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* 6. Executive Metrics (4 Cards) */
+.reports-exec-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .reports-exec-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.reports-exec-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.reports-exec-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.reports-exec-icon-wrap.growth { background: #dcfce7; color: #166534; }
+.reports-exec-icon-wrap.margin { background: #dbeafe; color: #1e40af; }
+.reports-exec-icon-wrap.opex { background: #ffedd5; color: #9a3412; }
+.reports-exec-icon-wrap.collection { background: #f3e8ff; color: #6b21a8; }
+
+.reports-exec-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.reports-exec-val {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.reports-exec-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* 7. Tables */
+.reports-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.reports-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.reports-table th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.reports-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.reports-table tr:hover td {
+  background: #f8fafc;
+}
+
+/* 8. Financial Alerts Section */
+.reports-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.reports-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.1rem;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.reports-alert-banner.danger {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.reports-alert-banner.warning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.reports-alert-banner.info {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.reports-alert-banner.success {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #166534;
+}
+
+.reports-alert-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.reports-alert-btn {
+  background: #ffffff;
+  border: 1px solid currentColor;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: inherit;
+  transition: opacity 0.15s ease;
+}
+
+.reports-alert-btn:hover {
+  opacity: 0.85;
+}
+
+/* 9. Generated Reports Grid */
+.reports-downloads-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+  .reports-downloads-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .reports-downloads-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-file-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.15s ease;
+}
+
+.report-file-card:hover {
+  background: #ffffff;
+  border-color: #F5B97A;
+  box-shadow: 0 4px 12px rgba(232, 93, 4, 0.08);
+}
+
+.report-file-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.report-file-icon {
+  font-size: 1.5rem;
+}
+
+.report-file-info h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.report-file-info p {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.report-file-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.report-file-actions button {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.report-btn-preview {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+.report-btn-preview:hover {
+  background: #f1f5f9;
+}
+
+.report-btn-download {
+  background: #FFF4E8;
+  border: 1px solid #F5B97A;
+  color: #E85D04;
+}
+
+.report-btn-download:hover {
+  background: #ea580c;
+  color: #ffffff;
+}
+
+/* Aging visual buckets */
+.aging-buckets-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.aging-bucket-card {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.aging-bucket-card.b0-30 { border-top: 3px solid #10b981; }
+.aging-bucket-card.b31-60 { border-top: 3px solid #3b82f6; }
+.aging-bucket-card.b61-90 { border-top: 3px solid #f59e0b; }
+.aging-bucket-card.b90plus { border-top: 3px solid #ef4444; }
+
+.aging-bucket-card .bucket-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.aging-bucket-card .bucket-amt {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.25rem 0;
+}
+
+.aging-bucket-card .bucket-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}

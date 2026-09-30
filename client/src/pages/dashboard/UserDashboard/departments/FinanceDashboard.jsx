@@ -1,8 +1,19 @@
-import React, { useContext, useEffect, useState, useMemo } from 'react';
+import React, { useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppContext } from '../../../../context/AppContext';
 import apiClient from '../../../../services/apiClient';
 import UserLayout from '../users/components/UserLayout';
+import ClientFinancialMaster from './ClientFinancialMaster';
+import ProposalQuotationMaster from './ProposalQuotationMaster';
+import InvoiceMaster from './InvoiceMaster';
+import PaymentRecoveryMaster from './PaymentRecoveryMaster';
+import IncomeMaster from './IncomeMaster';
+import ExpenseMaster from './ExpenseMaster';
+import PayrollMaster from './PayrollMaster';
+import VendorManagementMaster from './VendorManagementMaster';
+import SalaryMaster from './SalaryMaster';
+import FinancialReportsMaster from './FinancialReportsMaster';
+import ReportsAnalyticsMaster from './ReportsAnalyticsMaster';
 import './FinanceDashboard.css';
 
 const formatCurrency = (amount) =>
@@ -15,23 +26,145 @@ export default function FinanceDashboard() {
   const { user } = useContext(AppContext) || {};
   const location = useLocation();
   const navigate = useNavigate();
+  const tabsBarRef = useRef(null);
+
+  // RBAC: Verify if current user is Finance Admin / Head or Super Admin
+  const isFinanceAdmin = useMemo(() => {
+    if (!user) return false;
+    const role = String(user.role || '').trim().toLowerCase();
+    if (['admin', 'super_admin'].includes(role)) return true;
+
+    const rbacKey = String(user.rbacRoleKey || '').trim().toLowerCase();
+    if (['finance_admin', 'finance_head', 'admin', 'super_admin'].includes(rbacKey)) return true;
+
+    const designation = String(user.designation || '').trim().toLowerCase();
+    const dept = String(user.department || '').trim().toUpperCase();
+    if (dept === 'FINANCE') {
+      const adminDesignations = ['head', 'director', 'cfo', 'chief financial officer', 'manager', 'lead'];
+      if (adminDesignations.some((d) => designation.includes(d))) return true;
+    }
+
+    if (user.customPermissions) {
+      if (user.customPermissions['finance.admin'] || user.customPermissions['finance.manage']) {
+        return true;
+      }
+    }
+    return false;
+  }, [user]);
+
+  const legacyTabMap = {
+    'client-expenses': { tab: 'expenses', param: 'expenseTab=clientExpenses', subTab: 'clientExpenses' },
+    'office-expenses': { tab: 'expenses', param: 'expenseTab=officeExpenses', subTab: 'officeExpenses' },
+    'project-expenses': { tab: 'expenses', param: 'expenseTab=projectExpenses', subTab: 'projectExpenses' },
+    'ledger': { tab: 'expenses', param: 'expenseTab=ledger', subTab: 'ledger' },
+    'reconciliation': { tab: 'expenses', param: 'expenseTab=reconciliation', subTab: 'reconciliation' },
+    'reports': { tab: 'expenses', param: 'expenseTab=reports', subTab: 'reports' },
+    'salary': { tab: 'payroll', param: 'payrollTab=salary', subTab: 'salary' },
+    'requests': { tab: 'payroll', param: 'payrollTab=requests', subTab: 'requests' },
+    'vendor-bills': { tab: 'vendors', param: 'vendorTab=bills', subTab: 'bills' },
+  };
+
+  const resolveTabInfo = (rawTab) => {
+    if (legacyTabMap[rawTab]) return legacyTabMap[rawTab];
+    return { tab: rawTab || 'overview', param: null, subTab: null };
+  };
 
   // Sync tab with URL query parameter ?tab=...
   const queryParams = new URLSearchParams(location.search);
-  const tabFromUrl = queryParams.get('tab') || 'overview';
+  const rawTabFromUrl = queryParams.get('tab') || 'overview';
+  const resolvedTabInfo = resolveTabInfo(rawTabFromUrl);
+  const tabFromUrl = resolvedTabInfo.tab;
+
+  const initialExpenseSubTab =
+    (rawTabFromUrl.includes('expenses') && legacyTabMap[rawTabFromUrl]?.subTab) ||
+    queryParams.get('expenseTab') ||
+    queryParams.get('subTab') ||
+    'overview';
+
+  const initialPayrollSubTab =
+    (rawTabFromUrl === 'salary' ? 'salary' : rawTabFromUrl === 'requests' ? 'requests' : null) ||
+    queryParams.get('payrollTab') ||
+    queryParams.get('subTab') ||
+    'overview';
+
+  const initialVendorSubTab =
+    (rawTabFromUrl === 'vendor-bills' ? 'bills' : null) ||
+    queryParams.get('vendorTab') ||
+    queryParams.get('subTab') ||
+    'overview';
+
   const [activeTab, setActiveTab] = useState(tabFromUrl);
   const [period, setPeriod] = useState('month');
+
+  const scrollTabs = (direction) => {
+    if (tabsBarRef.current) {
+      const scrollAmount = direction === 'left' ? -220 : 220;
+      tabsBarRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (tabsBarRef.current) {
+      const activeEl = tabsBarRef.current.querySelector('.fin-tab-btn.active');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }
+  }, [activeTab]);
+
+  // Dynamic Fiscal Year (e.g. FY 2026-27 in India starts April 1st)
+  const currentFiscalYear = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed, 3 = April
+    const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+    return `FY ${startYear}-${String(startYear + 1).slice(-2)}`;
+  }, []);
+
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+  const periodDropdownRef = useRef(null);
+
+  const periodOptions = useMemo(
+    () => [
+      { key: 'today', label: 'Today' },
+      { key: 'week', label: 'This Week' },
+      { key: 'month', label: 'This Month' },
+      { key: 'quarter', label: 'This Quarter' },
+      { key: 'year', label: currentFiscalYear },
+    ],
+    [currentFiscalYear]
+  );
+
+  const selectedPeriodLabel = useMemo(() => {
+    const found = periodOptions.find((p) => p.key === period);
+    return found ? found.label : 'This Month';
+  }, [period, periodOptions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (periodDropdownRef.current && !periodDropdownRef.current.contains(event.target)) {
+        setIsPeriodDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Dashboard Data State
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [hoveredChartCategory, setHoveredChartCategory] = useState(null);
 
   // Tab-specific Data
   const [clients, setClients] = useState([]);
   const [proposals, setProposals] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [invoiceSummary, setInvoiceSummary] = useState(null);
   const [recoveryInvoices, setRecoveryInvoices] = useState([]);
+  const [recoverySummary, setRecoverySummary] = useState(null);
+  const [recoveryAging, setRecoveryAging] = useState(null);
+  const [recoveryTeam, setRecoveryTeam] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -57,18 +190,34 @@ export default function FinanceDashboard() {
   const [modalError, setModalError] = useState('');
 
   // Change tab and sync with URL
-  const handleTabChange = (newTab) => {
+  const handleTabChange = (newTab, subTab = null) => {
+    if (legacyTabMap[newTab]) {
+      const mapped = legacyTabMap[newTab];
+      setActiveTab(mapped.tab);
+      navigate(`/dashboard/finance?tab=${mapped.tab}&${mapped.param}`, { replace: true });
+      return;
+    }
     setActiveTab(newTab);
-    navigate(`/dashboard/finance?tab=${newTab}`, { replace: true });
+    let subParam = '';
+    if (subTab) {
+      if (newTab === 'expenses') subParam = `&expenseTab=${subTab}`;
+      else if (newTab === 'payroll') subParam = `&payrollTab=${subTab}`;
+      else if (newTab === 'vendors') subParam = `&vendorTab=${subTab}`;
+      else subParam = `&subTab=${subTab}`;
+    }
+    navigate(`/dashboard/finance?tab=${newTab}${subParam}`, { replace: true });
     setSearchTerm('');
     setStatusFilter('All');
     setCategoryFilter('All');
   };
 
   useEffect(() => {
-    const tab = new URLSearchParams(location.search).get('tab');
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab);
+    const rawTab = new URLSearchParams(location.search).get('tab');
+    if (rawTab) {
+      const resTab = resolveTabInfo(rawTab).tab;
+      if (resTab !== activeTab) {
+        setActiveTab(resTab);
+      }
     }
   }, [location.search]);
 
@@ -101,26 +250,71 @@ export default function FinanceDashboard() {
       try {
         if (activeTab === 'clients') {
           const res = await apiClient.get('/finance/clients');
-          if (isMounted) setClients(res.data?.data || []);
+          if (isMounted) {
+            const resData = res.data?.data;
+            if (resData && Array.isArray(resData.clients)) {
+              setClients(resData.clients);
+            } else if (Array.isArray(resData)) {
+              setClients(resData);
+            } else {
+              setClients([]);
+            }
+          }
         } else if (activeTab === 'proposals') {
           const res = await apiClient.get('/finance/proposals');
-          if (isMounted) setProposals(res.data?.data || []);
+          if (isMounted) {
+            const resData = res.data?.data;
+            if (resData && Array.isArray(resData.proposals)) {
+              setProposals(resData.proposals);
+            } else if (Array.isArray(resData)) {
+              setProposals(resData);
+            } else {
+              setProposals([]);
+            }
+          }
         } else if (activeTab === 'invoices') {
           const res = await apiClient.get('/finance/invoices');
-          if (isMounted) setInvoices(res.data?.data || []);
+          if (isMounted) {
+            const resData = res.data?.data;
+            if (resData && Array.isArray(resData.invoices)) {
+              setInvoices(resData.invoices);
+              if (resData.summary) setInvoiceSummary(resData.summary);
+            } else if (Array.isArray(resData)) {
+              setInvoices(resData);
+            } else {
+              setInvoices([]);
+            }
+          }
         } else if (activeTab === 'recovery') {
           const res = await apiClient.get('/finance/recovery');
-          if (isMounted) setRecoveryInvoices(res.data?.data || []);
+          if (isMounted) {
+            const resData = res.data?.data;
+            if (resData && Array.isArray(resData.invoices)) {
+              setRecoveryInvoices(resData.invoices);
+              if (resData.summary) setRecoverySummary(resData.summary);
+              if (resData.aging) setRecoveryAging(resData.aging);
+              if (resData.teamMembers) setRecoveryTeam(resData.teamMembers);
+            } else if (Array.isArray(resData)) {
+              setRecoveryInvoices(resData);
+            } else {
+              setRecoveryInvoices([]);
+            }
+          }
         } else if (activeTab === 'income') {
           const res = await apiClient.get('/finance/ledger?transactionType=Income');
           if (isMounted) setLedgerEntries(res.data?.data || []);
-        } else if (activeTab === 'expenses') {
+        } else if (
+          activeTab === 'expenses' ||
+          activeTab === 'client-expenses' ||
+          activeTab === 'office-expenses' ||
+          activeTab === 'project-expenses'
+        ) {
           const res = await apiClient.get('/finance/expenses');
           if (isMounted) setExpenses(res.data?.data || []);
         } else if (activeTab === 'banking') {
           const res = await apiClient.get('/finance/bank-accounts');
           if (isMounted) setBankAccounts(res.data?.data || []);
-        } else if (activeTab === 'vendors') {
+        } else if (activeTab === 'vendors' || activeTab === 'vendor-bills') {
           const [vRes, bRes] = await Promise.all([
             apiClient.get('/finance/vendors'),
             apiClient.get('/finance/vendor-bills'),
@@ -129,18 +323,17 @@ export default function FinanceDashboard() {
             setVendors(vRes.data?.data || []);
             setVendorBills(bRes.data?.data || []);
           }
-        } else if (activeTab === 'payroll') {
-          const [pRes, sRes] = await Promise.all([
+        } else if (activeTab === 'payroll' || activeTab === 'salary' || activeTab === 'requests') {
+          const [pRes, sRes, reqRes] = await Promise.all([
             apiClient.get('/finance/payroll'),
             apiClient.get('/finance/fnf'),
+            apiClient.get('/finance/payment-requests'),
           ]);
           if (isMounted) {
             setPayrolls(pRes.data?.data || []);
             setSettlements(sRes.data?.data || []);
+            setPaymentRequests(reqRes.data?.data || []);
           }
-        } else if (activeTab === 'requests') {
-          const res = await apiClient.get('/finance/payment-requests');
-          if (isMounted) setPaymentRequests(res.data?.data || []);
         } else if (activeTab === 'ledger') {
           const res = await apiClient.get('/finance/ledger');
           if (isMounted) setLedgerEntries(res.data?.data || []);
@@ -368,107 +561,204 @@ export default function FinanceDashboard() {
     }
   };
 
-  // Navigation tabs metadata
+  // Navigation tabs metadata (Exactly 20 modules + Audit & Settings)
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'overview', label: 'Finance Dashboard', icon: '📊' },
     { id: 'clients', label: 'Client Financial Master', icon: '👥' },
     { id: 'proposals', label: 'Proposals / Quotations', icon: '📜' },
     { id: 'invoices', label: 'Invoices', icon: '📄', count: summaryData?.kpis?.pendingInvoicesCount },
     { id: 'recovery', label: 'Payment Recovery', icon: '⏳', count: summaryData?.kpis?.overdueInvoicesCount },
     { id: 'income', label: 'Income Management', icon: '💰' },
     { id: 'expenses', label: 'Expense Management', icon: '🧾' },
-    { id: 'banking', label: 'Bank Accounts & Transactions', icon: '🏦' },
+    { id: 'banking', label: 'Company Bank Accounts', icon: '🏦' },
     { id: 'cashflow', label: 'Cash Flow', icon: '📈' },
-    { id: 'vendors', label: 'Vendor Management', icon: '🏢' },
-    { id: 'payroll', label: 'Payroll & F&F Integration', icon: '💼', count: summaryData?.kpis?.payrollPendingCount },
-    { id: 'requests', label: 'Payment Requests', icon: '✍️', count: summaryData?.kpis?.paymentRequestsPendingCount },
-    { id: 'ledger', label: 'General Ledger', icon: '📖' },
-    { id: 'reconciliation', label: 'Bank Reconciliation', icon: '⚖️', count: summaryData?.kpis?.reconciliationPendingCount },
-    { id: 'reports', label: 'Financial Reports', icon: '📑' },
+    { id: 'vendors', label: 'Vendor Management', icon: '🏢', count: vendorBills?.filter(b => b.status !== 'Paid')?.length || 0 },
+    { id: 'payroll', label: 'Payroll', icon: '💼', count: (summaryData?.kpis?.payrollPendingCount || 0) + (paymentRequests?.filter(r => r.status === 'Submitted' || r.status === 'Approved')?.length || summaryData?.kpis?.paymentRequestsPendingCount || 0) },
+    { id: 'reports-analytics', label: 'Reports & Analytics', icon: '📊' },
     { id: 'audit', label: 'Audit History', icon: '🛡️' },
-    { id: 'settings', label: 'Finance Configuration', icon: '⚙️' },
+    { id: 'settings', label: 'Configuration', icon: '⚙️' },
   ];
 
   const kpis = summaryData?.kpis || {};
   const trends = summaryData?.monthlyTrends || [];
+  const incomeCategories = useMemo(() => summaryData?.incomeCategories || [], [summaryData]);
+
+  const doughnutSegments = useMemo(() => {
+    if (!incomeCategories || incomeCategories.length === 0) return [];
+    const C = 2 * Math.PI * 55; // ~345.575
+    let cumulativeArc = 0;
+
+    return incomeCategories.map((cat) => {
+      const share = Math.max(0.001, (cat.percentage || 0) / 100);
+      const arcLength = share * C;
+      const strokeDasharray =
+        incomeCategories.length > 1
+          ? `${Math.max(0.5, arcLength - 2.5)} ${C - Math.max(0.5, arcLength - 2.5)}`
+          : `${C} 0`;
+      const strokeDashoffset = -cumulativeArc;
+      cumulativeArc += arcLength;
+
+      return {
+        ...cat,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+  }, [incomeCategories]);
+
+  const alertActionCount = useMemo(() => {
+    return (
+      (kpis.overdueInvoicesCount > 0 ? 1 : 0) +
+      (kpis.pendingInvoicesCount > 0 ? 1 : 0) +
+      (kpis.paymentRequestsPendingCount > 0 ? 1 : 0) +
+      (kpis.payrollPendingCount > 0 ? 1 : 0) +
+      (kpis.reconciliationPendingCount > 0 ? 1 : 0)
+    );
+  }, [kpis]);
 
   return (
     <UserLayout pageTitle="Finance Dashboard" pageSubtitle="Finance Control Center">
       <div className="finance-control-center">
-        {/* Top Header Row */}
+        {/* A. Dashboard Heading */}
         <div className="fin-header-row">
           <div className="fin-title-group">
-            <h2 className="fin-page-title">Finance Dashboard</h2>
-            <div className="fin-page-subtitle">
-              <span className="fin-subtitle-badge">Finance Control Center</span>
-              <span className="fin-subtitle-text">Manage your complete financial lifecycle</span>
-            </div>
-          </div>
-
-          <div className="fin-actions-group">
-            {/* Search */}
-            <div className="fin-header-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fin-search-icon">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search Finance records..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="fin-header-search-input"
-              />
-            </div>
-
-            {/* Period selector */}
-            <div className="fin-period-group">
-              {[
-                { key: 'today', label: 'Today' },
-                { key: 'week', label: 'This Week' },
-                { key: 'month', label: 'This Month' },
-                { key: 'quarter', label: 'Quarter' },
-                { key: 'year', label: 'FY 2026-27' },
-              ].map((p) => (
-                <button
-                  key={p.key}
-                  className={`fin-period-btn ${period === p.key ? 'active' : ''}`}
-                  onClick={() => setPeriod(p.key)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 4 Action Buttons */}
-            <button className="fin-btn-secondary fin-action-btn" onClick={() => openModal('payment')}>
-              + Record Payment
-            </button>
-            <button className="fin-btn-secondary fin-action-btn" onClick={() => openModal('expense')}>
-              + Add Expense
-            </button>
-            <button className="fin-btn-secondary fin-action-btn" onClick={() => openModal('request')}>
-              + New Payment Request
-            </button>
-            <button className="fin-btn-primary fin-action-btn" onClick={() => openModal('invoice')}>
-              + Create Invoice
-            </button>
+            <h1 className="fin-page-title">Finance Dashboard</h1>
+            <p className="fin-page-subtitle">Manage your complete financial lifecycle</p>
           </div>
         </div>
 
-        {/* Horizontal Navigation Tabs */}
-        <div className="fin-tabs-bar">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              className={`fin-tab-btn ${activeTab === t.id ? 'active' : ''}`}
-              onClick={() => handleTabChange(t.id)}
-            >
-              <span className="fin-tab-icon">{t.icon}</span>
-              <span>{t.label}</span>
-              {t.count > 0 && <span className="fin-tab-badge">{t.count}</span>}
+        {/* B. Controls Area: Search, Action Buttons & Date Dropdown in One Single Row */}
+        <div className="fin-controls-row">
+          {/* 1. Search Bar */}
+          <div className="fin-header-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fin-search-icon">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by client, invoice number, vendor, transaction..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="fin-header-search-input"
+              aria-label="Search financial records"
+            />
+            <div className="fin-search-tune-icon" title="Filter search">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="8" x2="20" y2="8"></line>
+                <line x1="4" y1="16" x2="20" y2="16"></line>
+                <circle cx="9" cy="8" r="2.5" fill="#ffffff"></circle>
+                <circle cx="15" cy="16" r="2.5" fill="#ffffff"></circle>
+              </svg>
+            </div>
+          </div>
+
+          {/* 2 & 3. Action Buttons */}
+          <div className="fin-actions-inline-group">
+            <button type="button" className="fin-action-btn" onClick={() => openModal('payment')}>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Record Payment</span>
             </button>
-          ))}
+            <button type="button" className="fin-action-btn" onClick={() => openModal('request')}>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+              </svg>
+              <span>New Payment Request</span>
+            </button>
+          </div>
+
+          {/* 4. Date Filter Dropdown */}
+          <div className="fin-period-dropdown-wrap" ref={periodDropdownRef}>
+            <button
+              type="button"
+              className={`fin-period-dropdown-btn ${isPeriodDropdownOpen ? 'open' : ''}`}
+              onClick={() => setIsPeriodDropdownOpen((prev) => !prev)}
+              aria-haspopup="listbox"
+              aria-expanded={isPeriodDropdownOpen}
+              id="fin-period-select"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="fin-period-cal-icon">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span className="fin-period-dropdown-label">{selectedPeriodLabel}</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`fin-period-arrow-icon ${isPeriodDropdownOpen ? 'rotated' : ''}`}>
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            {isPeriodDropdownOpen && (
+              <div className="fin-period-menu" role="listbox" aria-labelledby="fin-period-select">
+                {periodOptions.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    role="option"
+                    aria-selected={period === opt.key}
+                    className={`fin-period-menu-item ${period === opt.key ? 'active' : ''}`}
+                    onClick={() => {
+                      setPeriod(opt.key);
+                      setIsPeriodDropdownOpen(false);
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    {period === opt.key && (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Horizontal Navigation Tabs with Accessible Scroll Controls */}
+        <div className="fin-tabs-nav-wrapper">
+          <button
+            type="button"
+            className="fin-tabs-scroll-btn left"
+            onClick={() => scrollTabs('left')}
+            aria-label="Scroll tabs left"
+            title="Scroll tabs left"
+          >
+            ‹
+          </button>
+          <div className="fin-tabs-bar" ref={tabsBarRef} role="tablist" aria-label="Finance navigation tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                id={`tab-${t.id}`}
+                aria-selected={activeTab === t.id}
+                aria-controls={`panel-${t.id}`}
+                tabIndex={activeTab === t.id ? 0 : -1}
+                className={`fin-tab-btn ${activeTab === t.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(t.id)}
+              >
+                <span className="fin-tab-icon">{t.icon}</span>
+                <span>{t.label}</span>
+                {t.count > 0 && <span className="fin-tab-badge">{t.count}</span>}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="fin-tabs-scroll-btn right"
+            onClick={() => scrollTabs('right')}
+            aria-label="Scroll tabs right"
+            title="Scroll tabs right"
+          >
+            ›
+          </button>
         </div>
 
         {/* TAB CONTENT: 1. OVERVIEW (DASHBOARD) */}
@@ -590,131 +880,299 @@ export default function FinanceDashboard() {
 
                 {/* Analytics Section: Left Chart, Right Receivables & Payables Aging */}
                 <div className="fin-analytics-row">
-                  {/* Left Chart Card */}
-                  <div className="fin-chart-card">
+                  {/* Card 1: Circular Doughnut Breakdown */}
+                  <div className="fin-card fin-chart-card">
                     <div className="fin-card-header">
                       <h3>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
-                        Income vs Expense vs Net Cash Flow (Last 6 Months)
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                          <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                        </svg>
+                        Income by Category
                       </h3>
-                      <div className="fin-chart-legend">
-                        <span><div className="fin-legend-dot income" /> Inflow (Income)</span>
-                        <span><div className="fin-legend-dot expense" /> Outflow (Expense)</span>
-                        <span><div className="fin-legend-dot net" /> Net Cash Flow</span>
-                      </div>
+                      <span className="fin-card-tag green">{formatCurrency(kpis.totalIncome)}</span>
                     </div>
 
-                    <div className="fin-svg-chart-container">
-                      <svg width="100%" height="100%" viewBox="0 0 900 220" preserveAspectRatio="none">
-                        <line x1="40" y1="180" x2="880" y2="180" stroke="#e2e8f0" strokeWidth="1" />
-                        <line x1="40" y1="110" x2="880" y2="110" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-                        <line x1="40" y1="40" x2="880" y2="40" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4 4" />
-
-                        {trends.map((t, idx) => {
-                          const x = 90 + idx * 140;
-                          const maxVal = Math.max(...trends.map((x) => Math.max(x.income, x.expense, 100000)));
-                          const incH = Math.min(140, Math.max(6, (t.income / maxVal) * 140));
-                          const expH = Math.min(140, Math.max(6, (t.expense / maxVal) * 140));
-                          const netY = 180 - Math.min(140, Math.max(0, ((t.net + maxVal / 2) / (maxVal * 1.5)) * 140));
-
-                          return (
-                            <g key={t.month}>
-                              {/* Inflow bar */}
-                              <rect
-                                x={x - 24}
-                                y={180 - incH}
-                                width="20"
-                                height={incH}
-                                fill="#10b981"
-                                rx="3"
-                                opacity="0.85"
-                              />
-                              {/* Outflow bar */}
-                              <rect
-                                x={x + 4}
-                                y={180 - expH}
-                                width="20"
-                                height={expH}
-                                fill="#ef4444"
-                                rx="3"
-                                opacity="0.85"
-                              />
-                              {/* Net Indicator Point */}
-                              <circle cx={x} cy={netY} r="4" fill="#0284c7" stroke="#ffffff" strokeWidth="1.5" />
-                              {/* Month label */}
-                              <text
-                                x={x}
-                                y="205"
-                                fill="#64748b"
-                                fontSize="11"
-                                textAnchor="middle"
-                                fontWeight="600"
-                              >
-                                {t.month}
-                              </text>
+                    {incomeCategories.length === 0 ? (
+                      <div className="fin-chart-empty-state">
+                        <div className="fin-chart-empty-icon">
+                          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v6l4 2"></path>
+                          </svg>
+                        </div>
+                        <div className="fin-chart-empty-title">No income recorded in this period</div>
+                        <div className="fin-chart-empty-sub">Select another date range above to see category breakdown</div>
+                      </div>
+                    ) : (
+                      <div className="fin-doughnut-layout">
+                        <div className="fin-doughnut-svg-wrap">
+                          <svg width="120" height="120" viewBox="0 0 150 150" className="fin-doughnut-svg">
+                            <circle cx="75" cy="75" r="55" fill="none" stroke="#f1f5f9" strokeWidth="18" />
+                            <g transform="rotate(-90 75 75)">
+                              {doughnutSegments.map((seg) => {
+                                const isHovered = hoveredChartCategory?.category === seg.category;
+                                return (
+                                  <circle
+                                    key={seg.category}
+                                    cx="75"
+                                    cy="75"
+                                    r="55"
+                                    fill="none"
+                                    stroke={seg.color}
+                                    strokeWidth={isHovered ? 22 : 18}
+                                    strokeDasharray={seg.strokeDasharray}
+                                    strokeDashoffset={seg.strokeDashoffset}
+                                    className="fin-doughnut-slice"
+                                    onMouseEnter={() => setHoveredChartCategory(seg)}
+                                    onMouseLeave={() => setHoveredChartCategory(null)}
+                                    style={{
+                                      transition: 'stroke-width 150ms ease, opacity 150ms ease',
+                                      cursor: 'pointer',
+                                      opacity: hoveredChartCategory && !isHovered ? 0.6 : 1,
+                                    }}
+                                  />
+                                );
+                              })}
                             </g>
-                          );
-                        })}
-                      </svg>
+                          </svg>
+                          <div className="fin-doughnut-center">
+                            <span className="fin-center-label">
+                              {hoveredChartCategory ? hoveredChartCategory.category : 'Total Income'}
+                            </span>
+                            <span className="fin-center-val">
+                              {hoveredChartCategory ? formatCurrency(hoveredChartCategory.amount) : formatCurrency(kpis.totalIncome)}
+                            </span>
+                            <span className="fin-center-sub">
+                              {hoveredChartCategory ? `${hoveredChartCategory.percentage}%` : selectedPeriodLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="fin-doughnut-legend-list">
+                          {incomeCategories.map((cat) => {
+                            const isHovered = hoveredChartCategory?.category === cat.category;
+                            return (
+                              <div
+                                key={cat.category}
+                                className={`fin-doughnut-legend-item ${isHovered ? 'hovered' : ''}`}
+                                onMouseEnter={() => setHoveredChartCategory(cat)}
+                                onMouseLeave={() => setHoveredChartCategory(null)}
+                              >
+                                <div className="fin-doughnut-legend-left">
+                                  <span className="fin-doughnut-legend-dot" style={{ backgroundColor: cat.color }} />
+                                  <span className="fin-doughnut-legend-name" title={cat.category}>{cat.category}</span>
+                                </div>
+                                <div className="fin-doughnut-legend-right">
+                                  <span className="fin-doughnut-legend-pct">{cat.percentage}%</span>
+                                  <span className="fin-doughnut-legend-amt">{formatCurrency(cat.amount)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 2: Financial Alerts & Pending Actions */}
+                  <div className="fin-card fin-alerts-card">
+                    <div className="fin-card-header">
+                      <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        Financial Alerts & Pending Actions
+                      </h3>
+                      <span className={`fin-card-tag ${alertActionCount > 0 ? 'orange' : 'green'}`}>
+                        {alertActionCount > 0 ? `${alertActionCount} Action Items` : 'All Settled'}
+                      </span>
+                    </div>
+
+                    <div className="fin-alerts-list">
+                      {/* 1. Overdue Invoices */}
+                      <div className="fin-alert-row" onClick={() => handleTabChange('recovery')} title="View Overdue Invoices in Payment Recovery">
+                        <div className="fin-alert-left">
+                          <div className={`fin-alert-dot ${kpis.overdueInvoicesCount > 0 ? 'danger' : 'success'}`} />
+                          <span className="fin-alert-label">Overdue Invoices</span>
+                        </div>
+                        <div className="fin-alert-center">
+                          <span className={`fin-alert-badge ${kpis.overdueInvoicesCount > 0 ? 'danger' : 'muted'}`}>
+                            {kpis.overdueInvoicesCount || 0}
+                          </span>
+                          {Number(kpis.overdueInvoicesAmount) > 0 && (
+                            <span className="fin-alert-amount danger">{formatCurrency(kpis.overdueInvoicesAmount)}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="fin-alert-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTabChange('recovery');
+                          }}
+                        >
+                          View →
+                        </button>
+                      </div>
+
+                      {/* 2. Pending Invoices */}
+                      <div className="fin-alert-row" onClick={() => handleTabChange('invoices')} title="View Pending Invoices">
+                        <div className="fin-alert-left">
+                          <div className={`fin-alert-dot ${kpis.pendingInvoicesCount > 0 ? 'warning' : 'success'}`} />
+                          <span className="fin-alert-label">Pending Invoices</span>
+                        </div>
+                        <div className="fin-alert-center">
+                          <span className={`fin-alert-badge ${kpis.pendingInvoicesCount > 0 ? 'warning' : 'muted'}`}>
+                            {kpis.pendingInvoicesCount || 0}
+                          </span>
+                          {Number(kpis.pendingInvoicesAmount) > 0 && (
+                            <span className="fin-alert-amount">{formatCurrency(kpis.pendingInvoicesAmount)}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="fin-alert-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTabChange('invoices');
+                          }}
+                        >
+                          View →
+                        </button>
+                      </div>
+
+                      {/* 3. Payment Requests */}
+                      <div className="fin-alert-row" onClick={() => handleTabChange('payroll', 'requests')} title="View Payment Requests in Payroll">
+                        <div className="fin-alert-left">
+                          <div className={`fin-alert-dot ${kpis.paymentRequestsPendingCount > 0 ? 'warning' : 'neutral'}`} />
+                          <span className="fin-alert-label">Payment Requests Awaiting Approval</span>
+                        </div>
+                        <div className="fin-alert-center">
+                          <span className={`fin-alert-badge ${kpis.paymentRequestsPendingCount > 0 ? 'warning' : 'muted'}`}>
+                            {kpis.paymentRequestsPendingCount || 0}
+                          </span>
+                          {Number(kpis.paymentRequestsPendingAmount) > 0 && (
+                            <span className="fin-alert-amount">{formatCurrency(kpis.paymentRequestsPendingAmount)}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="fin-alert-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTabChange('payroll', 'requests');
+                          }}
+                        >
+                          View →
+                        </button>
+                      </div>
+
+                      {/* 4. Payroll Pending */}
+                      <div className="fin-alert-row" onClick={() => handleTabChange('payroll', 'overview')} title="View Payroll Slips in Payroll">
+                        <div className="fin-alert-left">
+                          <div className={`fin-alert-dot ${kpis.payrollPendingCount > 0 ? 'warning' : 'neutral'}`} />
+                          <span className="fin-alert-label">Payroll Pending Disbursal</span>
+                        </div>
+                        <div className="fin-alert-center">
+                          <span className={`fin-alert-badge ${kpis.payrollPendingCount > 0 ? 'warning' : 'muted'}`}>
+                            {kpis.payrollPendingCount || 0}
+                          </span>
+                          {Number(kpis.payrollPendingAmount) > 0 && (
+                            <span className="fin-alert-amount">{formatCurrency(kpis.payrollPendingAmount)}</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="fin-alert-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTabChange('payroll', 'overview');
+                          }}
+                        >
+                          View →
+                        </button>
+                      </div>
+
+                      {/* 5. Bank Reconciliation */}
+                      <div className="fin-alert-row" onClick={() => handleTabChange('reconciliation')} title="View Bank Reconciliation">
+                        <div className="fin-alert-left">
+                          <div className={`fin-alert-dot ${kpis.reconciliationPendingCount > 0 ? 'warning' : 'success'}`} />
+                          <span className="fin-alert-label">Bank Reconciliation Pending</span>
+                        </div>
+                        <div className="fin-alert-center">
+                          <span className={`fin-alert-badge ${kpis.reconciliationPendingCount > 0 ? 'warning' : 'success'}`}>
+                            {kpis.reconciliationPendingCount > 0 ? kpis.reconciliationPendingCount : 'In Sync'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="fin-alert-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTabChange('reconciliation');
+                          }}
+                        >
+                          View →
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right Aging Column: Receivables Aging & Payables Aging */}
-                  <div className="fin-aging-col">
-                    {/* Receivables Aging */}
-                    <div className="fin-card fin-aging-card">
-                      <div className="fin-card-header">
-                        <h3>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          Receivables Aging
-                        </h3>
-                        <span className="fin-card-tag orange">{formatCurrency(kpis.receivables)}</span>
-                      </div>
-                      <div className="fin-aging-list">
-                        {Object.entries(summaryData?.aging?.receivables || {}).map(([bucket, val]) => {
-                          const total = summaryData?.kpis?.receivables || 1;
-                          const pct = Math.min(100, Math.round((val / total) * 100));
-                          return (
-                            <div key={bucket} className="fin-aging-row">
-                              <div className="fin-aging-header">
-                                <span>{bucket} Days</span>
-                                <strong>{formatCurrency(val)} ({pct}%)</strong>
-                              </div>
-                              <div className="fin-progress-bar-bg">
-                                <div className="fin-progress-bar-fill rec" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                  {/* Card 3: Receivables Aging */}
+                  <div className="fin-card fin-aging-card">
+                    <div className="fin-card-header">
+                      <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        Receivables Aging
+                      </h3>
+                      <span className="fin-card-tag orange">{formatCurrency(kpis.receivables)}</span>
                     </div>
-
-                    {/* Payables Aging */}
-                    <div className="fin-card fin-aging-card">
-                      <div className="fin-card-header">
-                        <h3>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                          Payables Aging
-                        </h3>
-                        <span className="fin-card-tag red">{formatCurrency(kpis.payables)}</span>
-                      </div>
-                      <div className="fin-aging-list">
-                        {Object.entries(summaryData?.aging?.payables || {}).map(([bucket, val]) => {
-                          const total = summaryData?.kpis?.payables || 1;
-                          const pct = Math.min(100, Math.round((val / total) * 100));
-                          return (
-                            <div key={bucket} className="fin-aging-row">
-                              <div className="fin-aging-header">
-                                <span>{bucket} Days</span>
-                                <strong>{formatCurrency(val)} ({pct}%)</strong>
-                              </div>
-                              <div className="fin-progress-bar-bg">
-                                <div className="fin-progress-bar-fill exp" style={{ width: `${pct}%` }} />
-                              </div>
+                    <div className="fin-aging-list">
+                      {Object.entries(summaryData?.aging?.receivables || {}).map(([bucket, val]) => {
+                        const total = summaryData?.kpis?.receivables || 1;
+                        const pct = Math.min(100, Math.round((val / total) * 100));
+                        return (
+                          <div key={bucket} className="fin-aging-row">
+                            <div className="fin-aging-header">
+                              <span>{bucket} Days</span>
+                              <strong>{formatCurrency(val)} ({pct}%)</strong>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="fin-progress-bar-bg">
+                              <div className="fin-progress-bar-fill rec" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Card 4: Payables Aging */}
+                  <div className="fin-card fin-aging-card">
+                    <div className="fin-card-header">
+                      <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        Payables Aging
+                      </h3>
+                      <span className="fin-card-tag red">{formatCurrency(kpis.payables)}</span>
+                    </div>
+                    <div className="fin-aging-list">
+                      {Object.entries(summaryData?.aging?.payables || {}).map(([bucket, val]) => {
+                        const total = summaryData?.kpis?.payables || 1;
+                        const pct = Math.min(100, Math.round((val / total) * 100));
+                        return (
+                          <div key={bucket} className="fin-aging-row">
+                            <div className="fin-aging-header">
+                              <span>{bucket} Days</span>
+                              <strong>{formatCurrency(val)} ({pct}%)</strong>
+                            </div>
+                            <div className="fin-progress-bar-bg">
+                              <div className="fin-progress-bar-fill exp" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -732,34 +1190,36 @@ export default function FinanceDashboard() {
                         Details
                       </button>
                     </div>
-                    <table className="fin-compact-table">
-                      <tbody>
-                        <tr>
-                          <td>Opening Liquid Cash</td>
-                          <td className="text-right font-medium">
-                            {formatCurrency(summaryData?.cashFlow?.forecast?.openingCash)}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>Expected Inflows</td>
-                          <td className="text-right font-medium text-success">
-                            + {formatCurrency(summaryData?.cashFlow?.forecast?.expectedInflows)}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>Expected Outflows</td>
-                          <td className="text-right font-medium text-danger">
-                            - {formatCurrency(summaryData?.cashFlow?.forecast?.expectedOutflows)}
-                          </td>
-                        </tr>
-                        <tr className="bg-highlight">
-                          <td><strong>Projected Closing</strong></td>
-                          <td className="text-right font-bold">
-                            {formatCurrency(summaryData?.cashFlow?.forecast?.projectedClosingCash)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div className="fin-compact-table-wrap">
+                      <table className="fin-compact-table">
+                        <tbody>
+                          <tr>
+                            <td>Opening Liquid Cash</td>
+                            <td className="text-right font-medium">
+                              {formatCurrency(summaryData?.cashFlow?.forecast?.openingCash)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>Expected Inflows</td>
+                            <td className="text-right font-medium text-success">
+                              + {formatCurrency(summaryData?.cashFlow?.forecast?.expectedInflows)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>Expected Outflows</td>
+                            <td className="text-right font-medium text-danger">
+                              - {formatCurrency(summaryData?.cashFlow?.forecast?.expectedOutflows)}
+                            </td>
+                          </tr>
+                          <tr className="bg-highlight">
+                            <td><strong>Projected Closing</strong></td>
+                            <td className="text-right font-bold">
+                              {formatCurrency(summaryData?.cashFlow?.forecast?.projectedClosingCash)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {/* 2. Bank Accounts */}
@@ -773,30 +1233,32 @@ export default function FinanceDashboard() {
                         View All
                       </button>
                     </div>
-                    <table className="fin-compact-table">
-                      <thead>
-                        <tr>
-                          <th>Account</th>
-                          <th>Bank</th>
-                          <th className="text-right">Balance</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(summaryData?.bankAccounts || []).slice(0, 4).map((acc) => (
-                          <tr key={acc._id}>
-                            <td className="font-medium">{acc.accountName}</td>
-                            <td className="text-muted">{acc.bankName}</td>
-                            <td className="text-right font-bold">{formatCurrency(acc.currentBalance)}</td>
-                            <td>
-                              <span className={`fin-badge ${String(acc.reconciliationStatus).toLowerCase()}`}>
-                                {acc.reconciliationStatus || 'Active'}
-                              </span>
-                            </td>
+                    <div className="fin-compact-table-wrap">
+                      <table className="fin-compact-table">
+                        <thead>
+                          <tr>
+                            <th>Account</th>
+                            <th>Bank</th>
+                            <th className="text-right">Balance</th>
+                            <th>Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {(summaryData?.bankAccounts || []).slice(0, 4).map((acc) => (
+                            <tr key={acc._id}>
+                              <td className="font-medium">{acc.accountName}</td>
+                              <td className="text-muted">{acc.bankName}</td>
+                              <td className="text-right font-bold">{formatCurrency(acc.currentBalance)}</td>
+                              <td>
+                                <span className={`fin-badge ${String(acc.reconciliationStatus).toLowerCase()}`}>
+                                  {acc.reconciliationStatus || 'Active'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {/* 3. Pending Invoices */}
@@ -810,36 +1272,38 @@ export default function FinanceDashboard() {
                         View All
                       </button>
                     </div>
-                    <table className="fin-compact-table">
-                      <thead>
-                        <tr>
-                          <th>Invoice No.</th>
-                          <th>Client</th>
-                          <th className="text-right">Amount</th>
-                          <th>Due Date</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(summaryData?.pendingInvoices || []).length === 0 ? (
-                          <tr><td colSpan="5" className="text-center text-muted">No pending invoices</td></tr>
-                        ) : (
-                          summaryData.pendingInvoices.slice(0, 4).map((inv) => (
-                            <tr key={inv._id}>
-                              <td className="font-mono text-primary font-semibold">{inv.invoiceNumber}</td>
-                              <td>{inv.clientName}</td>
-                              <td className="text-right font-semibold">{formatCurrency(inv.amount)}</td>
-                              <td className="text-muted">{formatDate(inv.dueDate)}</td>
-                              <td>
-                                <span className={`fin-badge ${String(inv.status).toLowerCase().replace(/\s+/g, '-')}`}>
-                                  {inv.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                    <div className="fin-compact-table-wrap">
+                      <table className="fin-compact-table">
+                        <thead>
+                          <tr>
+                            <th>Invoice No.</th>
+                            <th>Client</th>
+                            <th className="text-right">Amount</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(summaryData?.pendingInvoices || []).length === 0 ? (
+                            <tr><td colSpan="5" className="text-center text-muted">No pending invoices</td></tr>
+                          ) : (
+                            summaryData.pendingInvoices.slice(0, 4).map((inv) => (
+                              <tr key={inv._id}>
+                                <td className="font-mono text-primary font-semibold">{inv.invoiceNumber}</td>
+                                <td>{inv.clientName}</td>
+                                <td className="text-right font-semibold">{formatCurrency(inv.amount)}</td>
+                                <td className="text-muted">{formatDate(inv.dueDate)}</td>
+                                <td>
+                                  <span className={`fin-badge ${String(inv.status).toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {inv.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {/* 4. Payment Recovery */}
@@ -853,160 +1317,36 @@ export default function FinanceDashboard() {
                         Manage
                       </button>
                     </div>
-                    <table className="fin-compact-table">
-                      <thead>
-                        <tr>
-                          <th>Client</th>
-                          <th className="text-right">Amount Due</th>
-                          <th>Last Follow-up</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(summaryData?.paymentRecovery || []).length === 0 ? (
-                          <tr><td colSpan="4" className="text-center text-muted">No recovery items pending</td></tr>
-                        ) : (
-                          summaryData.paymentRecovery.slice(0, 4).map((rec) => (
-                            <tr key={rec._id}>
-                              <td className="font-medium">{rec.clientName}</td>
-                              <td className="text-right font-bold text-danger">{formatCurrency(rec.amountDue)}</td>
-                              <td className="text-muted">{formatDate(rec.lastFollowUp)}</td>
-                              <td>
-                                <span className={`fin-badge ${String(rec.status).toLowerCase().replace(/\s+/g, '-')}`}>
-                                  {rec.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Lower Dashboard Grid Tier 2: 5 Summary Tiles */}
-                <div className="fin-lower-grid-5col">
-                  {/* Payment Requests */}
-                  <div className="fin-card fin-summary-tile">
-                    <div className="fin-card-header">
-                      <h4>Payment Requests</h4>
-                      <button className="fin-link-btn" onClick={() => handleTabChange('requests')}>Open →</button>
-                    </div>
-                    <div className="fin-tile-metric">
-                      <span className="fin-tile-count">{summaryData?.kpis?.paymentRequestsPendingCount || 0}</span>
-                      <span className="fin-tile-sub">Pending Approval</span>
-                    </div>
-                    <div className="fin-tile-amount">
-                      {formatCurrency(summaryData?.kpis?.paymentRequestsPendingAmount || 0)}
-                    </div>
-                  </div>
-
-                  {/* Payroll Summary */}
-                  <div className="fin-card fin-summary-tile">
-                    <div className="fin-card-header">
-                      <h4>Payroll Summary</h4>
-                      <button className="fin-link-btn" onClick={() => handleTabChange('payroll')}>Open →</button>
-                    </div>
-                    <div className="fin-tile-metric">
-                      <span className="fin-tile-count warning">{summaryData?.kpis?.payrollPendingCount || 0}</span>
-                      <span className="fin-tile-sub">Pending Disbursal</span>
-                    </div>
-                    <div className="fin-tile-amount">
-                      {formatCurrency(summaryData?.kpis?.payrollPendingAmount || 0)}
-                    </div>
-                  </div>
-
-                  {/* Vendor Summary */}
-                  <div className="fin-card fin-summary-tile">
-                    <div className="fin-card-header">
-                      <h4>Vendor Summary</h4>
-                      <button className="fin-link-btn" onClick={() => handleTabChange('vendors')}>Open →</button>
-                    </div>
-                    <div className="fin-tile-metric">
-                      <span className="fin-tile-count">{summaryData?.vendorSummary?.totalVendors || 0}</span>
-                      <span className="fin-tile-sub">{summaryData?.vendorSummary?.activeVendors || 0} Active</span>
-                    </div>
-                    <div className="fin-tile-amount">
-                      Due: {formatCurrency(summaryData?.vendorSummary?.vendorOutstanding || 0)}
-                    </div>
-                  </div>
-
-                  {/* Expense Summary */}
-                  <div className="fin-card fin-summary-tile">
-                    <div className="fin-card-header">
-                      <h4>Expense Summary</h4>
-                      <button className="fin-link-btn" onClick={() => handleTabChange('expenses')}>Open →</button>
-                    </div>
-                    <div className="fin-expense-breakdown-mini">
-                      <div className="fin-exp-line">
-                        <span>Office</span>
-                        <strong>{formatCurrency(summaryData?.expenseSummary?.['Office Expenses'] || 0)}</strong>
-                      </div>
-                      <div className="fin-exp-line">
-                        <span>Client</span>
-                        <strong>{formatCurrency(summaryData?.expenseSummary?.['Client Expenses'] || 0)}</strong>
-                      </div>
-                      <div className="fin-exp-line">
-                        <span>Project</span>
-                        <strong>{formatCurrency(summaryData?.expenseSummary?.['Project Expenses'] || 0)}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Reconciliation Summary */}
-                  <div className="fin-card fin-summary-tile">
-                    <div className="fin-card-header">
-                      <h4>Reconciliation</h4>
-                      <button className="fin-link-btn" onClick={() => handleTabChange('reconciliation')}>Open →</button>
-                    </div>
-                    <div className="fin-tile-metric">
-                      <span className="fin-tile-count">{summaryData?.reconciliationSummary?.pendingCount || 0}</span>
-                      <span className="fin-tile-sub">Statements Pending</span>
-                    </div>
-                    <div className="fin-tile-badge-wrap">
-                      <span className={`fin-badge ${summaryData?.reconciliationSummary?.pendingCount > 0 ? 'warning' : 'completed'}`}>
-                        {summaryData?.reconciliationSummary?.status || 'Up to Date'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lower Dashboard Grid Tier 3: Critical Alerts */}
-                <div className="fin-card fin-critical-alerts-card">
-                  <div className="fin-card-header">
-                    <h3>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                      Critical Financial Alerts
-                    </h3>
-                    <span className="fin-alert-counter">{(summaryData?.alerts || []).length} Alerts</span>
-                  </div>
-                  <div className="fin-alerts-grid">
-                    {(summaryData?.alerts || []).length === 0 ? (
-                      <div className="fin-alerts-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        <span>All systems healthy. No critical financial alerts or pending discrepancies.</span>
-                      </div>
-                    ) : (
-                      summaryData.alerts.map((alt) => (
-                        <div key={alt.id} className={`fin-alert-card ${alt.type}`}>
-                          <div className="fin-alert-body">
-                            <div className="fin-alert-title-row">
-                              <span className={`fin-alert-indicator ${alt.type}`} />
-                              <strong>{alt.title}</strong>
-                            </div>
-                            <p className="fin-alert-msg">{alt.message}</p>
-                          </div>
-                          {alt.actionTab && (
-                            <button
-                              className="fin-btn-secondary fin-btn-sm fin-alert-action-btn"
-                              onClick={() => handleTabChange(alt.actionTab)}
-                            >
-                              Resolve →
-                            </button>
+                    <div className="fin-compact-table-wrap">
+                      <table className="fin-compact-table">
+                        <thead>
+                          <tr>
+                            <th>Client</th>
+                            <th className="text-right">Amount Due</th>
+                            <th>Last Follow-up</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(summaryData?.paymentRecovery || []).length === 0 ? (
+                            <tr><td colSpan="4" className="text-center text-muted">No recovery items pending</td></tr>
+                          ) : (
+                            summaryData.paymentRecovery.slice(0, 4).map((rec) => (
+                              <tr key={rec._id}>
+                                <td className="font-medium">{rec.clientName}</td>
+                                <td className="text-right font-bold text-danger">{formatCurrency(rec.amountDue)}</td>
+                                <td className="text-muted">{formatDate(rec.lastFollowUp)}</td>
+                                <td>
+                                  <span className={`fin-badge ${String(rec.status).toLowerCase().replace(/\s+/g, '-')}`}>
+                                    {rec.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
                           )}
-                        </div>
-                      ))
-                    )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </>
@@ -1016,381 +1356,85 @@ export default function FinanceDashboard() {
 
         {/* TAB CONTENT: 2. CLIENT FINANCIAL MASTER */}
         {activeTab === 'clients' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <input
-                type="text"
-                placeholder="Search Client or Company..."
-                className="fin-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                Showing {clients.length} registered clients
-              </span>
-            </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Client Name</th>
-                  <th>Company</th>
-                  <th>Contact</th>
-                  <th>Projects</th>
-                  <th>Total Billed</th>
-                  <th>Total Received</th>
-                  <th>Outstanding</th>
-                  <th>Last Payment</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients
-                  .filter(
-                    (c) =>
-                      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      c.company?.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((c) => (
-                    <tr key={c._id}>
-                      <td><strong>{c.name}</strong></td>
-                      <td>{c.company || '—'}</td>
-                      <td>
-                        <small>{c.phone || c.email || '—'}</small>
-                      </td>
-                      <td>{c.activeProjectsCount} Active</td>
-                      <td>{formatCurrency(c.totalBilled)}</td>
-                      <td style={{ color: '#16a34a' }}>{formatCurrency(c.totalReceived)}</td>
-                      <td style={{ color: c.outstanding > 0 ? '#ea580c' : '#475569', fontWeight: 600 }}>
-                        {formatCurrency(c.outstanding)}
-                      </td>
-                      <td>
-                        {c.lastPayment ? (
-                          <small>
-                            {formatCurrency(c.lastPayment.amount)} on {formatDate(c.lastPayment.date)}
-                          </small>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>
-                        <span className={`fin-badge ${c.financialStatus.toLowerCase()}`}>
-                          {c.financialStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+          <ClientFinancialMaster
+            clients={clients}
+            setClients={setClients}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            openModal={openModal}
+            user={user}
+            refreshTrigger={refreshTrigger}
+            setRefreshTrigger={setRefreshTrigger}
+          />
         )}
 
         {/* TAB CONTENT: 3. PROPOSALS / QUOTATIONS */}
         {activeTab === 'proposals' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <input
-                type="text"
-                placeholder="Search Proposals..."
-                className="fin-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button className="fin-btn-primary fin-btn-sm" onClick={() => openModal('invoice')}>
-                + New Proposal / Quotation
-              </button>
-            </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Proposal #</th>
-                  <th>Client</th>
-                  <th>Items</th>
-                  <th>Subtotal</th>
-                  <th>Tax</th>
-                  <th>Total</th>
-                  <th>Valid Until</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proposals.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                      No proposals found in database.
-                    </td>
-                  </tr>
-                ) : (
-                  proposals.map((p) => (
-                    <tr key={p._id}>
-                      <td><strong>{p.proposalNumber}</strong></td>
-                      <td>{p.clientName}</td>
-                      <td>{p.items?.length || 0} line items</td>
-                      <td>{formatCurrency(p.subtotal)}</td>
-                      <td>{formatCurrency(p.tax)}</td>
-                      <td><strong>{formatCurrency(p.total)}</strong></td>
-                      <td>{formatDate(p.validUntil)}</td>
-                      <td>
-                        <span className={`fin-badge ${String(p.status).toLowerCase().replace(/\s+/g, '-')}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td>
-                        {p.status !== 'Converted to Invoice' && (
-                          <button
-                            className="fin-action-btn pay"
-                            onClick={() => handleConvertProposal(p._id)}
-                          >
-                            Convert to Invoice
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <ProposalQuotationMaster
+            proposals={proposals}
+            setProposals={setProposals}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            refreshTrigger={refreshTrigger}
+            setRefreshTrigger={setRefreshTrigger}
+            openModal={openModal}
+          />
         )}
 
         {/* TAB CONTENT: 4. INVOICES */}
         {activeTab === 'invoices' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <input
-                type="text"
-                placeholder="Search Invoice #, Client..."
-                className="fin-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <select
-                className="fin-filter-select"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Draft">Draft</option>
-                <option value="Sent">Sent</option>
-                <option value="Partially Paid">Partially Paid</option>
-                <option value="Paid">Paid</option>
-                <option value="Overdue">Overdue</option>
-              </select>
-              <button className="fin-btn-primary fin-btn-sm" onClick={() => openModal('invoice')}>
-                + Create Invoice
-              </button>
-            </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Client</th>
-                  <th>Issue Date</th>
-                  <th>Due Date</th>
-                  <th>Total Amount</th>
-                  <th>Paid</th>
-                  <th>Balance Due</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices
-                  .filter((inv) => {
-                    const matchSearch =
-                      inv.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      inv.clientName?.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchStatus = statusFilter === 'All' || inv.status === statusFilter;
-                    return matchSearch && matchStatus;
-                  })
-                  .map((inv) => {
-                    const total = (Number(inv.amount) || 0) + (Number(inv.cgst) || 0) + (Number(inv.sgst) || 0);
-                    const bal = inv.balance !== undefined ? inv.balance : Math.max(0, total - (inv.paidAmount || 0));
-
-                    return (
-                      <tr key={inv._id}>
-                        <td><strong>{inv.invoiceNumber}</strong></td>
-                        <td>{inv.clientName}</td>
-                        <td>{formatDate(inv.issueDate)}</td>
-                        <td>{formatDate(inv.dueDate)}</td>
-                        <td>{formatCurrency(total)}</td>
-                        <td style={{ color: '#16a34a' }}>{formatCurrency(inv.paidAmount)}</td>
-                        <td style={{ color: bal > 0 ? '#ea580c' : '#475569', fontWeight: 600 }}>
-                          {formatCurrency(bal)}
-                        </td>
-                        <td>
-                          <span className={`fin-badge ${String(inv.status).toLowerCase().replace(/\s+/g, '-')}`}>
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="fin-row-actions">
-                            {bal > 0 && (
-                              <button
-                                className="fin-action-btn pay"
-                                onClick={() => openModal('payment', inv)}
-                              >
-                                Record Payment
-                              </button>
-                            )}
-                            <button
-                              className="fin-action-btn"
-                              onClick={() => openModal('recovery', inv)}
-                            >
-                              Follow-up
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
+          <InvoiceMaster
+            invoices={invoices}
+            setInvoices={setInvoices}
+            summary={invoiceSummary}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+            openModal={openModal}
+          />
         )}
 
         {/* TAB CONTENT: 5. PAYMENT RECOVERY */}
         {activeTab === 'recovery' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <input
-                type="text"
-                placeholder="Search Recovery Cases..."
-                className="fin-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <span style={{ fontSize: '0.8rem', color: '#ea580c', fontWeight: 600 }}>
-                {recoveryInvoices.length} Unpaid / Overdue Invoices Requiring Follow-up
-              </span>
-            </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Client</th>
-                  <th>Amount Due</th>
-                  <th>Due Date</th>
-                  <th>Recovery Status</th>
-                  <th>Last Follow-up</th>
-                  <th>Next Follow-up</th>
-                  <th>Promise to Pay</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recoveryInvoices.map((inv) => (
-                  <tr key={inv._id}>
-                    <td><strong>{inv.invoiceNumber}</strong></td>
-                    <td>{inv.clientName}</td>
-                    <td style={{ color: '#dc2626', fontWeight: 700 }}>
-                      {formatCurrency(inv.balance)}
-                    </td>
-                    <td>{formatDate(inv.dueDate)}</td>
-                    <td>
-                      <span className={`fin-badge ${String(inv.recovery?.status || 'Not Started').toLowerCase().replace(/\s+/g, '-')}`}>
-                        {inv.recovery?.status || 'Not Started'}
-                      </span>
-                    </td>
-                    <td>{formatDate(inv.recovery?.lastFollowUp)}</td>
-                    <td>{formatDate(inv.recovery?.nextFollowUp)}</td>
-                    <td>{formatDate(inv.recovery?.promiseToPayDate)}</td>
-                    <td>
-                      <button className="fin-action-btn pay" onClick={() => openModal('recovery', inv)}>
-                        Log Follow-up
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PaymentRecoveryMaster
+            invoices={recoveryInvoices}
+            setInvoices={setRecoveryInvoices}
+            summary={recoverySummary}
+            aging={recoveryAging}
+            teamMembers={recoveryTeam}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+            openModal={openModal}
+          />
+        )}
+
+        {/* TAB CONTENT: INCOME MANAGEMENT */}
+        {activeTab === 'income' && (
+          <IncomeMaster
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+            openModal={openModal}
+            handleTabChange={handleTabChange}
+          />
         )}
 
         {/* TAB CONTENT: 6. EXPENSES */}
         {activeTab === 'expenses' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <input
-                type="text"
-                placeholder="Search Expenses..."
-                className="fin-search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <select
-                className="fin-filter-select"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <option value="All">All Categories</option>
-                <option value="Office Expenses">Office Expenses</option>
-                <option value="Project Expenses">Project Expenses</option>
-                <option value="Client Expenses">Client Expenses</option>
-              </select>
-              <button className="fin-btn-primary fin-btn-sm" onClick={() => openModal('expense')}>
-                + Add Expense
-              </button>
-            </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Category</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Vendor / Payee</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses
-                  .filter((e) => categoryFilter === 'All' || e.categoryType === categoryFilter)
-                  .map((e) => (
-                    <tr key={e._id}>
-                      <td><strong>{e.title}</strong></td>
-                      <td>{e.category}</td>
-                      <td><small>{e.categoryType || 'Office Expenses'}</small></td>
-                      <td><strong>{formatCurrency(e.amount)}</strong></td>
-                      <td>{formatDate(e.expenseDate)}</td>
-                      <td>{e.vendorName || e.employeeName || '—'}</td>
-                      <td>
-                        <span className={`fin-badge ${String(e.paymentStatus).toLowerCase()}`}>
-                          {e.paymentStatus}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="fin-row-actions">
-                          {e.paymentStatus === 'Pending' && (
-                            <button
-                              className="fin-action-btn approve"
-                              onClick={() => handleApproveExpense(e._id)}
-                            >
-                              Approve
-                            </button>
-                          )}
-                          {e.paymentStatus === 'Approved' && (
-                            <button
-                              className="fin-action-btn pay"
-                              onClick={() => {
-                                const bankId = summaryData?.bankAccounts?.[0]?._id;
-                                if (window.confirm(`Disburse payment of ${formatCurrency(e.amount)} now?`)) {
-                                  apiClient.post(`/finance/expenses/${e._id}/pay`, { bankAccountId: bankId }).then(() => setRefreshTrigger(p => p + 1));
-                                }
-                              }}
-                            >
-                              Disburse Payment
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+          <ExpenseMaster
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            onRefresh={() => setRefreshTrigger((prev) => prev + 1)}
+            openModal={openModal}
+            handleTabChange={handleTabChange}
+            initialSubTab={initialExpenseSubTab}
+          />
         )}
 
         {/* TAB CONTENT: 7. BANK ACCOUNTS & TRANSACTIONS */}
@@ -1431,282 +1475,436 @@ export default function FinanceDashboard() {
           </div>
         )}
 
-        {/* TAB CONTENT: 8. VENDORS & BILLS */}
-        {activeTab === 'vendors' && (
+        {/* TAB CONTENT: CASH FLOW */}
+        {activeTab === 'cashflow' && (
           <div>
-            <div className="fin-table-container" style={{ marginBottom: '2rem' }}>
-              <div className="fin-table-toolbar">
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Vendor Bills & Payables</span>
-                <button className="fin-btn-primary fin-btn-sm" onClick={() => openModal('bill')}>
-                  + Add Vendor Bill
-                </button>
-              </div>
-              <table className="fin-data-table">
-                <thead>
-                  <tr>
-                    <th>Bill #</th>
-                    <th>Vendor</th>
-                    <th>Date</th>
-                    <th>Due Date</th>
-                    <th>Total Bill</th>
-                    <th>Paid</th>
-                    <th>Outstanding</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vendorBills.map((b) => (
-                    <tr key={b._id}>
-                      <td><strong>{b.billNumber}</strong></td>
-                      <td>{b.vendorName}</td>
-                      <td>{formatDate(b.billDate)}</td>
-                      <td>{formatDate(b.dueDate)}</td>
-                      <td>{formatCurrency(b.totalAmount)}</td>
-                      <td style={{ color: '#16a34a' }}>{formatCurrency(b.paidAmount)}</td>
-                      <td style={{ color: b.balance > 0 ? '#dc2626' : '#475569', fontWeight: 600 }}>
-                        {formatCurrency(b.balance)}
-                      </td>
-                      <td>
-                        <span className={`fin-badge ${String(b.status).toLowerCase().replace(/\s+/g, '-')}`}>
-                          {b.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="fin-row-actions">
-                          {b.approvalStatus === 'Pending' && (
-                            <button
-                              className="fin-action-btn approve"
-                              onClick={() => handleApproveBill(b._id)}
-                            >
-                              Approve Bill
-                            </button>
-                          )}
-                          {b.approvalStatus === 'Approved' && b.balance > 0 && (
-                            <button
-                              className="fin-action-btn pay"
-                              onClick={() => {
-                                const bankId = summaryData?.bankAccounts?.[0]?._id;
-                                if (window.confirm(`Disburse payment of ${formatCurrency(b.balance)} for bill ${b.billNumber}?`)) {
-                                  apiClient.post(`/finance/vendor-bills/${b._id}/pay`, { bankAccountId: bankId }).then(() => setRefreshTrigger(p => p + 1));
-                                }
-                              }}
-                            >
-                              Pay Bill
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="fin-table-container">
-              <div className="fin-table-toolbar">
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Vendor Master Directory</span>
-                <button className="fin-btn-secondary fin-btn-sm" onClick={() => openModal('vendor')}>
-                  + Register Vendor
-                </button>
-              </div>
-              <table className="fin-data-table">
-                <thead>
-                  <tr>
-                    <th>Company Name</th>
-                    <th>Contact Person</th>
-                    <th>Category</th>
-                    <th>GSTIN / PAN</th>
-                    <th>Total Billed</th>
-                    <th>Total Paid</th>
-                    <th>Outstanding</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vendors.map((v) => (
-                    <tr key={v._id}>
-                      <td><strong>{v.companyName}</strong></td>
-                      <td>{v.name} ({v.phone || v.email || '—'})</td>
-                      <td>{v.category}</td>
-                      <td><small>{v.gstin || v.pan || '—'}</small></td>
-                      <td>{formatCurrency(v.totalBilled)}</td>
-                      <td style={{ color: '#16a34a' }}>{formatCurrency(v.totalPaid)}</td>
-                      <td style={{ color: v.outstanding > 0 ? '#ea580c' : '#475569', fontWeight: 600 }}>
-                        {formatCurrency(v.outstanding)}
-                      </td>
-                      <td>
-                        <span className={`fin-badge ${String(v.status).toLowerCase()}`}>{v.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB CONTENT: 9. PAYROLL & F&F INTEGRATION */}
-        {activeTab === 'payroll' && (
-          <div>
-            <div className="fin-table-container" style={{ marginBottom: '2rem' }}>
-              <div className="fin-table-toolbar">
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>HR Employee Payroll Slips (Live Disbursal)</span>
-              </div>
-              <table className="fin-data-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Period</th>
-                    <th>Gross Salary</th>
-                    <th>Deductions</th>
-                    <th>Net Payable</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payrolls.map((p) => {
-                    const emp = p.user ? `${p.user.firstName || ''} ${p.user.lastName || ''}`.trim() : 'Employee';
-                    return (
-                      <tr key={p._id}>
-                        <td><strong>{emp}</strong></td>
-                        <td>{p.payPeriod}</td>
-                        <td>{formatCurrency(p.gross)}</td>
-                        <td style={{ color: '#dc2626' }}>{formatCurrency(p.totalDeduction)}</td>
-                        <td><strong style={{ color: '#0f172a' }}>{formatCurrency(p.net)}</strong></td>
-                        <td>
-                          <span className={`fin-badge ${String(p.status).toLowerCase()}`}>{p.status}</span>
-                        </td>
-                        <td>
-                          {p.status !== 'Paid' ? (
-                            <button
-                              className="fin-action-btn pay"
-                              onClick={() => openModal('disburseSalary', p)}
-                            >
-                              Disburse Salary
-                            </button>
-                          ) : (
-                            <small style={{ color: '#16a34a' }}>✓ Disbursed on {formatDate(p.paymentDate)}</small>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="fin-table-container">
-              <div className="fin-table-toolbar">
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Full & Final Settlement Disbursals</span>
-              </div>
-              <table className="fin-data-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Gross Earnings</th>
-                    <th>Total Deductions</th>
-                    <th>Net Settlement</th>
-                    <th>Payment Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {settlements.map((s) => {
-                    const emp = s.employeeSnapshot?.name || (s.user ? `${s.user.firstName || ''} ${s.user.lastName || ''}` : 'Employee');
-                    const isPaid = s.payment?.paymentStatus === 'Paid';
-                    return (
-                      <tr key={s._id}>
-                        <td><strong>{emp}</strong></td>
-                        <td>{formatCurrency(s.grossEarnings)}</td>
-                        <td style={{ color: '#dc2626' }}>{formatCurrency(s.totalDeductions)}</td>
-                        <td><strong>{formatCurrency(s.netPayable)}</strong></td>
-                        <td>
-                          <span className={`fin-badge ${isPaid ? 'paid' : 'pending'}`}>
-                            {s.payment?.paymentStatus || 'Pending'}
-                          </span>
-                        </td>
-                        <td>
-                          {!isPaid ? (
-                            <button
-                              className="fin-action-btn pay"
-                              onClick={() => openModal('disburseFnf', s)}
-                            >
-                              Disburse Settlement
-                            </button>
-                          ) : (
-                            <small style={{ color: '#16a34a' }}>✓ Settled</small>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB CONTENT: 10. PAYMENT REQUESTS */}
-        {activeTab === 'requests' && (
-          <div className="fin-table-container">
-            <div className="fin-table-toolbar">
-              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Payment Requests & Approvals</span>
-              <button className="fin-btn-primary fin-btn-sm" onClick={() => openModal('request')}>
-                + New Payment Request
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>
+                📈 Cash Flow Forecast & Liquid Runway
+              </h3>
+              <button className="fin-btn-secondary fin-btn-sm" onClick={() => handleTabChange('overview')}>
+                ← Back to Overview
               </button>
             </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Request #</th>
-                  <th>Payee</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Priority</th>
-                  <th>Required Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paymentRequests.map((r) => (
-                  <tr key={r._id}>
-                    <td><strong>{r.requestNumber}</strong></td>
-                    <td>{r.payeeName}</td>
-                    <td>{r.paymentType}</td>
-                    <td><strong>{formatCurrency(r.amount)}</strong></td>
-                    <td>
-                      <span className={`fin-badge ${r.priority.toLowerCase()}`}>{r.priority}</span>
-                    </td>
-                    <td>{formatDate(r.requiredDate)}</td>
-                    <td>
-                      <span className={`fin-badge ${r.status.toLowerCase()}`}>{r.status}</span>
-                    </td>
-                    <td>
-                      <div className="fin-row-actions">
-                        {r.status === 'Submitted' && (
-                          <button className="fin-action-btn approve" onClick={() => handleApproveRequest(r._id)}>
-                            Approve
-                          </button>
-                        )}
-                        {r.status === 'Approved' && (
-                          <button className="fin-action-btn pay" onClick={() => handlePayRequest(r._id)}>
-                            Disburse
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+            <div className="fin-kpi-grid-6" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.25rem' }}>
+              <div className="fin-kpi-card">
+                <div className="fin-kpi-top">
+                  <span className="fin-kpi-label">Opening Liquid Cash</span>
+                  <div className="fin-kpi-icon-wrap bank">🏦</div>
+                </div>
+                <div className="fin-kpi-value">{formatCurrency(summaryData?.cashFlow?.forecast?.openingCash)}</div>
+                <div className="fin-kpi-footer">Current Bank + Vault Balances</div>
+              </div>
+
+              <div className="fin-kpi-card">
+                <div className="fin-kpi-top">
+                  <span className="fin-kpi-label">Expected Inflows</span>
+                  <div className="fin-kpi-icon-wrap income">📈</div>
+                </div>
+                <div className="fin-kpi-value" style={{ color: '#10b981' }}>
+                  + {formatCurrency(summaryData?.cashFlow?.forecast?.expectedInflows)}
+                </div>
+                <div className="fin-kpi-footer">Due Receivables in Period</div>
+              </div>
+
+              <div className="fin-kpi-card">
+                <div className="fin-kpi-top">
+                  <span className="fin-kpi-label">Expected Outflows</span>
+                  <div className="fin-kpi-icon-wrap expense">📉</div>
+                </div>
+                <div className="fin-kpi-value" style={{ color: '#ef4444' }}>
+                  - {formatCurrency(summaryData?.cashFlow?.forecast?.expectedOutflows)}
+                </div>
+                <div className="fin-kpi-footer">Pending Bills & Requests</div>
+              </div>
+
+              <div className="fin-kpi-card">
+                <div className="fin-kpi-top">
+                  <span className="fin-kpi-label">Projected Closing</span>
+                  <div className="fin-kpi-icon-wrap cashflow">💼</div>
+                </div>
+                <div
+                  className="fin-kpi-value"
+                  style={{ color: (summaryData?.cashFlow?.forecast?.projectedClosingCash || 0) >= 0 ? '#10b981' : '#ef4444' }}
+                >
+                  {formatCurrency(summaryData?.cashFlow?.forecast?.projectedClosingCash)}
+                </div>
+                <div className="fin-kpi-footer">Forecasted Net Liquid Balance</div>
+              </div>
+            </div>
+
+            <div className="fin-table-container">
+              <div className="fin-table-toolbar">
+                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>6-Month Rolling Cash Flow Trends</span>
+              </div>
+              <div className="fin-table-responsive">
+                <table className="fin-data-table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="text-right">Inflow (Credits)</th>
+                      <th className="text-right">Outflow (Debits)</th>
+                      <th className="text-right">Net Flow</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trends.map((t) => (
+                      <tr key={t.month}>
+                        <td><strong>{t.month}</strong></td>
+                        <td className="text-right text-success font-semibold">{formatCurrency(t.income)}</td>
+                        <td className="text-right text-danger font-semibold">{formatCurrency(t.expense)}</td>
+                        <td className="text-right font-bold" style={{ color: t.net >= 0 ? '#10b981' : '#ef4444' }}>
+                          {formatCurrency(t.net)}
+                        </td>
+                        <td>
+                          <span className={`fin-badge ${t.net >= 0 ? 'paid' : 'rejected'}`}>
+                            {t.net >= 0 ? 'Surplus' : 'Deficit'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* TAB CONTENT: 11. GENERAL LEDGER */}
-        {(activeTab === 'ledger' || activeTab === 'income') && (
+        {/* TAB CONTENT: VENDOR MANAGEMENT (CONSOLIDATED) */}
+        {(activeTab === 'vendors' || activeTab === 'vendor-bills') && (
+          <VendorManagementMaster
+            vendors={vendors}
+            setVendors={setVendors}
+            vendorBills={vendorBills}
+            setVendorBills={setVendorBills}
+            bankAccounts={bankAccounts}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            isFinanceAdmin={isFinanceAdmin}
+            onRefresh={() => setRefreshTrigger((p) => p + 1)}
+            initialSubTab={initialVendorSubTab}
+          />
+        )}
+
+        {/* TAB CONTENT: PAYROLL (CONSOLIDATED) */}
+        {(activeTab === 'payroll' || activeTab === 'salary' || activeTab === 'requests') && (
+          <PayrollMaster
+            payrolls={payrolls}
+            setPayrolls={setPayrolls}
+            settlements={settlements}
+            setSettlements={setSettlements}
+            paymentRequests={paymentRequests}
+            setPaymentRequests={setPaymentRequests}
+            bankAccounts={bankAccounts}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            isFinanceAdmin={isFinanceAdmin}
+            onRefresh={() => setRefreshTrigger((p) => p + 1)}
+            initialSubTab={initialPayrollSubTab}
+          />
+        )}
+
+        {/* TAB CONTENT: 15. CLIENT EXPENSES */}
+        {activeTab === 'client-expenses' && (
+          <div className="fin-table-container">
+            <div className="fin-table-toolbar">
+              <input
+                type="text"
+                placeholder="Search Client Expenses..."
+                className="fin-search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <span className="fin-toolbar-count">
+                <strong>{expenses.filter((e) => e.categoryType === 'Client Expenses').length}</strong> client expenses
+              </span>
+              <button
+                className="fin-btn-primary fin-btn-sm"
+                onClick={() => {
+                  openModal('expense');
+                  setModalFormData((prev) => ({ ...prev, categoryType: 'Client Expenses' }));
+                }}
+              >
+                + Add Client Expense
+              </button>
+            </div>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Client / Project</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Payee</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.filter((e) => e.categoryType === 'Client Expenses').length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="fin-empty-cell">No client expenses recorded</td>
+                    </tr>
+                  ) : (
+                    expenses
+                      .filter((e) => e.categoryType === 'Client Expenses')
+                      .filter((e) => !searchTerm || e.title?.toLowerCase().includes(searchTerm.toLowerCase()) || e.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .map((e) => (
+                        <tr key={e._id}>
+                          <td><strong>{e.title}</strong></td>
+                          <td>{e.category}</td>
+                          <td>{e.client?.name || e.project?.name || '—'}</td>
+                          <td><strong>{formatCurrency(e.amount)}</strong></td>
+                          <td>{formatDate(e.expenseDate)}</td>
+                          <td>{e.vendorName || e.employeeName || '—'}</td>
+                          <td>
+                            <span className={`fin-badge ${String(e.paymentStatus).toLowerCase()}`}>
+                              {e.paymentStatus}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fin-row-actions">
+                              {e.paymentStatus === 'Pending' && (
+                                isFinanceAdmin ? (
+                                  <button className="fin-action-btn approve" onClick={() => handleApproveExpense(e._id)}>
+                                    Approve
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Pending Admin</span>
+                                )
+                              )}
+                              {e.paymentStatus === 'Approved' && (
+                                isFinanceAdmin ? (
+                                  <button
+                                    className="fin-action-btn pay"
+                                    onClick={() => {
+                                      const bankId = summaryData?.bankAccounts?.[0]?._id;
+                                      if (window.confirm(`Disburse payment of ${formatCurrency(e.amount)} now?`)) {
+                                        apiClient.post(`/finance/expenses/${e._id}/pay`, { bankAccountId: bankId }).then(() => setRefreshTrigger((p) => p + 1));
+                                      }
+                                    }}
+                                  >
+                                    Disburse Payment
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Approved</span>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: 16. OFFICE EXPENSES */}
+        {activeTab === 'office-expenses' && (
+          <div className="fin-table-container">
+            <div className="fin-table-toolbar">
+              <input
+                type="text"
+                placeholder="Search Office Expenses..."
+                className="fin-search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <span className="fin-toolbar-count">
+                <strong>{expenses.filter((e) => e.categoryType === 'Office Expenses').length}</strong> office expenses
+              </span>
+              <button
+                className="fin-btn-primary fin-btn-sm"
+                onClick={() => {
+                  openModal('expense');
+                  setModalFormData((prev) => ({ ...prev, categoryType: 'Office Expenses' }));
+                }}
+              >
+                + Add Office Expense
+              </button>
+            </div>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Vendor / Payee</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.filter((e) => e.categoryType === 'Office Expenses').length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="fin-empty-cell">No office expenses recorded</td>
+                    </tr>
+                  ) : (
+                    expenses
+                      .filter((e) => e.categoryType === 'Office Expenses')
+                      .filter((e) => !searchTerm || e.title?.toLowerCase().includes(searchTerm.toLowerCase()) || e.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .map((e) => (
+                        <tr key={e._id}>
+                          <td><strong>{e.title}</strong></td>
+                          <td>{e.category}</td>
+                          <td>{e.vendorName || e.employeeName || '—'}</td>
+                          <td><strong>{formatCurrency(e.amount)}</strong></td>
+                          <td>{formatDate(e.expenseDate)}</td>
+                          <td>
+                            <span className={`fin-badge ${String(e.paymentStatus).toLowerCase()}`}>
+                              {e.paymentStatus}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fin-row-actions">
+                              {e.paymentStatus === 'Pending' && (
+                                isFinanceAdmin ? (
+                                  <button className="fin-action-btn approve" onClick={() => handleApproveExpense(e._id)}>
+                                    Approve
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Pending Admin</span>
+                                )
+                              )}
+                              {e.paymentStatus === 'Approved' && (
+                                isFinanceAdmin ? (
+                                  <button
+                                    className="fin-action-btn pay"
+                                    onClick={() => {
+                                      const bankId = summaryData?.bankAccounts?.[0]?._id;
+                                      if (window.confirm(`Disburse payment of ${formatCurrency(e.amount)} now?`)) {
+                                        apiClient.post(`/finance/expenses/${e._id}/pay`, { bankAccountId: bankId }).then(() => setRefreshTrigger((p) => p + 1));
+                                      }
+                                    }}
+                                  >
+                                    Disburse Payment
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Approved</span>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: 17. PROJECT EXPENSES */}
+        {activeTab === 'project-expenses' && (
+          <div className="fin-table-container">
+            <div className="fin-table-toolbar">
+              <input
+                type="text"
+                placeholder="Search Project Expenses..."
+                className="fin-search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <span className="fin-toolbar-count">
+                <strong>{expenses.filter((e) => e.categoryType === 'Project Expenses').length}</strong> project expenses
+              </span>
+              <button
+                className="fin-btn-primary fin-btn-sm"
+                onClick={() => {
+                  openModal('expense');
+                  setModalFormData((prev) => ({ ...prev, categoryType: 'Project Expenses' }));
+                }}
+              >
+                + Add Project Expense
+              </button>
+            </div>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Project</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Vendor / Payee</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.filter((e) => e.categoryType === 'Project Expenses').length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="fin-empty-cell">No project expenses recorded</td>
+                    </tr>
+                  ) : (
+                    expenses
+                      .filter((e) => e.categoryType === 'Project Expenses')
+                      .filter((e) => !searchTerm || e.title?.toLowerCase().includes(searchTerm.toLowerCase()) || e.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .map((e) => (
+                        <tr key={e._id}>
+                          <td><strong>{e.title}</strong></td>
+                          <td>{e.category}</td>
+                          <td>{e.project?.name || '—'}</td>
+                          <td><strong>{formatCurrency(e.amount)}</strong></td>
+                          <td>{formatDate(e.expenseDate)}</td>
+                          <td>{e.vendorName || e.employeeName || '—'}</td>
+                          <td>
+                            <span className={`fin-badge ${String(e.paymentStatus).toLowerCase()}`}>
+                              {e.paymentStatus}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fin-row-actions">
+                              {e.paymentStatus === 'Pending' && (
+                                isFinanceAdmin ? (
+                                  <button className="fin-action-btn approve" onClick={() => handleApproveExpense(e._id)}>
+                                    Approve
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Pending Admin</span>
+                                )
+                              )}
+                              {e.paymentStatus === 'Approved' && (
+                                isFinanceAdmin ? (
+                                  <button
+                                    className="fin-action-btn pay"
+                                    onClick={() => {
+                                      const bankId = summaryData?.bankAccounts?.[0]?._id;
+                                      if (window.confirm(`Disburse payment of ${formatCurrency(e.amount)} now?`)) {
+                                        apiClient.post(`/finance/expenses/${e._id}/pay`, { bankAccountId: bankId }).then(() => setRefreshTrigger((p) => p + 1));
+                                      }
+                                    }}
+                                  >
+                                    Disburse Payment
+                                  </button>
+                                ) : (
+                                  <span className="fin-cell-sub">Approved</span>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: 18. GENERAL LEDGER */}
+        {activeTab === 'ledger' && (
           <div className="fin-table-container">
             <div className="fin-table-toolbar">
               <input
@@ -1720,41 +1918,111 @@ export default function FinanceDashboard() {
                 Total Transactions: {ledgerEntries.length}
               </span>
             </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Tx #</th>
-                  <th>Account</th>
-                  <th>Category</th>
-                  <th>Party</th>
-                  <th>Reference</th>
-                  <th>Debit (Dr)</th>
-                  <th>Credit (Cr)</th>
-                  <th>Running Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ledgerEntries.map((t) => (
-                  <tr key={t._id}>
-                    <td>{formatDate(t.date)}</td>
-                    <td><strong>{t.paymentNumber}</strong></td>
-                    <td><small>{t.accountName}</small></td>
-                    <td>{t.category}</td>
-                    <td>{t.party}</td>
-                    <td><small>{t.reference || '—'}</small></td>
-                    <td style={{ color: t.debit > 0 ? '#dc2626' : '#64748b' }}>
-                      {t.debit > 0 ? formatCurrency(t.debit) : '—'}
-                    </td>
-                    <td style={{ color: t.credit > 0 ? '#16a34a' : '#64748b', fontWeight: 600 }}>
-                      {t.credit > 0 ? formatCurrency(t.credit) : '—'}
-                    </td>
-                    <td><strong>{formatCurrency(t.runningBalance)}</strong></td>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Tx #</th>
+                    <th>Account</th>
+                    <th>Category</th>
+                    <th>Party</th>
+                    <th>Reference</th>
+                    <th>Debit (Dr)</th>
+                    <th>Credit (Cr)</th>
+                    <th>Running Balance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {ledgerEntries.map((t) => (
+                    <tr key={t._id}>
+                      <td>{formatDate(t.date)}</td>
+                      <td><strong>{t.paymentNumber}</strong></td>
+                      <td><small>{t.accountName}</small></td>
+                      <td>{t.category}</td>
+                      <td>{t.party}</td>
+                      <td><small>{t.reference || '—'}</small></td>
+                      <td style={{ color: t.debit > 0 ? '#dc2626' : '#64748b' }}>
+                        {t.debit > 0 ? formatCurrency(t.debit) : '—'}
+                      </td>
+                      <td style={{ color: t.credit > 0 ? '#16a34a' : '#64748b', fontWeight: 600 }}>
+                        {t.credit > 0 ? formatCurrency(t.credit) : '—'}
+                      </td>
+                      <td><strong>{formatCurrency(t.runningBalance)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+        )}
+
+        {/* TAB CONTENT: BANK RECONCILIATION */}
+        {activeTab === 'reconciliation' && (
+          <div className="fin-table-container">
+            <div className="fin-table-toolbar">
+              <div>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Bank Statement Reconciliation Records</span>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '0.75rem' }}>
+                  Total Statements: {reconciliations.length}
+                </span>
+              </div>
+            </div>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Bank Account</th>
+                    <th>Statement Date</th>
+                    <th className="text-right">Bank Balance</th>
+                    <th className="text-right">Book Balance</th>
+                    <th className="text-right">Discrepancy</th>
+                    <th>Status</th>
+                    <th>Reconciled By</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reconciliations.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="text-center text-muted" style={{ padding: '2rem' }}>
+                        No reconciliation records found. Bank accounts are currently in sync.
+                      </td>
+                    </tr>
+                  ) : (
+                    reconciliations.map((r) => (
+                      <tr key={r._id}>
+                        <td><strong>{r.bankAccount?.accountName || r.bankAccount?.bankName || 'Main Account'}</strong></td>
+                        <td>{formatDate(r.statementDate)}</td>
+                        <td className="text-right font-semibold">{formatCurrency(r.statementBalance)}</td>
+                        <td className="text-right">{formatCurrency(r.bookBalance)}</td>
+                        <td className="text-right font-bold" style={{ color: r.discrepancy !== 0 ? '#ef4444' : '#16a34a' }}>
+                          {formatCurrency(r.discrepancy)}
+                        </td>
+                        <td>
+                          <span className={`fin-badge ${r.status?.toLowerCase()}`}>
+                            {r.status || 'Reconciled'}
+                          </span>
+                        </td>
+                        <td><small>{r.reconciledBy ? `${r.reconciledBy.firstName} ${r.reconciledBy.lastName || ''}` : 'System'}</small></td>
+                        <td><small>{r.notes || '—'}</small></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT: REPORTS & ANALYTICS */}
+        {(activeTab === 'reports-analytics' || activeTab === 'reports') && (
+          <ReportsAnalyticsMaster
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            user={user}
+            isFinanceAdmin={isFinanceAdmin}
+          />
         )}
 
         {/* TAB CONTENT: 12. AUDIT HISTORY */}
@@ -1764,32 +2032,34 @@ export default function FinanceDashboard() {
               <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Financial Immutable Audit Log</span>
               <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Showing {auditLogs.length} audit records</span>
             </div>
-            <table className="fin-data-table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Reference</th>
-                  <th>Amount</th>
-                  <th>Performed By</th>
-                  <th>Reason / Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditLogs.map((a) => (
-                  <tr key={a._id}>
-                    <td><small>{new Date(a.timestamp).toLocaleString('en-IN')}</small></td>
-                    <td><strong>{a.action}</strong></td>
-                    <td><span className="fin-badge">{a.entityType}</span></td>
-                    <td>{a.reference || '—'}</td>
-                    <td>{a.amount ? formatCurrency(a.amount) : '—'}</td>
-                    <td>{a.performedByName}</td>
-                    <td><small>{a.reason || '—'}</small></td>
+            <div className="fin-table-responsive">
+              <table className="fin-data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Reference</th>
+                    <th>Amount</th>
+                    <th>Performed By</th>
+                    <th>Reason / Notes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {auditLogs.map((a) => (
+                    <tr key={a._id}>
+                      <td><small>{new Date(a.timestamp).toLocaleString('en-IN')}</small></td>
+                      <td><strong>{a.action}</strong></td>
+                      <td><span className="fin-badge">{a.entityType}</span></td>
+                      <td>{a.reference || '—'}</td>
+                      <td>{a.amount ? formatCurrency(a.amount) : '—'}</td>
+                      <td>{a.performedByName}</td>
+                      <td><small>{a.reason || '—'}</small></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
